@@ -117,7 +117,18 @@ Item IDs are checklist keys and must be stable. Coordinate-bearing items use til
 }
 ```
 
-Special-Pokémon IDs are checklist keys. Use `requestedSpecies` for an in-game trade. Anything obtainable in single-player through a battle, gift, scripted event, or NPC trade should be represented in an appropriate area.
+Special-Pokémon IDs are checklist keys. Use `requestedSpecies` for an in-game trade. Anything obtainable through a battle, gift, purchase, prize, scripted event, fossil revival, NPC trade, or other title-specific acquisition should be represented in an appropriate area. Do not limit extraction to ordinary wild encounters or obvious `GivePokemon`-style script calls.
+
+Before considering a package complete, inventory every acquisition channel supported by the game. At minimum, explicitly check:
+
+- grass, cave, surfing, and every fishing-rod or encounter-table variant;
+- static and roaming encounters;
+- starters and other NPC gifts;
+- purchases and casino or minigame prizes;
+- fossils, eggs, trades, evolutions, and version-dependent evolutions;
+- one-time, conditional, post-game, mystery-gift, distribution, and other event sources.
+
+Represent locally repeatable encounters as encounters and one-time choices or interactions as special Pokémon. Mutually exclusive choices should still be listed individually when each is legitimately obtainable in that version. If a source is deliberately excluded, document the reason rather than silently omitting it.
 
 ### Entrances
 
@@ -132,6 +143,8 @@ Special-Pokémon IDs are checklist keys. Use `requestedSpecies` for an in-game t
 ```
 
 Include both directions where the game supports returning. Preserve edges through empty gates, stairwells, elevators, and transition rooms because interior discovery traverses the entrance graph. Outdoor-to-outdoor gates do not need a checklist entrance marker; the runtime stops traversal when it reaches an outdoor area.
+
+Treat reachability as a generated-data invariant. Starting from every outdoor world placement, traverse entrance edges in both directions and fail generation if any area containing encounters, items, special Pokémon, or another relevant marker cannot be reached. Do not expose empty transition rooms as selectable interiors merely because they exist in the source. Contract empty chains so the original, graph-local doorway coordinates target the nearest relevant area; retain raw transition nodes only internally when they are needed to calculate that relationship. Also verify that every non-empty entrance target resolves to an included area; filtering a missing target must not be used to conceal incomplete extraction.
 
 ## 4. Generate `worlds.json`
 
@@ -182,11 +195,15 @@ Disconnected landmasses may either become separate worlds/region tabs or be arra
 
 Include the complete full Pokédex supported by the game's generation, not only species obtainable in the package.
 
+Derive availability only after all acquisition sources and evolution paths have been collected. For each version, compare every `Obtainable` Pokédex entry with the encounter and special-Pokémon records that make it obtainable, including evolution chains. Review every remaining unavailable species as a named list. The expected version exclusives, trade requirements, transfers, or distribution-only species should explain the entire list; an unexpected entry usually indicates a skipped fishing table, gift, prize, trade, fossil, static encounter, or event source.
+
 ## 6. Add sprites
 
 Provide Pokémon menu sprites and bag item icons using the filenames returned by the package's rules implementation. Images should retain native pixel art and transparency. Do not rely on browser smoothing.
 
 If a predictable file cannot represent a species, return a data URI from `EmbeddedPokemonIcon`. If an individual asset is unavailable, allow the required `question_mark.png` fallback to render rather than emitting a broken URL.
+
+When rendering maps from tiles and blocks, validate the source format's native tile size, block ordering, palette rules, animated or dynamically loaded tiles, and output dimensions. Inspect representative towns, interiors, caves, water boundaries, doors, and map connections at original resolution. A map can have the expected outer dimensions while still clipping or omitting part of every block, so dimensions alone are not sufficient validation.
 
 ## 7. Implement game rules
 
@@ -250,7 +267,7 @@ Append a definition to `wwwroot/games/catalog.json`:
 }
 ```
 
-When the catalog contains multiple packages, the shared header automatically renders a guide selector.
+The shared header renders every catalog version in one game selector. Package boundaries are not exposed as a second selection step. Region tabs appear only for packages with multiple regions/worlds.
 
 Catalog fields have the following contracts:
 
@@ -270,6 +287,7 @@ Catalog fields have the following contracts:
 | `itemSpritePath` | Directory containing item sprites and `question_mark.png`. |
 | `defaultAreaId` | Area selected when the package opens. |
 | `defaultWorldId` | World selected when the package opens. |
+| `validateWorldReachability` | Build-time validation flag requiring every relevant area to connect to a world placement. Enable it when the package promises complete atlas reachability. |
 | `versions` | Stable version IDs, per-game progress schema versions, display names, and normal/soft accent colors. |
 | `regions` | Region IDs, tab labels, and corresponding world IDs. |
 | `dexModes` | Pokédex choices; `regional: true` uses `RegionalNumber`, while false uses `Number`. |
@@ -278,19 +296,32 @@ Catalog fields have the following contracts:
 
 The current shared coordinate conversion assumes 16-pixel map tiles. If a game uses another tile size, add declarative package metadata and consume it in the shared coordinate conversion rather than inserting a game-ID conditional.
 
-## 9. Validate the package
+## 9. Completion audit
 
 Before committing:
 
 1. Parse every JSON document and confirm every configured path exists.
 2. Confirm all world placement IDs resolve after normalization.
 3. Confirm every non-empty entrance target exists.
-4. Confirm all encounter, special-Pokémon, and availability versions are `Both` or registered version IDs.
-5. Confirm checklist IDs are unique and stable.
-6. Confirm referenced map and icon files exist or deliberately use a fallback.
-7. Build and publish the application.
-8. Test each version, region, dex mode, theme, and viewport size.
-9. Open representative interiors, including multi-floor and transition-room cases.
-10. Verify caught/item state remains isolated between versions and packages.
+4. Traverse entrances in both directions and confirm every area with encounters, items, special Pokémon, or markers is reachable from a world placement.
+5. Confirm all encounter, special-Pokémon, and availability versions are `Both` or registered version IDs.
+6. Confirm every obtainable Pokémon is represented by an encounter, special acquisition, or a documented evolution from one.
+7. Confirm every acquisition channel and event source used by the title has been inspected, including sources stored outside normal map scripts.
+8. Review every unavailable Pokédex entry and confirm it has an expected, version-specific explanation.
+9. Confirm visible, hidden, and event items were extracted from all of their distinct source tables.
+10. Audit scripted rewards separately from map pickups, including Gym-leader TMs, HMs, NPC gifts, key items, conditional rewards, and rewards whose item ID is loaded indirectly before a shared give-item routine.
+    Distinguish repeatable shop inventory from one-time gifts made at a counter or inside a commercial building; location alone does not make a reward shop stock.
+11. Confirm checklist IDs are unique and stable.
+12. Confirm referenced map and icon files exist or deliberately use a fallback.
+13. Visually inspect representative towns, interiors, caves, water boundaries, doors, and connections for complete blocks, correct palettes, alignment, and native pixel rendering.
+14. Confirm sprite backgrounds are transparent where expected without removing internal light-colored details.
+15. Build and publish the application.
+16. Test each version, region, dex mode, theme, and viewport size.
+17. Open representative relevant interiors, including multi-floor destinations reached through contracted transition-room chains.
+18. Verify caught/item state remains isolated between versions and packages.
+
+When importing warps, exclude entries the source identifies as inaccessible, unused, debug-only, or prototype-only before contracting empty transition areas. Otherwise an unreachable source warp can surface as a plausible-looking marker to a completely different relevant destination.
+
+Prefer executable generator assertions for completeness, reachability, referential integrity, and expected availability sets. Keep the visual checks documented because corrupt tile rendering can still satisfy structural validation.
 
 See [Development](development.md) for commands and the expected regression checks.

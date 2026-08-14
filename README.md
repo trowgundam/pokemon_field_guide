@@ -1,6 +1,6 @@
 # Pokemon Field Guide
 
-An extensible, Google Maps-style completion guide for Pokémon games. The current game package covers FireRed and LeafGreen.
+An extensible, Google Maps-style completion guide for Pokémon games. Current packages cover Red/Blue and FireRed/LeafGreen.
 
 ## Features
 
@@ -20,4 +20,4 @@ Technical and contributor documentation begins at [docs/README.md](docs/README.m
 
 ## Attribution
 
-FireRed/LeafGreen game data and graphical assets originate from the [pret/pokefirered decompilation project](https://github.com/pret/pokefirered). Pokémon and related names and imagery are trademarks and copyrights of their respective owners. This is an unofficial fan project.
+Red/Blue and FireRed/LeafGreen game data and graphical assets originate from the [pret/pokered](https://github.com/pret/pokered) and [pret/pokefirered](https://github.com/pret/pokefirered) decompilation projects. Pokémon and related names and imagery are trademarks and copyrights of their respective owners. This is an unofficial fan project.

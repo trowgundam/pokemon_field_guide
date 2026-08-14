@@ -15,6 +15,7 @@ public class Program
         builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
         builder.Services.AddScoped<GamePackageLoader>();
         builder.Services.AddSingleton<IGameRulesProvider, FrlgGameRulesProvider>();
+        builder.Services.AddSingleton<IGameRulesProvider, RbGameRulesProvider>();
         builder.Services.AddSingleton<GameRulesRegistry>();
 
         await builder.Build().RunAsync();
