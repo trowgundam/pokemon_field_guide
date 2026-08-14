@@ -27,6 +27,7 @@ jobs:
         run: |
           repo="${GITHUB_REPOSITORY#*/}"
           sed -i "s|<base href=\"/\" />|<base href=\"/$repo/\" />|" release/wwwroot/index.html
+          sed -i "s|const base = \"/\";|const base = \"/$repo/\";|" release/wwwroot/service-worker.js
           touch release/wwwroot/.nojekyll
           cp release/wwwroot/index.html release/wwwroot/404.html
       - uses: actions/configure-pages@v5
