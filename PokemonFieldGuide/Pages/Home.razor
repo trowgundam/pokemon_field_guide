@@ -8,11 +8,23 @@
 <header class="topbar">
     <div class="brand"><span class="brand-ball">●</span><div><strong>POKEMON FIELD GUIDE</strong><small>@(game?.Name ?? "INTERACTIVE MAP ATLAS")</small></div></div>
     <div class="top-actions">
-        @if(catalog?.Games.Count > 1){<label class="version-picker">GUIDE<select value="@game?.Id" @onchange="ChangeGame">@foreach(var choice in catalog.Games){<option value="@choice.Id">@choice.ShortName</option>}</select></label>}
-        <label class="version-picker">GAME<select value="@progress.Version" @onchange="ChangeVersion">@foreach(var version in game?.Versions??[]){<option value="@version.Id">@version.Name</option>}</select></label>
-        <button class="pokedex-button" @onclick="()=>pokedexOpen=true">Pokédex</button>
-        <button class="theme-button" @onclick="ToggleTheme">@(progress.Theme=="Dark"?"☀ Light":"◐ Dark")</button>
-        <button class="reset-button" @onclick="() => confirmReset=true">Reset progress</button>
+        <button class="header-icon desktop-dex" aria-label="Open Pokédex" @onclick="OpenPokedex"><span aria-hidden="true">▦</span></button>
+        <button class="header-menu-button" aria-label="Open menu" aria-expanded="@menuOpen" @onclick="()=>menuOpen=!menuOpen"><span aria-hidden="true">☰</span><span>Menu</span></button>
+        @if(menuOpen)
+        {
+            <button class="menu-scrim" aria-label="Close menu" @onclick="()=>menuOpen=false"></button>
+            <section class="header-menu" aria-label="Application menu">
+                <button class="menu-row mobile-dex" @onclick="OpenPokedex"><span>▦</span> Pokédex</button>
+                @if(catalog?.Games.Count > 1){<label>GUIDE<select value="@game?.Id" @onchange="ChangeGame">@foreach(var choice in catalog.Games){<option value="@choice.Id">@choice.ShortName</option>}</select></label>}
+                <label>GAME<select value="@progress.Version" @onchange="ChangeVersion">@foreach(var version in game?.Versions??[]){<option value="@version.Id">@version.Name</option>}</select></label>
+                <button class="menu-row" @onclick="ToggleTheme"><span>@(progress.Theme=="Dark"?"☀":"◐")</span> @(progress.Theme=="Dark"?"Use light mode":"Use dark mode")</button>
+                <div class="menu-separator"></div>
+                <button class="menu-row" @onclick="OpenExport"><span>⇩</span> Export save data</button>
+                <button class="menu-row" @onclick="OpenImport"><span>⇧</span> Import save data</button>
+                <div class="menu-separator"></div>
+                <button class="menu-row danger-row" @onclick="OpenReset"><span>!</span> Reset progress</button>
+            </section>
+        }
     </div>
 </header>
 
@@ -118,10 +130,37 @@ else
     <div class="pokedex-backdrop" @onclick="()=>pokedexOpen=false"><section class="pokedex-modal" role="dialog" aria-modal="true" aria-labelledby="pokedex-title" @onclick:stopPropagation><header><div><span class="eyebrow">@(progress.DexMode.ToUpperInvariant()) POKÉDEX</span><h2 id="pokedex-title">@DexCaughtCount / @VisiblePokedex.Count() caught</h2></div><div class="dex-mode" aria-label="Pokédex type">@foreach(var mode in game!.DexModes){<button class="@(progress.DexMode==mode.Id?"active":"")" @onclick="()=>ChangeDexMode(mode.Id)">@mode.Name</button>}</div><input aria-label="Search Pokédex" placeholder="Search name or number…" @bind="pokedexQuery" @bind:event="oninput"/><button class="dex-close" aria-label="Close Pokédex" @onclick="()=>pokedexOpen=false">×</button></header><div class="pokedex-grid">@foreach(var mon in FilteredPokedex){var caught=CurrentProgress.Caught.Contains(mon.SpeciesId);var availability=PokedexAvailability(mon);<button class="dex-entry @(caught?"caught":"") @(availability=="Obtainable"?"":"unavailable")" @onclick="()=>ToggleCaught(mon.SpeciesId)"><span class="dex-number">#@DexNumber(mon).ToString("D3")</span><img alt="" src="@PokemonIcon(mon.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@mon.Name</strong><small>@(caught?"Caught":availability)</small></span><i>✓</i></button>}</div></section></div>
 }
 
+@if(backupOpen)
+{
+    <div class="modal-backdrop" @onclick="CloseBackup">
+        <section class="backup-modal" role="dialog" aria-modal="true" aria-labelledby="backup-title" @onclick:stopPropagation>
+            <header><div><span class="eyebrow">SAVE DATA · FORMAT V0</span><h2 id="backup-title">@(backupMode=="export"?"Export backup":"Import backup")</h2></div><button aria-label="Close backup" @onclick="CloseBackup">×</button></header>
+            @if(backupMode=="export")
+            {
+                <p>Choose which game packages to include. Each selected package includes progress for all of its game versions.</p>
+                <div class="backup-games">
+                    @foreach(var choice in catalog!.Games)
+                    {
+                        <label><input type="checkbox" checked="@exportGameIds.Contains(choice.Id)" @onchange="e=>ToggleExportGame(choice.Id,e)"/><span><strong>@choice.ShortName</strong><small>@choice.Name</small></span></label>
+                    }
+                </div>
+                <footer><button @onclick="CloseBackup">Cancel</button><button class="primary" disabled="@(exportGameIds.Count==0)" @onclick="ExportBackup">Download backup</button></footer>
+            }
+            else
+            {
+                <p>Select a Pokémon Field Guide backup file. Progress for game packages contained in the file will replace those packages on this device; other packages and your theme are preserved.</p>
+                <label class="file-picker"><span>Choose backup file</span><InputFile accept="application/json,.json" OnChange="ImportBackup" /></label>
+                @if(!string.IsNullOrEmpty(backupMessage)){<p class="backup-message @(backupError?"error":"success")">@backupMessage</p>}
+                <footer><button @onclick="CloseBackup">Close</button></footer>
+            }
+        </section>
+    </div>
+}
+
 @if(confirmReset){<div class="modal-backdrop" @onclick="()=>confirmReset=false"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title" @onclick:stopPropagation><span class="warning">!</span><h2 id="reset-title">Reset all progress?</h2><p>This clears every caught Pokémon and collected item on this device.</p><div><button @onclick="()=>confirmReset=false">Cancel</button><button class="danger" @onclick="Reset">Reset everything</button></div></div></div>}
 
 @code {
-    GameCatalog? catalog; GameDefinition? game; IGameRules rules=null!; FieldGuideData? data; List<PokedexEntry> pokedex=[]; List<GuideWorld> worlds=[]; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; SavedProgress progress=new(); string query="",pokedexQuery=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen; ElementReference mapViewport; string? initializedMap,initializedInterior;
+    GameCatalog? catalog; GameDefinition? game; IGameRules rules=null!; FieldGuideData? data; List<PokedexEntry> pokedex=[]; List<GuideWorld> worlds=[]; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; SavedProgress progress=new(); string query="",pokedexQuery="",backupMode="export",backupMessage=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<string> exportGameIds=[]; ElementReference mapViewport; string? initializedMap,initializedInterior;
     string ProfileKey=>ProfileKeyFor(game!.Id,progress.Version);
     VersionProgress CurrentProgress { get { progress.Profiles??=[];if(!progress.Profiles.TryGetValue(ProfileKey,out var profile)){profile=new();progress.Profiles[ProfileKey]=profile;}return profile;} }
     GameVersionDefinition ActiveVersion=>game!.Versions.First(version=>version.Id==progress.Version);
@@ -188,6 +227,73 @@ else
     async Task ChangeVersion(ChangeEventArgs e){var selected=(string?)e.Value;if(selected is null||!game!.Versions.Any(version=>version.Id==selected))return;progress.Version=selected;progress.SelectedVersions[game.Id]=selected;progress.Accent=ActiveVersion.Accent;await Save();await ApplyAppearance();}
     async Task ChangeDexMode(string mode){progress.DexMode=mode;progress.SelectedDexModes[game!.Id]=mode;pokedexQuery="";await Save();}
     async Task ToggleTheme(){progress.Theme=progress.Theme=="Dark"?"Light":"Dark";await Save();await ApplyAppearance();}
+    void OpenPokedex(){menuOpen=false;pokedexOpen=true;}
+    void OpenReset(){menuOpen=false;confirmReset=true;}
+    void OpenExport(){menuOpen=false;backupMode="export";backupMessage="";backupError=false;exportGameIds=[..catalog!.Games.Select(x=>x.Id)];backupOpen=true;}
+    void OpenImport(){menuOpen=false;backupMode="import";backupMessage="";backupError=false;backupOpen=true;}
+    void CloseBackup(){backupOpen=false;backupMessage="";}
+    void ToggleExportGame(string gameId,ChangeEventArgs e){if(e.Value is true)exportGameIds.Add(gameId);else exportGameIds.Remove(gameId);}
+    async Task ExportBackup()
+    {
+        var backup=new SaveBackup();
+        foreach(var definition in catalog!.Games.Where(x=>exportGameIds.Contains(x.Id)))
+        {
+            var selectedVersion=progress.SelectedVersions.GetValueOrDefault(definition.Id,definition.Versions[0].Id);
+            var selectedDexMode=progress.SelectedDexModes.GetValueOrDefault(definition.Id,definition.DexModes[0].Id);
+            var gameBackup=new GameSaveBackup{SelectedVersion=selectedVersion,SelectedDexMode=selectedDexMode};
+            foreach(var version in definition.Versions)
+            {
+                gameBackup.Profiles[version.Id]=progress.Profiles.TryGetValue(ProfileKeyFor(definition.Id,version.Id),out var profile)?CloneProfile(profile):new();
+            }
+            backup.Games[definition.Id]=gameBackup;
+        }
+        await JS.InvokeVoidAsync("fieldGuide.download",$"pokemon-field-guide-v0-{DateTime.UtcNow:yyyy-MM-dd}.json",backup);
+        backupMessage="Backup downloaded.";
+    }
+    async Task ImportBackup(InputFileChangeEventArgs e)
+    {
+        backupMessage="";backupError=false;
+        try
+        {
+            await using var stream=e.File.OpenReadStream(2*1024*1024);
+            var backup=await System.Text.Json.JsonSerializer.DeserializeAsync<SaveBackup>(stream,new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+            if(backup is null||backup.Format!=SaveBackup.CurrentFormat)throw new InvalidOperationException("This is not a Pokémon Field Guide backup.");
+            if(backup.FormatVersion!=0)throw new InvalidOperationException($"Backup format v{backup.FormatVersion} is not supported by this version of the guide.");
+            var imported=ImportV0(backup);
+            if(imported.Count==0)throw new InvalidOperationException("The backup does not contain any game packages installed in this guide.");
+            if(imported.Contains(game!.Id)){await LoadGameAsync(game);await ApplyAppearance();}
+            await Save();
+            backupMessage=$"Imported {string.Join(", ",imported.Select(id=>catalog!.Games.First(x=>x.Id==id).ShortName))}.";
+        }
+        catch(Exception ex) when(ex is System.Text.Json.JsonException or IOException or InvalidOperationException)
+        {
+            backupError=true;backupMessage=ex.Message;
+        }
+    }
+    List<string> ImportV0(SaveBackup backup)
+    {
+        var staged=new List<(GameDefinition Definition,GameSaveBackup Backup,Dictionary<string,VersionProgress> Profiles)>();
+        foreach(var (gameId,savedGame) in backup.Games??[])
+        {
+            var definition=catalog!.Games.FirstOrDefault(x=>x.Id==gameId);if(definition is null||savedGame is null)continue;
+            var profiles=new Dictionary<string,VersionProgress>();
+            foreach(var version in definition.Versions)if(savedGame.Profiles?.TryGetValue(version.Id,out var profile)==true&&profile is not null)profiles[version.Id]=CloneProfile(profile);
+            if(profiles.Count==0)throw new InvalidOperationException($"The {definition.ShortName} backup does not contain a recognized game-version profile.");
+            staged.Add((definition,savedGame,profiles));
+        }
+        var imported=new List<string>();progress.Profiles??=[];progress.SelectedVersions??=[];progress.SelectedDexModes??=[];
+        foreach(var (definition,savedGame,profiles) in staged)
+        {
+            var gameId=definition.Id;
+            foreach(var key in progress.Profiles.Keys.Where(x=>x.StartsWith($"{gameId}:",StringComparison.Ordinal)).ToList())progress.Profiles.Remove(key);
+            foreach(var (versionId,profile) in profiles)progress.Profiles[ProfileKeyFor(gameId,versionId)]=profile;
+            if(definition.Versions.Any(x=>x.Id==savedGame.SelectedVersion))progress.SelectedVersions[gameId]=savedGame.SelectedVersion;
+            if(definition.DexModes.Any(x=>x.Id==savedGame.SelectedDexMode))progress.SelectedDexModes[gameId]=savedGame.SelectedDexMode;
+            imported.Add(gameId);
+        }
+        return imported;
+    }
+    static VersionProgress CloneProfile(VersionProgress source)=>new(){Caught=[..source.Caught??[]],Collected=[..source.Collected??[]],CompletedSpecial=[..source.CompletedSpecial??[]]};
     int AreaPercent(GuideArea a){var species=a.Encounters.Where(e=>e.Version=="Both"||e.Version==progress.Version).Select(e=>e.SpeciesId).Distinct().ToList();var special=a.SpecialPokemon.Where(m=>m.Version=="Both"||m.Version==progress.Version).ToList();var total=species.Count+a.Items.Count+special.Count;return total==0?0:(int)Math.Round(100d*(species.Count(CurrentProgress.Caught.Contains)+a.Items.Count(i=>CurrentProgress.Collected.Contains(i.Id))+special.Count(m=>CurrentProgress.CompletedSpecial.Contains(m.Id)))/total);}
     static string LevelText(IEnumerable<Encounter> e){var min=e.Min(x=>x.MinLevel);var max=e.Max(x=>x.MaxLevel);return min==max?$"Lv. {min}":$"Lv. {min}–{max}";} async Task Reset(){progress.Profiles=[];confirmReset=false;await Save();}
     async Task ApplyAppearance(){progress.Accent=ActiveVersion.Accent;await JS.InvokeVoidAsync("fieldGuide.applyAppearance",progress.Theme,game!.Id,progress.Version,ActiveVersion.Accent,ActiveVersion.AccentSoft);}

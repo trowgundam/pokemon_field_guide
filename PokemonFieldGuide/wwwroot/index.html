@@ -34,6 +34,12 @@
         window.fieldGuide = {
             load: () => { try { return JSON.parse(localStorage.getItem('frlg-field-guide-v1')); } catch { return null; } },
             save: value => localStorage.setItem('frlg-field-guide-v1', JSON.stringify(value)),
+            download: (filename, value) => {
+                const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
+                const link = document.createElement('a');
+                link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
+                URL.revokeObjectURL(url);
+            },
             applyAppearance: (theme, gameId, version, accent, accentSoft) => {
                 const appearance = (theme || 'Dark').toLowerCase();
                 document.documentElement.dataset.theme = document.body.dataset.theme = appearance;
