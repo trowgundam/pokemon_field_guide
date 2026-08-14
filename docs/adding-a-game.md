@@ -30,6 +30,8 @@ PokemonFieldGuide/wwwroot/games/<game-id>/
 
 Both fallback images are required. Package paths must be unique and relative to `wwwroot`.
 
+Create package-specific extraction and rendering scripts under `tools/<game-id>/` when generated assets are needed. The scripts may use any language or dependencies appropriate to that game's lawful source data, and must write only to `PokemonFieldGuide/wwwroot/games/<game-id>/`. Do not extend the FRLG scripts merely because another title uses a related engine; reuse code only where the input and output contracts are actually shared. Record commands and prerequisites in [Development](development.md), following the [tooling conventions](../tools/README.md).
+
 ## 3. Generate `fieldguide.json`
 
 The root object follows `FieldGuideData`:

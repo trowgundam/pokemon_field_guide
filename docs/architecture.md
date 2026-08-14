@@ -47,9 +47,14 @@ PokemonFieldGuide/
     │       └── sprites/
     ├── css/app.css
     └── index.html
+tools/
+├── README.md                   Tooling ownership conventions
+└── <game-id>/                  Package-specific extraction and rendering
 ```
 
 Game-owned files must remain below `wwwroot/games/<game-id>/`. Global static files are limited to application-wide resources such as the shell, stylesheet, PWA icons, and service worker.
+
+Build-time tooling follows the same ownership boundary. Scripts under `tools/<game-id>/` may understand that game's source project and formats, but must emit only the matching game package. Only utilities whose contracts are genuinely independent of a particular game belong in shared tooling.
 
 ## Shared models
 

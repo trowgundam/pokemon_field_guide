@@ -30,8 +30,8 @@ Checklist IDs are persistent data. Changing item or special-Pokémon IDs can inv
 ## Regenerating FRLG
 
 ```sh
-node tools/generate-fieldguide.mjs /path/to/pokefirered
-node tools/render-maps.mjs /path/to/pokefirered
+node tools/frlg/generate-fieldguide.mjs /path/to/pokefirered
+node tools/frlg/render-maps.mjs /path/to/pokefirered
 ```
 
 `generate-fieldguide.mjs` writes the FRLG guide and Pokédex into `PokemonFieldGuide/wwwroot/games/frlg/data/`. It intentionally:
@@ -45,6 +45,8 @@ node tools/render-maps.mjs /path/to/pokefirered
 `render-maps.mjs` writes native-scale individual maps and connected world canvases into `PokemonFieldGuide/wwwroot/games/frlg/maps/`, plus `worlds.json` in the package data directory. FRLG reserves palettes 0–6 for primary tilesets and 7–12 for secondary tilesets; preserve that renderer behavior.
 
 Use Pokémon menu sprites and bag item icons where available. The FRLG rules module embeds Unown A because the checked-in source assets do not provide the expected standalone file. Both sprite directories require `question_mark.png`.
+
+Game-specific generators belong under `tools/<game-id>/`; see the [tooling conventions](../tools/README.md). Do not assume another game's source layout or rendering rules match FRLG.
 
 ## Regression expectations
 
