@@ -24,7 +24,7 @@ flowchart LR
 
 At startup, `Home.razor` loads saved preferences and the catalog. It selects `SavedProgress.GameId`, falling back to `GameCatalog.DefaultGameId`, and asks `GamePackageLoader` to fetch the package's guide, Pokédex, and world documents concurrently. The package's `rules` value resolves an `IGameRules` implementation through `GameRulesRegistry`.
 
-The page renders versions, regions, Pokédex modes, labels, paths, defaults, and colors from `GameDefinition`. Title-specific exceptions are delegated to `IGameRules`.
+The page renders versions, regions, Pokédex modes, labels, paths, defaults, and colors from `GameDefinition`. The application menu flattens package versions into one game selector, so package boundaries remain an implementation detail. Region tabs render only when a package has multiple worlds. Title-specific exceptions are delegated to `IGameRules`.
 
 ## Source layout
 
@@ -101,7 +101,7 @@ The shared page must not test game IDs, game titles, or title-specific map const
 
 Outdoor areas are those referenced by any loaded `GuideWorld`. `NormalizeAreaId` allows a rendered placement to resolve to a differently named guide area when source data requires it.
 
-Interior reachability is graph-based. An outdoor warp is followed through empty transition maps until the nearest interior containing encounters, items, or special Pokémon is found. Once open, all non-outdoor areas connected through entrance edges become selectable floors. Consequently, complete and correct entrance edges are essential even for rooms with no checklist content.
+Interior reachability is graph-based. An outdoor warp is followed through empty transition maps until the nearest interior containing encounters, items, or special Pokémon is found. Once open, connected non-outdoor areas with relevant guide data become selectable floors; empty transition maps may remain internal generator nodes but are omitted from the runtime package. Consequently, complete and correct source entrance edges are essential even for rooms that are contracted out of the final guide.
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
 

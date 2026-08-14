@@ -2,6 +2,33 @@
   "defaultGameId": "frlg",
   "games": [
     {
+      "id": "rb",
+      "rules": "rb",
+      "name": "Pokémon Red / Blue",
+      "shortName": "R/B",
+      "pageTitle": "Pokémon Red / Blue | Pokemon Field Guide",
+      "atlasTitle": "Kanto",
+      "loadingLabel": "LOADING KANTO",
+      "dataPath": "games/rb/data/fieldguide.json",
+      "pokedexPath": "games/rb/data/pokedex.json",
+      "worldsPath": "games/rb/data/worlds.json",
+      "pokemonSpritePath": "games/rb/sprites/pokemon",
+      "itemSpritePath": "games/rb/sprites/items",
+      "defaultAreaId": "MAP_ROUTE_1",
+      "defaultWorldId": "rb-kanto",
+      "validateWorldReachability": true,
+      "versions": [
+        { "id": "Red", "name": "Red", "progressVersion": 1, "accent": "#e84848", "accentSoft": "#572626" },
+        { "id": "Blue", "name": "Blue", "progressVersion": 1, "accent": "#4f6de0", "accentSoft": "#27345c" }
+      ],
+      "regions": [
+        { "id": "Kanto", "name": "Kanto", "worldId": "rb-kanto" }
+      ],
+      "dexModes": [
+        { "id": "Kanto", "name": "Kanto", "regional": true }
+      ]
+    },
+    {
       "id": "frlg",
       "rules": "frlg",
       "name": "Pokémon FireRed / LeafGreen",

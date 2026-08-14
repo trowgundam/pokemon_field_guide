@@ -1,0 +1,7 @@
+{
+  "name": "pokemon-field-guide-rb-tools",
+  "version": "1.0.0",
+  "private": true,
+  "engines": { "node": ">=20.9.0" },
+  "dependencies": { "sharp": "0.35.3" }
+}

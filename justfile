@@ -25,10 +25,16 @@ publish: restore
 install-frlg-tools:
     npm ci --prefix tools/frlg
 
+# Install the pinned Red/Blue generator dependencies.
+install-rb-tools:
+    npm ci --prefix tools/rb
+
 # Check generator syntax and compile the application.
 check:
     node --check tools/frlg/generate-fieldguide.mjs
     node --check tools/frlg/render-maps.mjs
+    node --check tools/rb/generate-fieldguide.mjs
+    node tools/validate-generated-data.mjs
     dotnet restore {{project}} --locked-mode
     dotnet build {{project}} --no-restore
 
@@ -44,3 +50,7 @@ generate-frlg-maps source: install-frlg-tools
 generate-frlg source: install-frlg-tools
     node tools/frlg/generate-fieldguide.mjs "{{source}}"
     node tools/frlg/render-maps.mjs "{{source}}"
+
+# Regenerate the complete Red/Blue package from a pokered checkout.
+generate-rb source: install-rb-tools
+    node tools/rb/generate-fieldguide.mjs "{{source}}"

@@ -32,6 +32,42 @@ public sealed class FrlgGameRulesProvider : IGameRulesProvider
     public IGameRules Rules { get; } = new FrlgGameRules();
 }
 
+public sealed class RbGameRulesProvider : IGameRulesProvider
+{
+    public string Id => "rb";
+    public IGameRules Rules { get; } = new RbGameRules();
+}
+
+internal sealed class RbGameRules : IGameRules
+{
+    public string NormalizeAreaId(string id) => id;
+    public string EncounterGroupName(Encounter encounter) => encounter.Method switch
+    {
+        "Grass / cave" => "Random encounters",
+        "Surf" => "Surfing",
+        "Old Rod" => "Fishing · Old Rod",
+        "Good Rod" => "Fishing · Good Rod",
+        "Super Rod" => "Fishing · Super Rod",
+        _ => encounter.Method
+    };
+    public int EncounterGroupOrder(string name) => name switch
+    {
+        "Random encounters" => 0, "Surfing" => 1, "Fishing · Old Rod" => 2,
+        "Fishing · Good Rod" => 3, "Fishing · Super Rod" => 4, _ => 5
+    };
+    public int SpecialGroupOrder(string kind) => kind switch { "Static" => 0, "Gift" => 1, "Trade" => 2, _ => 3 };
+    public int ItemGroupOrder(string kind) => kind switch { "Visible" => 0, "Hidden" => 1, "Event" => 2, _ => 3 };
+    public string PokemonSpriteName(string speciesId) => speciesId switch
+    {
+        "SPECIES_NIDORAN_F" => "nidoranf.png",
+        "SPECIES_NIDORAN_M" => "nidoranm.png",
+        "SPECIES_MR_MIME" => "mr.mime.png",
+        _ => speciesId.Replace("SPECIES_", "").ToLowerInvariant() + ".png"
+    };
+    public string ItemSpriteName(string itemName) => "question_mark.png";
+    public string? EmbeddedPokemonIcon(string speciesId) => null;
+}
+
 internal sealed class FrlgGameRules : IGameRules
 {
     private const string UnownIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAABABAMAAACJoGidAAAAMFBMVEVinIODg3O9vb3///+9pEH29inVYkH2lCmLe/9iSs3uc5z/tKSkxf9qrJxiYlpBQUFZqZBkAAAAAXRSTlMAQObYZgAAAHNJREFUOI3t0rENgCAQBdCbgAsLQNBeE+xx/y0EexQdAGPn/cLOxBh/x8sdUHyil6fCmd0KoAGqlTvsciNGSvKpF9AOnRUQ5gCwA4wAjHfw5hfxLNtcAAihSkhGR/HTOOVsJJC6B0UAZyaE7+QvzBWeLswBavhUhdC+umYAAAAASUVORK5CYII=";
