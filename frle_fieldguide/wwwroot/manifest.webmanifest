@@ -1,11 +1,11 @@
 {
-  "name": "frle_fieldguide",
-  "short_name": "frle_fieldguide",
+  "name": "FireRed / LeafGreen Field Guide",
+  "short_name": "FRLG Guide",
   "id": "./",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#03173d",
+  "background_color": "#121a18",
+  "theme_color": "#0d1715",
   "prefer_related_applications": false,
   "icons": [
     {
