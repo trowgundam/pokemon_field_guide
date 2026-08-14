@@ -4,7 +4,7 @@
 
 Pokemon Field Guide is a static Blazor WebAssembly application. The atlas UI and persistence model are shared, while each supported game family supplies a self-contained package of metadata, guide data, maps, sprites, and exceptional rules.
 
-FireRed and LeafGreen are two versions in the `frlg` package. A future pair such as two versions sharing the same world and mechanics would normally be one additional package with two version definitions, not two packages.
+FireRed and LeafGreen are two independently tracked games represented as versions in the shared `frlg` package. A future pair sharing map topology, assets, data formats, and mechanics should normally be one additional package with two version definitions, not two packages. Package membership is an implementation and resource-sharing boundary; it must not collapse version-specific progress or user-facing backup choices.
 
 ## Runtime data flow
 
@@ -113,7 +113,7 @@ Checklist profiles are keyed as `<game-id>:<version-id>`, preventing collisions 
 
 Legacy version-only FRLG profiles and the original top-level caught/item collections are migrated when loaded. Changing the storage key or checklist IDs requires an explicit migration plan.
 
-Portable backups are a separate, public interchange contract. `SaveBackup.FormatVersion` is currently `0`; each backup contains only the game packages selected by the user, with profiles keyed by version ID. Import replaces progress only for recognized packages present in the file and preserves other package progress and global preferences. Each future format must retain an explicit import migration path. Version `1` must not be introduced until the project owner declares the pre-deployment format cutoff. See [Save backups](save-backups.md) for the complete contract.
+Portable backups are a separate, public interchange contract. `SaveBackup.FormatVersion` is currently `0`; users select individual games (version profiles), which remain grouped by package ID in the serialized document to avoid duplicating package metadata. Import replaces only recognized profiles present in the file and preserves sibling-version, other-package, and global preference data. Each future format must retain an explicit import migration path. Version `1` must not be introduced until the project owner declares the pre-deployment format cutoff. See [Save backups](save-backups.md) for the complete contract.
 
 ## Browser integration
 

@@ -4,7 +4,9 @@ This guide describes the complete package-authoring process. It assumes the new 
 
 ## 1. Choose the package and version boundaries
 
-Create one package for versions that share map topology, data shape, Pokédex rules, and title-specific behavior. Give the package a short, stable, lowercase ID such as `frlg`. Version IDs are also persistent identifiers: they appear in generated records, Pokédex availability, preferences, and progress keys.
+Create one package for versions that share map topology, assets, data shape, Pokédex rules, and title-specific behavior. Give the package a short, stable, lowercase ID such as `frlg`. Each version is still treated as an independent game for checklist progress, backup selection, availability filtering, accent color, and other version-specific preferences. The package prevents unnecessary duplication; it does not imply shared progress.
+
+If paired games differ only in some records, keep one copy of shared maps and sprites and identify version-specific encounter or special-Pokémon records with the exact version ID. Split them into separate packages only when their topology, assets, source tooling, or runtime rules differ enough that a shared package would require pervasive exceptions.
 
 Do not rename an ID after release without a saved-progress migration.
 

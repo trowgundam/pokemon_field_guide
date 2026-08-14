@@ -46,14 +46,14 @@ Import rejects a different discriminator or an unsupported version instead of gu
 }
 ```
 
-An export contains every version profile for each package selected by the user, including empty profiles. It does not contain the global theme or packages the user did not select.
+The export UI presents each version as an individual game. The serialized document still groups selected profiles beneath their shared package ID, so package metadata and assets are not duplicated. Selected profiles are included even when empty; unselected sibling versions, global preferences, and unselected packages are omitted.
 
 ## Import semantics
 
-Import is package-scoped replacement, not a union:
+Import is profile-scoped replacement, not a union of checklist entries:
 
-- recognized packages in the file replace those packages' local profiles;
-- packages absent from the file remain unchanged;
+- recognized version profiles in the file replace the corresponding local profiles;
+- sibling versions and packages absent from the file remain unchanged;
 - unknown package IDs and unknown version IDs are ignored;
 - valid selected-version and Pokédex-mode preferences are restored for imported packages;
 - global preferences such as theme remain unchanged;

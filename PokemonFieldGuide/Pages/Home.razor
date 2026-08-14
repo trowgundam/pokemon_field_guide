@@ -146,19 +146,19 @@ else
             <header><div><span class="eyebrow">SAVE DATA · FORMAT V0</span><h2 id="backup-title">@(backupMode=="export"?"Export backup":"Import backup")</h2></div><button aria-label="Close backup" @onclick="CloseBackup">×</button></header>
             @if(backupMode=="export")
             {
-                <p>Choose which game packages to include. Each selected package includes progress for all of its game versions.</p>
+                <p>Choose which games to include. Paired versions keep independent progress while sharing their guide package and assets.</p>
                 <div class="backup-games">
-                    @foreach(var choice in catalog!.Games)
+                    @foreach(var choice in ExportChoices)
                     {
-                        <label><input type="checkbox" checked="@exportGameIds.Contains(choice.Id)" @onchange="e=>ToggleExportGame(choice.Id,e)"/><span><strong>@choice.ShortName</strong><small>@choice.Name</small></span></label>
+                        <label><input type="checkbox" checked="@exportProfileKeys.Contains(choice.ProfileKey)" @onchange="e=>ToggleExportProfile(choice.ProfileKey,e)"/><span><strong>@choice.VersionName</strong><small>@choice.PackageName</small></span></label>
                     }
                 </div>
                 @if(!string.IsNullOrEmpty(backupMessage)){<p class="backup-message success">@backupMessage</p>}
-                <footer><button @onclick="CloseBackup">Cancel</button><button class="primary" disabled="@(exportGameIds.Count==0)" @onclick="ExportBackup">Download backup</button></footer>
+                <footer><button @onclick="CloseBackup">Cancel</button><button class="primary" disabled="@(exportProfileKeys.Count==0)" @onclick="ExportBackup">Download backup</button></footer>
             }
             else
             {
-                <p>Select a Pokémon Field Guide backup file. Progress for game packages contained in the file will replace those packages on this device; other packages and your theme are preserved.</p>
+                <p>Select a Pokémon Field Guide backup file. Included game profiles will replace their matching local profiles; unlisted games and your theme are preserved.</p>
                 <label class="file-picker"><span>Choose backup file</span><InputFile accept="application/json,.json" OnChange="ImportBackup" /></label>
                 @if(!string.IsNullOrEmpty(backupMessage)){<p class="backup-message @(backupError?"error":"success")">@backupMessage</p>}
                 <footer><button @onclick="CloseBackup">Close</button></footer>
@@ -170,7 +170,7 @@ else
 @if(confirmReset){<div class="modal-backdrop" @onclick="()=>confirmReset=false"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title" @onclick:stopPropagation><span class="warning">!</span><h2 id="reset-title">Reset all progress?</h2><p>This clears every caught Pokémon and collected item on this device.</p><div><button @onclick="()=>confirmReset=false">Cancel</button><button class="danger" @onclick="Reset">Reset everything</button></div></div></div>}
 
 @code {
-    GameCatalog? catalog; GameDefinition? game; IGameRules rules=null!; FieldGuideData? data; List<PokedexEntry> pokedex=[]; List<GuideWorld> worlds=[]; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; SavedProgress progress=new(); string query="",pokedexQuery="",backupMode="export",backupMessage=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<string> exportGameIds=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
+    GameCatalog? catalog; GameDefinition? game; IGameRules rules=null!; FieldGuideData? data; List<PokedexEntry> pokedex=[]; List<GuideWorld> worlds=[]; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; SavedProgress progress=new(); string query="",pokedexQuery="",backupMode="export",backupMessage=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<string> exportProfileKeys=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
     string ProfileKey=>ProfileKeyFor(game!.Id,progress.Version);
     VersionProgress CurrentProgress { get { progress.Profiles??=[];if(!progress.Profiles.TryGetValue(ProfileKey,out var profile)){profile=new();progress.Profiles[ProfileKey]=profile;}return profile;} }
     GameVersionDefinition ActiveVersion=>game!.Versions.First(version=>version.Id==progress.Version);
@@ -259,19 +259,23 @@ else
     async Task ToggleAnimations(){progress.AnimationsEnabled=!progress.AnimationsEnabled;await Save();await JS.InvokeVoidAsync("fieldGuide.applySpriteAnimations",progress.AnimationsEnabled);}
     void OpenPokedex(){menuOpen=false;pokedexOpen=true;}
     void OpenReset(){menuOpen=false;confirmReset=true;}
-    void OpenExport(){menuOpen=false;backupMode="export";backupMessage="";backupError=false;exportGameIds=[..catalog!.Games.Select(x=>x.Id)];backupOpen=true;}
+    IEnumerable<ExportProfileChoice> ExportChoices=>catalog!.Games.SelectMany(package=>package.Versions.Select(version=>new ExportProfileChoice(ProfileKeyFor(package.Id,version.Id),package.Name,version.Name)));
+    void OpenExport(){menuOpen=false;backupMode="export";backupMessage="";backupError=false;exportProfileKeys=[..ExportChoices.Select(x=>x.ProfileKey)];backupOpen=true;}
     void OpenImport(){menuOpen=false;backupMode="import";backupMessage="";backupError=false;backupOpen=true;}
     void CloseBackup(){backupOpen=false;backupMessage="";}
-    void ToggleExportGame(string gameId,ChangeEventArgs e){if(e.Value is true)exportGameIds.Add(gameId);else exportGameIds.Remove(gameId);}
+    void ToggleExportProfile(string profileKey,ChangeEventArgs e){if(e.Value is true)exportProfileKeys.Add(profileKey);else exportProfileKeys.Remove(profileKey);}
     async Task ExportBackup()
     {
         var backup=new SaveBackup();
-        foreach(var definition in catalog!.Games.Where(x=>exportGameIds.Contains(x.Id)))
+        foreach(var definition in catalog!.Games)
         {
-            var selectedVersion=progress.SelectedVersions.GetValueOrDefault(definition.Id,definition.Versions[0].Id);
+            var versions=definition.Versions.Where(version=>exportProfileKeys.Contains(ProfileKeyFor(definition.Id,version.Id))).ToList();
+            if(versions.Count==0)continue;
+            var preferredVersion=progress.SelectedVersions.GetValueOrDefault(definition.Id,versions[0].Id);
+            var selectedVersion=versions.Any(version=>version.Id==preferredVersion)?preferredVersion:versions[0].Id;
             var selectedDexMode=progress.SelectedDexModes.GetValueOrDefault(definition.Id,definition.DexModes[0].Id);
             var gameBackup=new GameSaveBackup{SelectedVersion=selectedVersion,SelectedDexMode=selectedDexMode};
-            foreach(var version in definition.Versions)
+            foreach(var version in versions)
             {
                 gameBackup.Profiles[version.Id]=progress.Profiles.TryGetValue(ProfileKeyFor(definition.Id,version.Id),out var profile)?CloneProfile(profile):new();
             }
@@ -290,17 +294,17 @@ else
             if(backup is null||backup.Format!=SaveBackup.CurrentFormat)throw new InvalidOperationException("This is not a Pokémon Field Guide backup.");
             if(backup.FormatVersion!=0)throw new InvalidOperationException($"Backup format v{backup.FormatVersion} is not supported by this version of the guide.");
             var imported=ImportV0(backup);
-            if(imported.Count==0)throw new InvalidOperationException("The backup does not contain any game packages installed in this guide.");
-            if(imported.Contains(game!.Id)){await LoadGameAsync(game);await ApplyAppearance();}
+            if(imported.PackageIds.Count==0)throw new InvalidOperationException("The backup does not contain any games installed in this guide.");
+            if(imported.PackageIds.Contains(game!.Id)){await LoadGameAsync(game);await ApplyAppearance();}
             await Save();
-            backupMessage=$"Imported {string.Join(", ",imported.Select(id=>catalog!.Games.First(x=>x.Id==id).ShortName))}.";
+            backupMessage=$"Imported {string.Join(", ",imported.VersionNames)}.";
         }
         catch(Exception ex) when(ex is System.Text.Json.JsonException or IOException or InvalidOperationException)
         {
             backupError=true;backupMessage=ex.Message;
         }
     }
-    List<string> ImportV0(SaveBackup backup)
+    ImportedBackup ImportV0(SaveBackup backup)
     {
         var staged=new List<(GameDefinition Definition,GameSaveBackup Backup,Dictionary<string,VersionProgress> Profiles)>();
         foreach(var (gameId,savedGame) in backup.Games??[])
@@ -311,23 +315,25 @@ else
             if(profiles.Count==0)throw new InvalidOperationException($"The {definition.ShortName} backup does not contain a recognized game-version profile.");
             staged.Add((definition,savedGame,profiles));
         }
-        var imported=new List<string>();progress.Profiles??=[];progress.SelectedVersions??=[];progress.SelectedDexModes??=[];
+        var importedPackages=new HashSet<string>();var importedVersions=new List<string>();progress.Profiles??=[];progress.SelectedVersions??=[];progress.SelectedDexModes??=[];
         foreach(var (definition,savedGame,profiles) in staged)
         {
             var gameId=definition.Id;
-            foreach(var key in progress.Profiles.Keys.Where(x=>x.StartsWith($"{gameId}:",StringComparison.Ordinal)).ToList())progress.Profiles.Remove(key);
             foreach(var (versionId,profile) in profiles)progress.Profiles[ProfileKeyFor(gameId,versionId)]=profile;
-            if(definition.Versions.Any(x=>x.Id==savedGame.SelectedVersion))progress.SelectedVersions[gameId]=savedGame.SelectedVersion;
+            if(profiles.ContainsKey(savedGame.SelectedVersion))progress.SelectedVersions[gameId]=savedGame.SelectedVersion;
             if(definition.DexModes.Any(x=>x.Id==savedGame.SelectedDexMode))progress.SelectedDexModes[gameId]=savedGame.SelectedDexMode;
-            imported.Add(gameId);
+            importedPackages.Add(gameId);
+            importedVersions.AddRange(definition.Versions.Where(version=>profiles.ContainsKey(version.Id)).Select(version=>version.Name));
         }
-        return imported;
+        return new(importedPackages,importedVersions);
     }
     static VersionProgress CloneProfile(VersionProgress source)=>new(){Caught=[..source.Caught??[]],Collected=[..source.Collected??[]],CompletedSpecial=[..source.CompletedSpecial??[]]};
     int AreaPercent(GuideArea a){var species=a.Encounters.Where(e=>e.Version=="Both"||e.Version==progress.Version).Select(e=>e.SpeciesId).Distinct().ToList();var special=a.SpecialPokemon.Where(m=>m.Version=="Both"||m.Version==progress.Version).ToList();var total=species.Count+a.Items.Count+special.Count;return total==0?0:(int)Math.Round(100d*(species.Count(CurrentProgress.Caught.Contains)+a.Items.Count(i=>CurrentProgress.Collected.Contains(i.Id))+special.Count(m=>CurrentProgress.CompletedSpecial.Contains(m.Id)))/total);}
     static string LevelText(IEnumerable<Encounter> e){var min=e.Min(x=>x.MinLevel);var max=e.Max(x=>x.MaxLevel);return min==max?$"Lv. {min}":$"Lv. {min}–{max}";} async Task Reset(){progress.Profiles=[];confirmReset=false;await Save();}
     async Task ApplyAppearance(){progress.Accent=ActiveVersion.Accent;await JS.InvokeVoidAsync("fieldGuide.applyAppearance",progress.Theme,game!.Id,progress.Version,ActiveVersion.Accent,ActiveVersion.AccentSoft);}
     static string ProfileKeyFor(string gameId,string version)=>$"{gameId}:{version}";
+    sealed record ExportProfileChoice(string ProfileKey,string PackageName,string VersionName);
+    sealed record ImportedBackup(HashSet<string> PackageIds,List<string> VersionNames);
     static string NaturalKey(string name)=>System.Text.RegularExpressions.Regex.Replace(name.ToUpperInvariant(),@"\d+",m=>int.Parse(m.Value).ToString("D8"));
     string PokemonIcon(string id)=>rules.EmbeddedPokemonIcon(id)??$"{game!.PokemonSpritePath}/{rules.PokemonSpriteName(id)}";
     string ItemIcon(GuideItem item)=>$"{game!.ItemSpritePath}/{item.Icon}";
