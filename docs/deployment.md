@@ -4,6 +4,8 @@
 
 The repository includes `.github/workflows/deploy-pages.yml`. Pushes to `main` and manual workflow dispatches publish the Blazor WebAssembly application.
 
+Pull requests targeting `main` run the separate `.github/workflows/validate.yml` build without deploying. Configure the `Validate / build` check as required in the `main` branch ruleset if merges should be blocked until the release build succeeds.
+
 In repository settings, configure Pages to use **GitHub Actions** as its source. The workflow:
 
 1. installs .NET 10;
