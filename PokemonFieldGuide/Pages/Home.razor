@@ -42,7 +42,7 @@ else
     <main class="atlas-shell">
         <aside class="atlas-sidebar">
             <div class="atlas-heading"><span class="eyebrow">WORLD MAP</span><h1>@game?.AtlasTitle</h1></div>
-            <div class="search"><span>⌕</span><input aria-label="Search locations" placeholder="Search locations…" @bind="query" @bind:event="oninput" @onfocus="()=>searchOpen=true" /></div>
+            <div class="search"><span>⌕</span><input aria-label="Search locations" placeholder="Search locations…" value="@query" @oninput="SearchChanged" @onfocus="()=>searchOpen=true" /></div>
             @if(game?.Regions.Count > 1){<div class="map-filters">@foreach(var choice in game.Regions){<button class="@(currentRegion?.Id==choice.Id?"active":"")" @onclick="()=>ShowRegion(choice)">@choice.Name</button>}</div>}
             <nav class="outdoor-list @(!searchOpen?"closed":"")">
                 @foreach (var area in OutdoorAreas)
@@ -246,6 +246,7 @@ else
         var queue=new Queue<string>();var visited=new HashSet<string>();queue.Enqueue(startId);
         while(queue.Count>0){var id=queue.Dequeue();if(!visited.Add(id)||IsOutdoor(id))continue;var area=AreaFor(id);if(area is null)continue;if(area.Items.Count+area.SpecialPokemon.Count+area.Encounters.Count>0)yield return area;foreach(var exit in area.Entrances)if(!string.IsNullOrEmpty(exit.TargetId)&&!visited.Contains(exit.TargetId))queue.Enqueue(exit.TargetId);}
     }
+    void SearchChanged(ChangeEventArgs e){query=e.Value?.ToString()??"";searchOpen=true;}
     void SelectArea(GuideArea area){mapArea=area;detailArea=area;inspectedItem=null;searchOpen=false;query="";}
     void SelectSearchArea(GuideArea area){if(IsOutdoor(area.Id)){var world=worlds.FirstOrDefault(w=>w.Maps.Any(m=>rules.NormalizeAreaId(m.Id)==rules.NormalizeAreaId(area.Id)));if(world is not null&&world!=currentWorld){currentWorld=world;currentRegion=game!.Regions.First(region=>region.WorldId==world.Id);initializedMap=null;}SelectArea(area);}else{OpenEntrance(area.Id);searchOpen=false;query="";}}
     void ShowRegion(GameRegionDefinition selected){currentRegion=selected;currentWorld=worlds.First(world=>world.Id==selected.WorldId);initializedMap=null;}
