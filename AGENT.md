@@ -13,6 +13,8 @@ dotnet run --project frle_fieldguide/frle_fieldguide.csproj
 
 Always run the build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
 
+Keep commits small, focused, and independently revertible. Separate unrelated data, behavior, styling, deployment, and documentation changes into distinct commits; do not bundle the entire working tree into one catch-all commit.
+
 ## Architecture
 
 - `frle_fieldguide/Pages/Home.razor` contains most UI and application behavior.
@@ -29,7 +31,10 @@ Always run the build after changing Razor, C#, JavaScript, CSS, generated JSON, 
 - Collection state is intentionally separate for FireRed and LeafGreen. Appearance and Pokédex view preferences are shared settings.
 - Keep all 386 Generation III species in the National Pokédex. The Normal Pokédex is the 151-species Kanto Dex.
 - Availability labels distinguish normal single-player acquisition, event distribution, and trade/transfer requirements.
+- Preserve starter-dependent roaming-beast encounters and event-script static encounters when changing extraction logic.
+- Exclude prototype, unused, and multiplayer/link-room maps from generated guide data, and do not emit entrances whose destination was excluded.
 - Use menu Pokémon sprites and bag item icons where available. Retain the question-mark fallback for missing assets.
+- Unown's checked-in menu sheet does not provide the expected standalone asset; `PokemonIcon` deliberately embeds the Unown A sprite fallback.
 - Map images use native 16-pixel metatiles and pixelated rendering. Avoid browser smoothing or arbitrary resampling.
 - Markers and hotspots must not appear before their base map image is loaded.
 
@@ -41,9 +46,11 @@ Always run the build after changing Razor, C#, JavaScript, CSS, generated JSON, 
 - Dragging must work over area hotspots and must not trigger native image dragging or leave pointer capture stuck.
 - Marker screen size should remain usable across zoom levels.
 - Natural sorting is required: `Route 3` precedes `Route 20`.
-- Encounter order is Random, Surfing, fishing by Old/Good/Super Rod, Static, then Event/Gift/Trade.
+- Encounter order is Random, Surfing, fishing by Old/Good/Super Rod, Roaming, Rock Smash, Static, then Event/Gift/Trade.
 - Item order is Visible, Hidden, then Event.
 - Dark mode is the default. Controls must remain legible in both themes, and the active game's accent color must be respected.
+- At narrow viewport widths, the document must not scroll horizontally and the atlas must retain usable vertical space below the responsive header.
+- Resetting progress clears both games' checklist state but preserves game, theme, and Pokédex-mode preferences.
 
 ## Regeneration
 
@@ -61,4 +68,4 @@ node tools/render-maps.mjs /path/to/pokefirered frle_fieldguide/wwwroot/maps
 - Do not add or request a ROM; the decompilation contains the required source data and assets.
 - Do not remove generated maps or sprites merely because they are not referenced by the currently selected area.
 - Do not reset, rename, or migrate the local-storage key without an explicit compatibility plan.
-- Keep GitHub Pages base-path behavior intact when editing `index.html` or the deployment workflow.
+- Keep GitHub Pages base-path behavior intact for both `index.html` and `service-worker.published.js` when editing startup files or the deployment workflow.

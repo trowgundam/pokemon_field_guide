@@ -9,7 +9,7 @@ Game data and map assets are derived from the [pret/pokefirered decompilation pr
 - Connected Kanto and Sevii Islands maps with zooming and panning
 - Navigable interior maps and floor selection
 - Visible, hidden, and event item checklists
-- Random, surfing, fishing, static, gift, and in-game trade Pokémon
+- Random, surfing, fishing, roaming, static, gift, and in-game trade Pokémon
 - Normal Kanto and full National Pokédex views
 - FireRed/LeafGreen-specific availability and separate collection progress
 - Searchable locations and Pokédex
@@ -51,15 +51,15 @@ node tools/generate-fieldguide.mjs /path/to/pokefirered frle_fieldguide/wwwroot/
 node tools/render-maps.mjs /path/to/pokefirered frle_fieldguide/wwwroot/maps
 ```
 
-The map renderer requires the Node.js `sharp` package. Regeneration should be followed by a build and a review of generated changes.
+The map renderer requires the Node.js `sharp` package. The data generator intentionally excludes prototype, unused, and multiplayer/link-room maps from the guide while retaining normally reachable interiors and event-island encounters. Regeneration should be followed by a build and a review of generated changes.
 
 ## Saved progress
 
-Progress is stored locally in the browser under `frlg-field-guide-v1`. FireRed and LeafGreen have separate caught/item states. Reset Progress clears the currently stored guide data after confirmation.
+Progress is stored locally in the browser under `frlg-field-guide-v1`. FireRed and LeafGreen have separate caught/item states. **Reset progress** clears both games' checklist state after confirmation while preserving the selected game, theme, and Pokédex mode.
 
 ## Deployment
 
-Pushes to `main` trigger the included GitHub Pages workflow. In the repository settings, configure Pages to use **GitHub Actions** as its source. The workflow publishes the project, adjusts the base path for the repository name, and provides a SPA-compatible `404.html`.
+Pushes to `main` trigger the included GitHub Pages workflow. In the repository settings, configure Pages to use **GitHub Actions** as its source. The workflow publishes the project, adjusts the application and service-worker base paths for the repository name, and provides a SPA-compatible `404.html`.
 
 ## Attribution
 
