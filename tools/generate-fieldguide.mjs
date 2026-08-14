@@ -14,7 +14,9 @@ const title = value => value
   .replace(/\bPp\b/g, 'PP').replace(/\bHp\b/g, 'HP').replace(/\bExp Share\b/g, 'Exp. Share')
   .replace(/\bGuard Spec\b/g, 'Guard Spec.').replace(/\bTri Pass\b/g, 'Tri-Pass').replace(/\bUp Grade\b/g, 'Up-Grade')
   .replace(/\bNever Melt Ice\b/g, 'NeverMeltIce').replace(/\bOaks Parcel\b/g, "Oak's Parcel").replace(/\bKings Rock\b/g, "King's Rock")
-  .replace(/\bPoke\b/g, 'Poké').replace(/\bMr Mime\b/g, 'Mr. Mime').replace(/\bFarfetchd\b/g, "Farfetch’d").replace(/Pokemon/g, 'Pokémon');
+  .replace(/\bOaks\b/g, "Oak's").replace(/\bRivals\b/g, "Rival's").replace(/\bPlayers\b/g, "Player's").replace(/\bWardens\b/g, "Warden's")
+  .replace(/\bCopycats\b/g, "Copycat's").replace(/\bLoreleis\b/g, "Lorelei's").replace(/\bDigletts\b/g, "Diglett's").replace(/\bMr Psychics\b/g, "Mr. Psychic's")
+  .replace(/\bMt Moon\b/g, 'Mt. Moon').replace(/\bHo Oh\b/g, 'Ho-Oh').replace(/\bPoke\b/g, 'Poké').replace(/\bMr Mime\b/g, 'Mr. Mime').replace(/\bFarfetchd\b/g, "Farfetch’d").replace(/Pokemon/g, 'Pokémon');
 
 const wild = JSON.parse(fs.readFileSync(path.join(source, 'src/data/wild_encounters.json')));
 const mapRoot = path.join(source, 'data/maps');
@@ -60,6 +62,15 @@ for (const group of wild.wild_encounter_groups) {
     }
   }
 }
+// One roaming beast is released after the Network Machine quest. Its species depends on the chosen starter.
+const roamerText = fs.readFileSync(path.join(source, 'src/roamer.c'), 'utf8');
+const roamerRoutes = new Set([...roamerText.matchAll(/MAP_NUM\((MAP_ROUTE[A-Z0-9_]+)\)/g)].map(m=>m[1]));
+const roamers = [
+  ['SPECIES_ENTEI','Roaming · Bulbasaur starter'],
+  ['SPECIES_SUICUNE','Roaming · Charmander starter'],
+  ['SPECIES_RAIKOU','Roaming · Squirtle starter']
+];
+for(const mapId of roamerRoutes)for(const [speciesId,method] of roamers)area(mapId).encounters.push({species:title(speciesId),speciesId,minLevel:50,maxLevel:50,chance:25,method,version:'Both'});
 
 for (const dir of fs.readdirSync(mapRoot)) {
   const jsonPath = path.join(mapRoot, dir, 'map.json');
@@ -92,7 +103,7 @@ for (const dir of fs.readdirSync(mapRoot)) {
       a.items.push({ id: `${id}:hidden:${event.x}:${event.y}`, name: isCoins ? 'Coins' : title(event.item), kind: 'Hidden', icon: isCoins ? 'coin_case.png' : itemIcons.get(event.item) ?? 'question_mark.png', x: event.x, y: event.y, quantity: event.quantity ?? 1 });
     }
   }
-  for (const match of scripts.matchAll(/\b(?:setwildbattle|givemon)\s+(SPECIES_[A-Z0-9_]+),\s*(\d+)/g)) {
+  for (const match of scripts.matchAll(/\b(?:setwildbattle|seteventmon|givemon)\s+(SPECIES_[A-Z0-9_]+),\s*(\d+)/g)) {
     if (match[1] === 'SPECIES_MAROWAK') continue; // Pokémon Tower ghost cannot be caught.
     const before = scripts.slice(Math.max(0, match.index - 120), match.index);
     const kind = match[0].startsWith('givemon') ? 'Gift' : 'Static';
@@ -141,8 +152,11 @@ for (const a of areas.values()) {
   a.items = [...new Map(a.items.map(i => [[i.kind,i.name,i.x,i.y].join('|'),i])).values()];
   a.specialPokemon = [...new Map(a.specialPokemon.map(p => [[p.kind,p.speciesId,p.version].join('|'),p])).values()];
 }
-const data = [...areas.values()].filter(a => a.mapImage || a.encounters.length || a.items.length || a.specialPokemon.length)
+const excludedMaps = /(?:PROTOTYPE|UNUSED)|^MAP_(?:BATTLE_COLOSSEUM_[24]P|RECORD_CORNER|TRADE_CENTER|UNION_ROOM)$/;
+const data = [...areas.values()].filter(a => !excludedMaps.test(a.id) && (a.mapImage || a.encounters.length || a.items.length || a.specialPokemon.length))
   .sort((a, b) => a.region.localeCompare(b.region) || a.name.localeCompare(b.name));
+const includedMapIds = new Set(data.map(a=>a.id));
+for(const a of data)a.entrances=a.entrances.filter(e=>!e.targetId||includedMapIds.has(e.targetId));
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, JSON.stringify({ source: 'pret/pokefirered', generated: new Date().toISOString().slice(0, 10), areas: data }));
 const dexHeader = fs.readFileSync(path.join(source, 'include/constants/pokedex.h'), 'utf8');
