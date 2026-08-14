@@ -21,13 +21,8 @@ run: restore
 publish: restore
     dotnet publish {{project}} -c Release -o {{release_dir}} --no-restore
 
-# Verify the exact FRLG Node and npm toolchain.
-verify-frlg-node:
-    test "$(node --version)" = "v22.23.1"
-    test "$(npm --version)" = "10.9.8"
-
 # Install the pinned FRLG generator dependencies.
-install-frlg-tools: verify-frlg-node
+install-frlg-tools:
     npm ci --prefix tools/frlg
 
 # Check generator syntax and compile the application.

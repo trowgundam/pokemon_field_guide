@@ -4,7 +4,7 @@
 
 - The exact .NET SDK selected by `global.json`
 - `just` for the supported command shortcuts
-- The exact Node.js version declared by `tools/frlg/package.json` when regenerating FRLG data
+- A Node.js version compatible with `tools/frlg/package.json` when regenerating FRLG data
 - The locked Node dependencies installed by `npm ci` when rendering FRLG maps
 - A compatible `pret/pokefirered` checkout for FRLG regeneration
 
@@ -23,7 +23,7 @@ just check
 
 Run `just --list` to see all supported recipes. The recipes deliberately restore NuGet packages in locked mode and install Node dependencies with `npm ci`. Their underlying commands remain visible in the `justfile` for environments where `just` is unavailable.
 
-Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `packages.lock.json` pins the complete NuGet graph, the FRLG `package.json` and lock file pin its Node runtime and packages, and the deployment workflow pins actions by commit SHA. Dependency upgrades should be isolated, reviewed changes that update the corresponding manifests and lock files together.
+Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `packages.lock.json` pins the complete NuGet graph, the FRLG package and lock file pin npm dependencies, and the deployment workflow pins actions by commit SHA. Node itself only has a minimum compatibility requirement; it is not locked to a particular release. Dependency upgrades should be isolated, reviewed changes that update the corresponding manifests and lock files together.
 
 Always build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
 
