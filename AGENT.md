@@ -7,8 +7,9 @@ This repository contains the static Blazor WebAssembly Pokemon Field Guide. Read
 Run commands from the repository root unless noted otherwise.
 
 ```sh
-dotnet build PokemonFieldGuide/PokemonFieldGuide.csproj
-dotnet run --project PokemonFieldGuide/PokemonFieldGuide.csproj
+just build
+just run
+just check
 ```
 
 Always run the build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.

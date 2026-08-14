@@ -2,9 +2,10 @@
 
 ## Requirements
 
-- .NET 10 SDK
-- Node.js when regenerating game data
-- The Node.js `sharp` package when rendering FRLG maps
+- The exact .NET SDK selected by `global.json`
+- `just` for the supported command shortcuts
+- The exact Node.js version declared by `tools/frlg/package.json` when regenerating FRLG data
+- The locked Node dependencies installed by `npm ci` when rendering FRLG maps
 - A compatible `pret/pokefirered` checkout for FRLG regeneration
 
 No ROM is required or permitted in the repository.
@@ -14,10 +15,15 @@ No ROM is required or permitted in the repository.
 Run from the repository root:
 
 ```sh
-dotnet build PokemonFieldGuide/PokemonFieldGuide.csproj
-dotnet run --project PokemonFieldGuide/PokemonFieldGuide.csproj
-dotnet publish PokemonFieldGuide/PokemonFieldGuide.csproj -c Release -o release
+just build
+just run
+just publish
+just check
 ```
+
+Run `just --list` to see all supported recipes. The recipes deliberately restore NuGet packages in locked mode and install Node dependencies with `npm ci`. Their underlying commands remain visible in the `justfile` for environments where `just` is unavailable.
+
+Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `packages.lock.json` pins the complete NuGet graph, the FRLG `package.json` and lock file pin its Node runtime and packages, and the deployment workflow pins actions by commit SHA. Dependency upgrades should be isolated, reviewed changes that update the corresponding manifests and lock files together.
 
 Always build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
 
@@ -30,8 +36,7 @@ Checklist IDs are persistent data. Changing item or special-Pokémon IDs can inv
 ## Regenerating FRLG
 
 ```sh
-node tools/frlg/generate-fieldguide.mjs /path/to/pokefirered
-node tools/frlg/render-maps.mjs /path/to/pokefirered
+just generate-frlg /path/to/pokefirered
 ```
 
 `generate-fieldguide.mjs` writes the FRLG guide and Pokédex into `PokemonFieldGuide/wwwroot/games/frlg/data/`. It intentionally:
