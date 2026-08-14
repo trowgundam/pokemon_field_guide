@@ -109,7 +109,7 @@ Adjacent warp tiles resolving to the same target are clustered into a single ent
 
 The storage key remains `frlg-field-guide-v1` for compatibility. Despite its historical name, it stores all packages.
 
-Checklist profiles are keyed as `<game-id>:<version-id>`, preventing collisions between packages with similarly named versions. Selected versions and Pokédex modes are remembered per package; theme is global. Resetting progress clears profiles while retaining preferences.
+Checklist profiles are keyed as `<game-id>:<version-id>`, preventing collisions between packages with similarly named versions. Selected versions and Pokédex modes are remembered per package; theme and sprite-animation preferences are global. Resetting progress clears profiles while retaining preferences.
 
 Legacy version-only FRLG profiles and the original top-level caught/item collections are migrated when loaded. Changing the storage key or checklist IDs requires an explicit migration plan.
 
@@ -121,6 +121,7 @@ Portable backups are a separate, public interchange contract. `SaveBackup.Format
 
 - local-storage load/save;
 - early theme/accent application to prevent a startup flash;
+- menu-sprite frame animation, with Pokédex animation limited by `IntersectionObserver` to sprites inside the visible viewport;
 - pointer-based map pan and zoom;
 - base-map load gating so overlays do not appear first.
 

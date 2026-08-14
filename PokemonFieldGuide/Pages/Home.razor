@@ -18,6 +18,7 @@
                 @if(catalog?.Games.Count > 1){<label>GUIDE<select value="@game?.Id" @onchange="ChangeGame">@foreach(var choice in catalog.Games){<option value="@choice.Id">@choice.ShortName</option>}</select></label>}
                 <label>GAME<select value="@progress.Version" @onchange="ChangeVersion">@foreach(var version in game?.Versions??[]){<option value="@version.Id">@version.Name</option>}</select></label>
                 <button class="menu-row" @onclick="ToggleTheme"><span>@(progress.Theme=="Dark"?"☀":"◐")</span> @(progress.Theme=="Dark"?"Use light mode":"Use dark mode")</button>
+                <button class="menu-row" @onclick="ToggleAnimations"><span>@(progress.AnimationsEnabled?"⏸":"▶")</span> @(progress.AnimationsEnabled?"Disable sprite animations":"Enable sprite animations")</button>
                 <div class="menu-separator"></div>
                 <button class="menu-row" @onclick="OpenExport"><span>⇩</span> Export save data</button>
                 <button class="menu-row" @onclick="OpenImport"><span>⇧</span> Import save data</button>
@@ -209,7 +210,7 @@ else
         }
     }
     Task RetryLoad()=>InitializeAsync();
-    protected override async Task OnAfterRenderAsync(bool first){if(game is not null)await ApplyAppearance();if(currentWorld?.Id!=initializedMap){initializedMap=currentWorld?.Id;await JS.InvokeVoidAsync("fieldMap.init",mapViewport);}if(interiorOpen&&interiorArea?.Id!=initializedInterior){initializedInterior=interiorArea?.Id;await JS.InvokeVoidAsync("fieldMap.initInterior");}if(!interiorOpen)initializedInterior=null;}
+    protected override async Task OnAfterRenderAsync(bool first){if(game is not null){await ApplyAppearance();await JS.InvokeVoidAsync("fieldGuide.applySpriteAnimations",progress.AnimationsEnabled);}if(currentWorld?.Id!=initializedMap){initializedMap=currentWorld?.Id;await JS.InvokeVoidAsync("fieldMap.init",mapViewport);}if(interiorOpen&&interiorArea?.Id!=initializedInterior){initializedInterior=interiorArea?.Id;await JS.InvokeVoidAsync("fieldMap.initInterior");}if(!interiorOpen)initializedInterior=null;}
     async Task LoadGameAsync(GameDefinition definition){var package=await PackageLoader.LoadAsync(definition);game=package.Definition;rules=RulesRegistry.Get(game.Rules);data=package.FieldGuide;pokedex=package.Pokedex;worlds=package.Worlds;progress.SelectedVersions??=[];progress.SelectedDexModes??=[];if(progress.SelectedVersions.TryGetValue(game.Id,out var savedVersion)&&game.Versions.Any(version=>version.Id==savedVersion))progress.Version=savedVersion;else if(!game.Versions.Any(version=>version.Id==progress.Version))progress.Version=game.Versions[0].Id;if(progress.SelectedDexModes.TryGetValue(game.Id,out var savedDexMode)&&game.DexModes.Any(mode=>mode.Id==savedDexMode))progress.DexMode=savedDexMode;else if(!game.DexModes.Any(mode=>mode.Id==progress.DexMode))progress.DexMode=game.DexModes[0].Id;progress.SelectedVersions[game.Id]=progress.Version;progress.SelectedDexModes[game.Id]=progress.DexMode;progress.Accent=ActiveVersion.Accent;currentWorld=worlds.First(world=>world.Id==game.DefaultWorldId);currentRegion=game.Regions.First(region=>region.WorldId==currentWorld.Id);mapArea=AreaFor(game.DefaultAreaId)??data.Areas.First();detailArea=mapArea;interiorArea=null;interiorOpen=false;initializedMap=null;}
     GuideArea? AreaFor(string id)=>data!.Areas.FirstOrDefault(a=>a.Id==rules.NormalizeAreaId(id));
     IEnumerable<IGrouping<string,Encounter>> EncounterGroupsFor(GuideArea area)=>GroupEncounters(area.Encounters.Where(e=>e.Version=="Both"||e.Version==progress.Version));
@@ -255,6 +256,7 @@ else
     async Task ChangeVersion(ChangeEventArgs e){var selected=(string?)e.Value;if(selected is null||!game!.Versions.Any(version=>version.Id==selected))return;progress.Version=selected;progress.SelectedVersions[game.Id]=selected;progress.Accent=ActiveVersion.Accent;await Save();await ApplyAppearance();}
     async Task ChangeDexMode(string mode){progress.DexMode=mode;progress.SelectedDexModes[game!.Id]=mode;pokedexQuery="";await Save();}
     async Task ToggleTheme(){progress.Theme=progress.Theme=="Dark"?"Light":"Dark";await Save();await ApplyAppearance();}
+    async Task ToggleAnimations(){progress.AnimationsEnabled=!progress.AnimationsEnabled;await Save();await JS.InvokeVoidAsync("fieldGuide.applySpriteAnimations",progress.AnimationsEnabled);}
     void OpenPokedex(){menuOpen=false;pokedexOpen=true;}
     void OpenReset(){menuOpen=false;confirmReset=true;}
     void OpenExport(){menuOpen=false;backupMode="export";backupMessage="";backupError=false;exportGameIds=[..catalog!.Games.Select(x=>x.Id)];backupOpen=true;}
