@@ -9,7 +9,7 @@ Pull requests targeting `main` run the separate `.github/workflows/validate.yml`
 In repository settings, configure Pages to use **GitHub Actions** as its source. The workflow:
 
 1. installs .NET 10;
-2. publishes `PokemonFieldGuide/PokemonFieldGuide.csproj` in Release configuration;
+2. restores the dependency lock file and publishes `PokemonFieldGuide/PokemonFieldGuide.csproj` in Release configuration without a second restore;
 3. changes the HTML `<base>` from `/` to the repository path;
 4. applies the same repository base to the published service worker;
 5. creates `.nojekyll`;
