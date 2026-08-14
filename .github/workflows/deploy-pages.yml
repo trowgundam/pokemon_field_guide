@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - run: dotnet publish frle_fieldguide/frle_fieldguide.csproj -c Release -o release
+      - run: dotnet publish PokemonFieldGuide/PokemonFieldGuide.csproj -c Release -o release
       - name: Prepare GitHub Pages base path
         shell: bash
         run: |
