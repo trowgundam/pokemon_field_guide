@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace frle_fieldguide.Models;
+namespace PokemonFieldGuide.Models;
 
 public sealed class FieldGuideData
 {
@@ -67,9 +67,15 @@ public sealed class SpecialPokemon
 
 public sealed class SavedProgress
 {
+    public string GameId { get; set; } = "frlg";
     public string Version { get; set; } = "FireRed";
     public string Theme { get; set; } = "Dark";
     public string DexMode { get; set; } = "Normal";
+    public string Accent { get; set; } = "#ef4b43";
+    public Dictionary<string, string> SelectedVersions { get; set; } = [];
+    public Dictionary<string, string> SelectedDexModes { get; set; } = [];
+    public Dictionary<string, VersionProgress> Profiles { get; set; } = [];
+    // Version-only profiles are retained for migration from the original FRLG-only data model.
     public Dictionary<string, VersionProgress> Games { get; set; } = [];
     // Legacy fields are retained for one-time migration from saves created before per-game profiles.
     public HashSet<string> Caught { get; set; } = [];

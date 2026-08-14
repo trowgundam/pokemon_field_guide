@@ -4,7 +4,9 @@ import { createRequire } from 'node:module';
 const sharp = createRequire(import.meta.url)('sharp');
 
 const root = process.argv[2] ?? '/tmp/pokefirered-fieldguide';
-const out = process.argv[3] ?? 'frle_fieldguide/wwwroot/maps';
+const out = process.argv[3] ?? 'PokemonFieldGuide/wwwroot/games/frlg/maps';
+const worldsOutput = process.argv[4] ?? 'PokemonFieldGuide/wwwroot/games/frlg/data/worlds.json';
+const mapWebPath = 'games/frlg/maps';
 const layouts = JSON.parse(fs.readFileSync(path.join(root, 'data/layouts/layouts.json'))).layouts;
 const mapFiles = fs.readdirSync(path.join(root, 'data/maps')).map(d => path.join(root, 'data/maps', d, 'map.json')).filter(fs.existsSync);
 const maps = mapFiles.map(f => JSON.parse(fs.readFileSync(f)));
@@ -98,7 +100,7 @@ async function makeWorld(name, positions) {
   const width = Math.max(...entries.map(e => e.x + e.width)) * 16, height = Math.max(...entries.map(e => e.y + e.height)) * 16;
   const composite = entries.map(e => ({ input: path.join(out, `${e.layout}.png`), left: e.x * 16, top: e.y * 16 }));
   await sharp({ create: { width, height, channels: 4, background: { r: 120, g: 184, b: 211, alpha: 1 } } }).composite(composite).png({ compressionLevel: 9, palette: true }).toFile(path.join(out, `WORLD_${name.toUpperCase()}.png`));
-  return { id: name, image: `maps/WORLD_${name.toUpperCase()}.png`, width, height, maps: entries.map(e => ({ id: e.id, x: e.x * 16, y: e.y * 16, width: e.width * 16, height: e.height * 16 })) };
+  return { id: name, image: `${mapWebPath}/WORLD_${name.toUpperCase()}.png`, width, height, maps: entries.map(e => ({ id: e.id, x: e.x * 16, y: e.y * 16, width: e.width * 16, height: e.height * 16 })) };
 }
 const kantoIds = new Set(rendered.filter(m => !/(ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN)_ISLAND|MT_EMBER|KINDLE|CAPE_BRINK|BOND_BRIDGE|BERRY_FOREST|ICEFALL|LOST_CAVE|MEMORIAL|WATER_PATH|RUIN_VALLEY|PATTERN_BUSH|ALTERING_CAVE|OUTCAST|GREEN_PATH|TANOBY|TRAINER_TOWER/.test(m.id)).map(m => m.id));
 const kanto = connectedPositions('MAP_PALLET_TOWN', kantoIds);
@@ -111,5 +113,6 @@ while ([...seviiIds].some(id => !sevii.has(id))) {
   componentX += maxX - minX + 12;
 }
 const worlds = [await makeWorld('kanto', kanto), await makeWorld('sevii', sevii)];
-fs.writeFileSync(path.join(out, 'worlds.json'), JSON.stringify(worlds));
+fs.mkdirSync(path.dirname(worldsOutput), { recursive: true });
+fs.writeFileSync(worldsOutput, JSON.stringify(worlds));
 console.log(`Rendered ${count} game layouts and ${worlds.length} connected world canvases.`);

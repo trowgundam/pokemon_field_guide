@@ -1,0 +1,33 @@
+{
+  "defaultGameId": "frlg",
+  "games": [
+    {
+      "id": "frlg",
+      "rules": "frlg",
+      "name": "Pokémon FireRed / LeafGreen",
+      "shortName": "FRLG",
+      "pageTitle": "Pokémon FireRed / LeafGreen | Pokemon Field Guide",
+      "atlasTitle": "Kanto & Sevii",
+      "loadingLabel": "LOADING KANTO & SEVII",
+      "dataPath": "games/frlg/data/fieldguide.json",
+      "pokedexPath": "games/frlg/data/pokedex.json",
+      "worldsPath": "games/frlg/data/worlds.json",
+      "pokemonSpritePath": "games/frlg/sprites/pokemon",
+      "itemSpritePath": "games/frlg/sprites/items",
+      "defaultAreaId": "MAP_ROUTE1",
+      "defaultWorldId": "kanto",
+      "versions": [
+        { "id": "FireRed", "name": "FireRed", "accent": "#ef4b43", "accentSoft": "#5a2928" },
+        { "id": "LeafGreen", "name": "LeafGreen", "accent": "#55e06f", "accentSoft": "#214b2d" }
+      ],
+      "regions": [
+        { "id": "Kanto", "name": "Kanto", "worldId": "kanto" },
+        { "id": "Sevii Islands", "name": "Sevii", "worldId": "sevii" }
+      ],
+      "dexModes": [
+        { "id": "Normal", "name": "Normal", "regional": true },
+        { "id": "National", "name": "National", "regional": false }
+      ]
+    }
+  ]
+}

@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const source = process.argv[2] ?? '/tmp/pokefirered-fieldguide';
-const output = process.argv[3] ?? 'frle_fieldguide/wwwroot/data/fieldguide.json';
+const output = process.argv[3] ?? 'PokemonFieldGuide/wwwroot/games/frlg/data/fieldguide.json';
+const mapWebPath = 'games/frlg/maps';
 const title = value => value
   .replace(/^MAP_/, '').replace(/^SPECIES_/, '').replace(/^ITEM_/, '')
   .toLowerCase().split('_').map(x => x ? x[0].toUpperCase() + x.slice(1) : x).join(' ')
@@ -82,7 +83,7 @@ for (const dir of fs.readdirSync(mapRoot)) {
   const a = area(id);
   const layout = layoutById.get(map.layout);
   if (layout) {
-    a.mapImage = `maps/${map.layout}.png`; a.mapWidth = layout.width * 16; a.mapHeight = layout.height * 16;
+    a.mapImage = `${mapWebPath}/${map.layout}.png`; a.mapWidth = layout.width * 16; a.mapHeight = layout.height * 16;
     a.entrances = (map.warp_events ?? []).map((w, i) => ({ id: `${id}:warp:${i}`, x: w.x, y: w.y, targetId: w.dest_map === 'MAP_DYNAMIC' ? '' : w.dest_map, name: w.dest_map === 'MAP_DYNAMIC' ? 'Passage' : title(w.dest_map) }));
   }
   const scriptItem = label => {

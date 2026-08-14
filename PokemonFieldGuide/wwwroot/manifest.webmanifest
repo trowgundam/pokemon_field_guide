@@ -1,6 +1,6 @@
 {
-  "name": "FireRed / LeafGreen Field Guide",
-  "short_name": "FRLG Guide",
+  "name": "Pokemon Field Guide",
+  "short_name": "Field Guide",
   "id": "./",
   "start_url": "./",
   "display": "standalone",

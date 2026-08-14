@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using PokemonFieldGuide.Services;
 
-namespace frle_fieldguide;
+namespace PokemonFieldGuide;
 
 public class Program
 {
@@ -12,6 +13,9 @@ public class Program
         builder.RootComponents.Add<HeadOutlet>("head::after");
 
         builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+        builder.Services.AddScoped<GamePackageLoader>();
+        builder.Services.AddSingleton<IGameRulesProvider, FrlgGameRulesProvider>();
+        builder.Services.AddSingleton<GameRulesRegistry>();
 
         await builder.Build().RunAsync();
     }
