@@ -32,7 +32,8 @@ The page renders versions, regions, Pokédex modes, labels, paths, defaults, and
 PokemonFieldGuide/
 ├── Models/
 │   ├── FieldGuideData.cs       Generated-data and saved-progress contracts
-│   └── GamePackage.cs          Catalog and package metadata contracts
+│   ├── GamePackage.cs          Catalog and package metadata contracts
+│   └── SaveBackup.cs           Portable save interchange contract
 ├── Pages/
 │   └── Home.razor              Shared atlas, checklist, interiors, and Pokédex UI
 ├── Services/
@@ -111,6 +112,8 @@ The storage key remains `frlg-field-guide-v1` for compatibility. Despite its his
 Checklist profiles are keyed as `<game-id>:<version-id>`, preventing collisions between packages with similarly named versions. Selected versions and Pokédex modes are remembered per package; theme is global. Resetting progress clears profiles while retaining preferences.
 
 Legacy version-only FRLG profiles and the original top-level caught/item collections are migrated when loaded. Changing the storage key or checklist IDs requires an explicit migration plan.
+
+Portable backups are a separate, public interchange contract. `SaveBackup.FormatVersion` is currently `0`; each backup contains only the game packages selected by the user, with profiles keyed by version ID. Import replaces progress only for recognized packages present in the file and preserves other package progress and global preferences. Each future format must retain an explicit import migration path. Version `1` must not be introduced until the project owner declares the pre-deployment format cutoff. See [Save backups](save-backups.md) for the complete contract.
 
 ## Browser integration
 

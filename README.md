@@ -12,6 +12,7 @@ An extensible, Google Maps-style completion guide for Pokémon games. The curren
 - FireRed/LeafGreen-specific availability and separate collection progress
 - Searchable locations and Pokédex
 - Persisted theme, game, Pokédex mode, and checklist progress in browser storage
+- Versioned save-data export and import with selectable game packages
 - Dark and light themes with game-specific accent colors
 - GitHub Pages deployment workflow
 
