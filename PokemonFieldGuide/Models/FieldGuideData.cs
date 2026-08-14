@@ -70,6 +70,7 @@ public sealed class SavedProgress
     public string GameId { get; set; } = "frlg";
     public string Version { get; set; } = "FireRed";
     public string Theme { get; set; } = "Dark";
+    public bool AnimationsEnabled { get; set; } = true;
     public string DexMode { get; set; } = "Normal";
     public string Accent { get; set; } = "#ef4b43";
     public Dictionary<string, string> SelectedVersions { get; set; } = [];

@@ -67,6 +67,7 @@ At minimum, verify:
 - encounter and item groups follow the active rules module's ordering;
 - sprites fall back without broken images;
 - themes and package/version accents remain legible;
+- sprite animation can be disabled, respects reduced-motion preferences, and only runs for visible Pokédex entries;
 - mobile layouts do not scroll horizontally;
 - Pokédex numbering, availability, search, and caught state are correct;
 - progress is isolated by package and version;
