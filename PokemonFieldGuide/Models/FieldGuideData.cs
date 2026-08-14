@@ -67,6 +67,9 @@ public sealed class SpecialPokemon
 
 public sealed class SavedProgress
 {
+    public const int CurrentFormatVersion = 1;
+
+    public int FormatVersion { get; set; }
     public string GameId { get; set; } = "frlg";
     public string Version { get; set; } = "FireRed";
     public string Theme { get; set; } = "Dark";
@@ -76,12 +79,7 @@ public sealed class SavedProgress
     public Dictionary<string, string> SelectedVersions { get; set; } = [];
     public Dictionary<string, string> SelectedDexModes { get; set; } = [];
     public Dictionary<string, VersionProgress> Profiles { get; set; } = [];
-    // Version-only profiles are retained for migration from the original FRLG-only data model.
-    public Dictionary<string, VersionProgress> Games { get; set; } = [];
-    // Legacy fields are retained for one-time migration from saves created before per-game profiles.
-    public HashSet<string> Caught { get; set; } = [];
-    public HashSet<string> Collected { get; set; } = [];
-    public HashSet<string> CompletedSpecial { get; set; } = [];
+    public Dictionary<string, int> ProfileVersions { get; set; } = [];
 }
 
 public sealed class VersionProgress

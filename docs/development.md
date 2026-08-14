@@ -72,7 +72,8 @@ At minimum, verify:
 - Pokédex numbering, availability, search, and caught state are correct;
 - progress is isolated by package and version;
 - reset clears checklist profiles but preserves preferences;
-- a representative legacy FRLG save migrates without losing progress.
+- v1 local saves and backups preserve per-game profile versions and round-trip without losing progress;
+- whenever a released version is incremented, representative fixtures for every supported prior version migrate without changing unrelated profiles.
 
 Use the T3 collaborative preview when available for desktop and mobile visual checks. A release publish should also be tested because trimming and service-worker asset generation occur only during publishing.
 

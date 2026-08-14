@@ -109,11 +109,11 @@ Adjacent warp tiles resolving to the same target are clustered into a single ent
 
 The storage key remains `frlg-field-guide-v1` for compatibility. Despite its historical name, it stores all packages.
 
-Checklist profiles are keyed as `<game-id>:<version-id>`, preventing collisions between packages with similarly named versions. Selected versions and Pokédex modes are remembered per package; theme and sprite-animation preferences are global. Resetting progress clears profiles while retaining preferences.
+Checklist profiles are keyed as `<game-id>:<version-id>`, preventing collisions between packages with similarly named versions. Selected versions and Pokédex modes are remembered per package; theme and sprite-animation preferences are global. Resetting progress clears profiles and their schema-version records while retaining preferences.
 
-Legacy version-only FRLG profiles and the original top-level caught/item collections are migrated when loaded. Changing the storage key or checklist IDs requires an explicit migration plan.
+The local-storage envelope is formally format v1 through `SavedProgress.FormatVersion`. Each profile also has an independent schema version in `SavedProgress.ProfileVersions`, keyed by the same composite key, whose current target is declared by the catalog version's `progressVersion`. This lets one game evolve without forcing unrelated profiles or shared assets to change version. Version 1 is the first released contract; unversioned development data is intentionally unsupported. Changing the storage key, envelope, profile shape, or checklist IDs requires an explicit migration plan.
 
-Portable backups are a separate, public interchange contract. `SaveBackup.FormatVersion` is currently `0`; users select individual games (version profiles), which remain grouped by package ID in the serialized document to avoid duplicating package metadata. Import replaces only recognized profiles present in the file and preserves sibling-version, other-package, and global preference data. Each future format must retain an explicit import migration path. Version `1` must not be introduced until the project owner declares the pre-deployment format cutoff. See [Save backups](save-backups.md) for the complete contract.
+Portable backups are a separate, public interchange contract, finalized at `SaveBackup.FormatVersion` v1. Users select individual games (version profiles), which remain grouped by package ID in the serialized document to avoid duplicating package metadata. Every exported profile carries its game-specific schema version. Import migrates older released profile schemas forward, replaces only recognized profiles present in the file, and preserves sibling-version, other-package, and global preference data. See [Save backups](save-backups.md) for the complete contract and mandatory versioning rules.
 
 ## Browser integration
 

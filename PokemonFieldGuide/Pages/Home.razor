@@ -143,7 +143,7 @@ else
 {
     <div class="modal-backdrop" @onclick="CloseBackup">
         <section class="backup-modal" role="dialog" aria-modal="true" aria-labelledby="backup-title" @onclick:stopPropagation>
-            <header><div><span class="eyebrow">SAVE DATA · FORMAT V0</span><h2 id="backup-title">@(backupMode=="export"?"Export backup":"Import backup")</h2></div><button aria-label="Close backup" @onclick="CloseBackup">×</button></header>
+            <header><div><span class="eyebrow">SAVE DATA · FORMAT V1</span><h2 id="backup-title">@(backupMode=="export"?"Export backup":"Import backup")</h2></div><button aria-label="Close backup" @onclick="CloseBackup">×</button></header>
             @if(backupMode=="export")
             {
                 <p>Choose which games to include. Paired versions keep independent progress while sharing their guide package and assets.</p>
@@ -170,9 +170,9 @@ else
 @if(confirmReset){<div class="modal-backdrop" @onclick="()=>confirmReset=false"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title" @onclick:stopPropagation><span class="warning">!</span><h2 id="reset-title">Reset all progress?</h2><p>This clears every caught Pokémon and collected item on this device.</p><div><button @onclick="()=>confirmReset=false">Cancel</button><button class="danger" @onclick="Reset">Reset everything</button></div></div></div>}
 
 @code {
-    GameCatalog? catalog; GameDefinition? game; IGameRules rules=null!; FieldGuideData? data; List<PokedexEntry> pokedex=[]; List<GuideWorld> worlds=[]; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; SavedProgress progress=new(); string query="",pokedexQuery="",backupMode="export",backupMessage=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<string> exportProfileKeys=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
+    GameCatalog? catalog; GameDefinition? game; IGameRules rules=null!; FieldGuideData? data; List<PokedexEntry> pokedex=[]; List<GuideWorld> worlds=[]; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; SavedProgress progress=NewProgress(); string query="",pokedexQuery="",backupMode="export",backupMessage=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<string> exportProfileKeys=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
     string ProfileKey=>ProfileKeyFor(game!.Id,progress.Version);
-    VersionProgress CurrentProgress { get { progress.Profiles??=[];if(!progress.Profiles.TryGetValue(ProfileKey,out var profile)){profile=new();progress.Profiles[ProfileKey]=profile;}return profile;} }
+    VersionProgress CurrentProgress { get { progress.Profiles??=[];progress.ProfileVersions??=[];if(!progress.Profiles.TryGetValue(ProfileKey,out var profile)){profile=new();progress.Profiles[ProfileKey]=profile;progress.ProfileVersions[ProfileKey]=ActiveVersion.ProgressVersion;}return profile;} }
     GameVersionDefinition ActiveVersion=>game!.Versions.First(version=>version.Id==progress.Version);
     DexModeDefinition ActiveDexMode=>game!.DexModes.FirstOrDefault(mode=>mode.Id==progress.DexMode)??game.DexModes[0];
     string PokemonFallback=>$"{game!.PokemonSpritePath}/question_mark.png";
@@ -197,7 +197,7 @@ else
         try
         {
             catalog=await PackageLoader.LoadCatalogAsync();
-            progress=await JS.InvokeAsync<SavedProgress?>("fieldGuide.load")??new();
+            progress=await JS.InvokeAsync<SavedProgress?>("fieldGuide.load")??NewProgress();
             game=catalog.Games.FirstOrDefault(choice=>choice.Id==progress.GameId)??catalog.Games.First(choice=>choice.Id==catalog.DefaultGameId);
             progress.GameId=game.Id;
             await LoadGameAsync(game);
@@ -206,12 +206,17 @@ else
         catch(Exception ex)
         {
             data=null;
-            loadError=ex is HttpRequestException ? "The game data could not be downloaded. Check your connection and try again." : "The installed game package is invalid or unavailable. Reload the page or try again shortly.";
+            loadError=ex switch
+            {
+                HttpRequestException=>"The game data could not be downloaded. Check your connection and try again.",
+                InvalidOperationException=>ex.Message,
+                _=>"The installed game package is invalid or unavailable. Reload the page or try again shortly."
+            };
         }
     }
     Task RetryLoad()=>InitializeAsync();
     protected override async Task OnAfterRenderAsync(bool first){if(game is not null){await ApplyAppearance();await JS.InvokeVoidAsync("fieldGuide.applySpriteAnimations",progress.AnimationsEnabled);}if(currentWorld?.Id!=initializedMap){initializedMap=currentWorld?.Id;await JS.InvokeVoidAsync("fieldMap.init",mapViewport);}if(interiorOpen&&interiorArea?.Id!=initializedInterior){initializedInterior=interiorArea?.Id;await JS.InvokeVoidAsync("fieldMap.initInterior");}if(!interiorOpen)initializedInterior=null;}
-    async Task LoadGameAsync(GameDefinition definition){var package=await PackageLoader.LoadAsync(definition);game=package.Definition;rules=RulesRegistry.Get(game.Rules);data=package.FieldGuide;pokedex=package.Pokedex;worlds=package.Worlds;progress.SelectedVersions??=[];progress.SelectedDexModes??=[];if(progress.SelectedVersions.TryGetValue(game.Id,out var savedVersion)&&game.Versions.Any(version=>version.Id==savedVersion))progress.Version=savedVersion;else if(!game.Versions.Any(version=>version.Id==progress.Version))progress.Version=game.Versions[0].Id;if(progress.SelectedDexModes.TryGetValue(game.Id,out var savedDexMode)&&game.DexModes.Any(mode=>mode.Id==savedDexMode))progress.DexMode=savedDexMode;else if(!game.DexModes.Any(mode=>mode.Id==progress.DexMode))progress.DexMode=game.DexModes[0].Id;progress.SelectedVersions[game.Id]=progress.Version;progress.SelectedDexModes[game.Id]=progress.DexMode;progress.Accent=ActiveVersion.Accent;currentWorld=worlds.First(world=>world.Id==game.DefaultWorldId);currentRegion=game.Regions.First(region=>region.WorldId==currentWorld.Id);mapArea=AreaFor(game.DefaultAreaId)??data.Areas.First();detailArea=mapArea;interiorArea=null;interiorOpen=false;initializedMap=null;}
+    async Task LoadGameAsync(GameDefinition definition){var package=await PackageLoader.LoadAsync(definition);game=package.Definition;if(game.Versions.Any(version=>version.ProgressVersion<1))throw new InvalidOperationException($"The {game.Name} package has an invalid progress version.");rules=RulesRegistry.Get(game.Rules);data=package.FieldGuide;pokedex=package.Pokedex;worlds=package.Worlds;progress.SelectedVersions??=[];progress.SelectedDexModes??=[];if(progress.SelectedVersions.TryGetValue(game.Id,out var savedVersion)&&game.Versions.Any(version=>version.Id==savedVersion))progress.Version=savedVersion;else if(!game.Versions.Any(version=>version.Id==progress.Version))progress.Version=game.Versions[0].Id;if(progress.SelectedDexModes.TryGetValue(game.Id,out var savedDexMode)&&game.DexModes.Any(mode=>mode.Id==savedDexMode))progress.DexMode=savedDexMode;else if(!game.DexModes.Any(mode=>mode.Id==progress.DexMode))progress.DexMode=game.DexModes[0].Id;progress.SelectedVersions[game.Id]=progress.Version;progress.SelectedDexModes[game.Id]=progress.DexMode;progress.Accent=ActiveVersion.Accent;currentWorld=worlds.First(world=>world.Id==game.DefaultWorldId);currentRegion=game.Regions.First(region=>region.WorldId==currentWorld.Id);mapArea=AreaFor(game.DefaultAreaId)??data.Areas.First();detailArea=mapArea;interiorArea=null;interiorOpen=false;initializedMap=null;}
     GuideArea? AreaFor(string id)=>data!.Areas.FirstOrDefault(a=>a.Id==rules.NormalizeAreaId(id));
     IEnumerable<IGrouping<string,Encounter>> EncounterGroupsFor(GuideArea area)=>GroupEncounters(area.Encounters.Where(e=>e.Version=="Both"||e.Version==progress.Version));
     IEnumerable<IGrouping<string,Encounter>> GroupEncounters(IEnumerable<Encounter> rows)=>rows.GroupBy(rules.EncounterGroupName).OrderBy(g=>rules.EncounterGroupOrder(g.Key));
@@ -250,7 +255,19 @@ else
     void InspectInteriorItem(GuideItem item)=>inspectedItem=item; void NavigateInterior(MapEntrance warp){interiorArea=data!.Areas.FirstOrDefault(a=>a.Id==warp.TargetId)??interiorArea;inspectedItem=null;} void ChangeInterior(ChangeEventArgs e){interiorArea=data!.Areas.FirstOrDefault(a=>a.Id==(string?)e.Value)??interiorArea;inspectedItem=null;}
     async Task Zoom(double z)=>await JS.InvokeVoidAsync("fieldMap.zoom",mapViewport,z); async Task ResetView()=>await JS.InvokeVoidAsync("fieldMap.reset",mapViewport);
     async Task ZoomInterior(double z)=>await JS.InvokeVoidAsync("fieldMap.zoomInterior",z); async Task FitInterior()=>await JS.InvokeVoidAsync("fieldMap.fitInterior");
-    bool MigrateProgress(){progress.Profiles??=[];progress.Games??=[];var changed=false;if(progress.Profiles.Count==0&&progress.Games.Count>0){foreach(var (version,state) in progress.Games)progress.Profiles[ProfileKeyFor("frlg",version)]=state;changed=true;}var legacy=progress.Caught.Count+progress.Collected.Count+progress.CompletedSpecial.Count>0;if(legacy){progress.Profiles[ProfileKey]=new(){Caught=[..progress.Caught],Collected=[..progress.Collected],CompletedSpecial=[..progress.CompletedSpecial]};changed=true;}if(progress.Games.Count>0){progress.Games.Clear();changed=true;}progress.Caught.Clear();progress.Collected.Clear();progress.CompletedSpecial.Clear();return changed;}
+    bool MigrateProgress()
+    {
+        progress.Profiles??=[];progress.ProfileVersions??=[];var changed=false;
+        if(progress.FormatVersion!=SavedProgress.CurrentFormatVersion)throw new InvalidOperationException($"Local save format v{progress.FormatVersion} is not supported by this guide.");
+        foreach(var definition in catalog!.Games)foreach(var version in definition.Versions)
+        {
+            var key=ProfileKeyFor(definition.Id,version.Id);if(!progress.Profiles.TryGetValue(key,out var profile))continue;
+            if(!progress.ProfileVersions.TryGetValue(key,out var storedVersion))throw new InvalidOperationException($"The {version.Name} local save profile is missing its data version.");
+            progress.Profiles[key]=MigrateProfile(definition.Id,version.Id,storedVersion,version.ProgressVersion,profile);
+            if(storedVersion!=version.ProgressVersion){progress.ProfileVersions[key]=version.ProgressVersion;changed=true;}
+        }
+        return changed;
+    }
     async Task Save()=>await JS.InvokeVoidAsync("fieldGuide.save",progress); async Task ToggleItem(string id){if(!CurrentProgress.Collected.Add(id))CurrentProgress.Collected.Remove(id);await Save();} async Task ToggleCaught(string id){if(!CurrentProgress.Caught.Add(id))CurrentProgress.Caught.Remove(id);await Save();} async Task ToggleSpecial(SpecialPokemon m){if(!CurrentProgress.CompletedSpecial.Add(m.Id))CurrentProgress.CompletedSpecial.Remove(m.Id);CurrentProgress.Caught.Add(m.SpeciesId);await Save();}
     async Task ChangeGame(ChangeEventArgs e){var selected=catalog!.Games.FirstOrDefault(choice=>choice.Id==(string?)e.Value);if(selected is null)return;progress.GameId=selected.Id;await LoadGameAsync(selected);await Save();await ApplyAppearance();}
     async Task ChangeVersion(ChangeEventArgs e){var selected=(string?)e.Value;if(selected is null||!game!.Versions.Any(version=>version.Id==selected))return;progress.Version=selected;progress.SelectedVersions[game.Id]=selected;progress.Accent=ActiveVersion.Accent;await Save();await ApplyAppearance();}
@@ -278,10 +295,11 @@ else
             foreach(var version in versions)
             {
                 gameBackup.Profiles[version.Id]=progress.Profiles.TryGetValue(ProfileKeyFor(definition.Id,version.Id),out var profile)?CloneProfile(profile):new();
+                gameBackup.ProfileVersions[version.Id]=version.ProgressVersion;
             }
             backup.Games[definition.Id]=gameBackup;
         }
-        await JS.InvokeVoidAsync("fieldGuide.download",$"pokemon-field-guide-v0-{DateTime.UtcNow:yyyy-MM-dd}.json",backup);
+        await JS.InvokeVoidAsync("fieldGuide.download",$"pokemon-field-guide-v1-{DateTime.UtcNow:yyyy-MM-dd}.json",backup);
         backupMessage="Backup downloaded.";
     }
     async Task ImportBackup(InputFileChangeEventArgs e)
@@ -292,7 +310,7 @@ else
             await using var stream=e.File.OpenReadStream(2*1024*1024);
             var backup=await System.Text.Json.JsonSerializer.DeserializeAsync<SaveBackup>(stream,new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
             if(backup is null||backup.Format!=SaveBackup.CurrentFormat)throw new InvalidOperationException("This is not a Pokémon Field Guide backup.");
-            if(backup.FormatVersion!=0)throw new InvalidOperationException($"Backup format v{backup.FormatVersion} is not supported by this version of the guide.");
+            if(backup.FormatVersion!=SaveBackup.CurrentVersion)throw new InvalidOperationException($"Backup format v{backup.FormatVersion} is not supported by this version of the guide.");
             var imported=ImportV0(backup);
             if(imported.PackageIds.Count==0)throw new InvalidOperationException("The backup does not contain any games installed in this guide.");
             if(imported.PackageIds.Contains(game!.Id)){await LoadGameAsync(game);await ApplyAppearance();}
@@ -311,15 +329,19 @@ else
         {
             var definition=catalog!.Games.FirstOrDefault(x=>x.Id==gameId);if(definition is null||savedGame is null)continue;
             var profiles=new Dictionary<string,VersionProgress>();
-            foreach(var version in definition.Versions)if(savedGame.Profiles?.TryGetValue(version.Id,out var profile)==true&&profile is not null)profiles[version.Id]=CloneProfile(profile);
+            foreach(var version in definition.Versions)if(savedGame.Profiles?.TryGetValue(version.Id,out var profile)==true&&profile is not null)
+            {
+                if(savedGame.ProfileVersions?.TryGetValue(version.Id,out var storedVersion)!=true)throw new InvalidOperationException($"The {version.Name} profile is missing its data version.");
+                profiles[version.Id]=MigrateProfile(definition.Id,version.Id,storedVersion,version.ProgressVersion,profile);
+            }
             if(profiles.Count==0)throw new InvalidOperationException($"The {definition.ShortName} backup does not contain a recognized game-version profile.");
             staged.Add((definition,savedGame,profiles));
         }
-        var importedPackages=new HashSet<string>();var importedVersions=new List<string>();progress.Profiles??=[];progress.SelectedVersions??=[];progress.SelectedDexModes??=[];
+        var importedPackages=new HashSet<string>();var importedVersions=new List<string>();progress.Profiles??=[];progress.ProfileVersions??=[];progress.SelectedVersions??=[];progress.SelectedDexModes??=[];
         foreach(var (definition,savedGame,profiles) in staged)
         {
             var gameId=definition.Id;
-            foreach(var (versionId,profile) in profiles)progress.Profiles[ProfileKeyFor(gameId,versionId)]=profile;
+            foreach(var (versionId,profile) in profiles){var key=ProfileKeyFor(gameId,versionId);progress.Profiles[key]=profile;progress.ProfileVersions[key]=definition.Versions.First(version=>version.Id==versionId).ProgressVersion;}
             if(profiles.ContainsKey(savedGame.SelectedVersion))progress.SelectedVersions[gameId]=savedGame.SelectedVersion;
             if(definition.DexModes.Any(x=>x.Id==savedGame.SelectedDexMode))progress.SelectedDexModes[gameId]=savedGame.SelectedDexMode;
             importedPackages.Add(gameId);
@@ -328,10 +350,25 @@ else
         return new(importedPackages,importedVersions);
     }
     static VersionProgress CloneProfile(VersionProgress source)=>new(){Caught=[..source.Caught??[]],Collected=[..source.Collected??[]],CompletedSpecial=[..source.CompletedSpecial??[]]};
+    static VersionProgress MigrateProfile(string gameId,string versionId,int storedVersion,int targetVersion,VersionProgress source)
+    {
+        if(storedVersion>targetVersion)throw new InvalidOperationException($"The {versionId} save data is v{storedVersion}, but this guide supports through v{targetVersion}.");
+        var migrated=CloneProfile(source);
+        while(storedVersion<targetVersion)
+        {
+            migrated=(gameId,storedVersion) switch
+            {
+                _=>throw new InvalidOperationException($"No migration exists for {versionId} save data from v{storedVersion} to v{storedVersion+1}.")
+            };
+            storedVersion++;
+        }
+        return migrated;
+    }
     int AreaPercent(GuideArea a){var species=a.Encounters.Where(e=>e.Version=="Both"||e.Version==progress.Version).Select(e=>e.SpeciesId).Distinct().ToList();var special=a.SpecialPokemon.Where(m=>m.Version=="Both"||m.Version==progress.Version).ToList();var total=species.Count+a.Items.Count+special.Count;return total==0?0:(int)Math.Round(100d*(species.Count(CurrentProgress.Caught.Contains)+a.Items.Count(i=>CurrentProgress.Collected.Contains(i.Id))+special.Count(m=>CurrentProgress.CompletedSpecial.Contains(m.Id)))/total);}
-    static string LevelText(IEnumerable<Encounter> e){var min=e.Min(x=>x.MinLevel);var max=e.Max(x=>x.MaxLevel);return min==max?$"Lv. {min}":$"Lv. {min}–{max}";} async Task Reset(){progress.Profiles=[];confirmReset=false;await Save();}
+    static string LevelText(IEnumerable<Encounter> e){var min=e.Min(x=>x.MinLevel);var max=e.Max(x=>x.MaxLevel);return min==max?$"Lv. {min}":$"Lv. {min}–{max}";} async Task Reset(){progress.FormatVersion=SavedProgress.CurrentFormatVersion;progress.Profiles=[];progress.ProfileVersions=[];confirmReset=false;await Save();}
     async Task ApplyAppearance(){progress.Accent=ActiveVersion.Accent;await JS.InvokeVoidAsync("fieldGuide.applyAppearance",progress.Theme,game!.Id,progress.Version,ActiveVersion.Accent,ActiveVersion.AccentSoft);}
     static string ProfileKeyFor(string gameId,string version)=>$"{gameId}:{version}";
+    static SavedProgress NewProgress()=>new(){FormatVersion=SavedProgress.CurrentFormatVersion};
     sealed record ExportProfileChoice(string ProfileKey,string PackageName,string VersionName);
     sealed record ImportedBackup(HashSet<string> PackageIds,List<string> VersionNames);
     static string NaturalKey(string name)=>System.Text.RegularExpressions.Regex.Replace(name.ToUpperInvariant(),@"\d+",m=>int.Parse(m.Value).ToString("D8"));

@@ -8,7 +8,7 @@ Create one package for versions that share map topology, assets, data shape, Pok
 
 If paired games differ only in some records, keep one copy of shared maps and sprites and identify version-specific encounter or special-Pokémon records with the exact version ID. Split them into separate packages only when their topology, assets, source tooling, or runtime rules differ enough that a shared package would require pervasive exceptions.
 
-Do not rename an ID after release without a saved-progress migration.
+Set every catalog version's `progressVersion` to `1` when it is introduced. This is the schema version of that individual game's checklist profile, not the package or application version. Do not rename an ID or increment `progressVersion` after release without adding and testing a sequential saved-progress migration. See [Save backups](save-backups.md).
 
 ## 2. Create the package directories
 
@@ -237,8 +237,8 @@ Append a definition to `wwwroot/games/catalog.json`:
   "defaultAreaId": "MAP_EXAMPLE_ROUTE_1",
   "defaultWorldId": "example-region",
   "versions": [
-    { "id": "ExampleRed", "name": "Example Red", "accent": "#e34848", "accentSoft": "#572626" },
-    { "id": "ExampleBlue", "name": "Example Blue", "accent": "#4b70e2", "accentSoft": "#26365b" }
+    { "id": "ExampleRed", "name": "Example Red", "progressVersion": 1, "accent": "#e34848", "accentSoft": "#572626" },
+    { "id": "ExampleBlue", "name": "Example Blue", "progressVersion": 1, "accent": "#4b70e2", "accentSoft": "#26365b" }
   ],
   "regions": [
     { "id": "Example Region", "name": "Example", "worldId": "example-region" }
@@ -270,7 +270,7 @@ Catalog fields have the following contracts:
 | `itemSpritePath` | Directory containing item sprites and `question_mark.png`. |
 | `defaultAreaId` | Area selected when the package opens. |
 | `defaultWorldId` | World selected when the package opens. |
-| `versions` | Stable version IDs, display names, and normal/soft accent colors. |
+| `versions` | Stable version IDs, per-game progress schema versions, display names, and normal/soft accent colors. |
 | `regions` | Region IDs, tab labels, and corresponding world IDs. |
 | `dexModes` | Pokédex choices; `regional: true` uses `RegionalNumber`, while false uses `Number`. |
 
