@@ -1,14 +1,14 @@
 # Agent guide
 
-This repository contains a static Blazor WebAssembly field guide for Pokémon FireRed and LeafGreen. Preserve the interactive-map design and the accuracy of decomp-derived data.
+This repository contains the static Blazor WebAssembly Pokemon Field Guide. It currently ships a FireRed/LeafGreen package, but the application architecture supports additional Pokémon game families. Preserve the interactive-map design, package boundaries, and accuracy of source-derived data.
 
 ## Essential commands
 
 Run commands from the repository root unless noted otherwise.
 
 ```sh
-dotnet build frle_fieldguide/frle_fieldguide.csproj
-dotnet run --project frle_fieldguide/frle_fieldguide.csproj
+dotnet build PokemonFieldGuide/PokemonFieldGuide.csproj
+dotnet run --project PokemonFieldGuide/PokemonFieldGuide.csproj
 ```
 
 Always run the build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
@@ -17,18 +17,25 @@ Keep commits small, focused, and independently revertible. Separate unrelated da
 
 ## Architecture
 
-- `frle_fieldguide/Pages/Home.razor` contains most UI and application behavior.
-- `frle_fieldguide/wwwroot/index.html` contains startup appearance, local-storage helpers, and map pan/zoom interop.
-- `frle_fieldguide/wwwroot/css/app.css` contains global, theme, atlas, modal, and responsive styling.
-- `frle_fieldguide/Models/FieldGuideData.cs` defines both generated JSON models and persisted progress.
+- `PokemonFieldGuide/Pages/Home.razor` contains the shared, game-agnostic atlas UI.
+- `PokemonFieldGuide/wwwroot/index.html` contains startup appearance, local-storage helpers, and map pan/zoom interop.
+- `PokemonFieldGuide/wwwroot/css/app.css` contains global, theme, atlas, modal, and responsive styling.
+- `PokemonFieldGuide/Models/FieldGuideData.cs` defines both generated JSON models and persisted progress.
+- `PokemonFieldGuide/Models/GamePackage.cs` defines the game catalog and package manifest models.
+- `PokemonFieldGuide/Services/GamePackageLoader.cs` loads the active package's data in parallel.
+- `PokemonFieldGuide/Services/GameRules.cs` contains the rules interface, registry, and FRLG-specific implementation.
+- `PokemonFieldGuide/wwwroot/games/catalog.json` declares installed packages, versions, regions, paths, Pokédex modes, defaults, and accents.
+- `PokemonFieldGuide/wwwroot/games/<id>/` owns all generated data and graphical assets for one game family.
 - `tools/generate-fieldguide.mjs` is the source of truth for `fieldguide.json` and `pokedex.json`.
 - `tools/render-maps.mjs` renders individual layouts, connected world canvases, and `worlds.json` from a `pret/pokefirered` checkout.
 
 ## Data and asset rules
 
 - Do not hand-edit generated JSON when the correction belongs in a generator. Update the generator and regenerate the output.
+- Keep shared UI free of game-title checks. Put game metadata in the catalog and exceptional behavior behind an `IGameRules` implementation.
+- Do not place game-owned data or assets in global `wwwroot/data`, `wwwroot/maps`, or `wwwroot/sprites` directories.
 - Preserve stable checklist IDs. Changing item or special-Pokémon IDs can silently invalidate users' saved progress.
-- Collection state is intentionally separate for FireRed and LeafGreen. Appearance and Pokédex view preferences are shared settings.
+- Collection profiles are keyed by game package and version. Appearance is global; selected version and Pokédex mode are remembered per package.
 - Keep all 386 Generation III species in the National Pokédex. The Normal Pokédex is the 151-species Kanto Dex.
 - Availability labels distinguish normal single-player acquisition, event distribution, and trade/transfer requirements.
 - Preserve starter-dependent roaming-beast encounters and event-script static encounters when changing extraction logic.
@@ -50,15 +57,15 @@ Keep commits small, focused, and independently revertible. Separate unrelated da
 - Item order is Visible, Hidden, then Event.
 - Dark mode is the default. Controls must remain legible in both themes, and the active game's accent color must be respected.
 - At narrow viewport widths, the document must not scroll horizontally and the atlas must retain usable vertical space below the responsive header.
-- Resetting progress clears both games' checklist state but preserves game, theme, and Pokédex-mode preferences.
+- Resetting progress clears all game/version checklist profiles but preserves selected game, version, theme, and Pokédex-mode preferences.
 
 ## Regeneration
 
 With a compatible `pret/pokefirered` checkout:
 
 ```sh
-node tools/generate-fieldguide.mjs /path/to/pokefirered frle_fieldguide/wwwroot/data/fieldguide.json
-node tools/render-maps.mjs /path/to/pokefirered frle_fieldguide/wwwroot/maps
+node tools/generate-fieldguide.mjs /path/to/pokefirered
+node tools/render-maps.mjs /path/to/pokefirered
 ```
 
 `render-maps.mjs` requires `sharp`. Generated assets are committed because the deployed site must not depend on a ROM or a decomp checkout.

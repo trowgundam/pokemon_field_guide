@@ -1,6 +1,6 @@
-# FireRed / LeafGreen Field Guide
+# Pokemon Field Guide
 
-An interactive, Google Maps-style completion guide for Pokémon FireRed and LeafGreen. It joins the games' outdoor maps into zoomable world canvases and provides navigable interior maps, encounter and item markers, and per-game collection tracking.
+An extensible, Google Maps-style completion guide for Pokémon games. The current package covers FireRed and LeafGreen, joining their outdoor maps into zoomable world canvases and providing navigable interior maps, encounter and item markers, and per-version collection tracking.
 
 Game data and map assets are derived from the [pret/pokefirered decompilation project](https://github.com/pret/pokefirered). No ROM is required to run the checked-in application.
 
@@ -22,22 +22,25 @@ Game data and map assets are derived from the [pret/pokefirered decompilation pr
 The application targets .NET 10. From the repository root:
 
 ```sh
-dotnet run --project frle_fieldguide/frle_fieldguide.csproj
+dotnet run --project PokemonFieldGuide/PokemonFieldGuide.csproj
 ```
 
 Open the address printed by the development server. To verify a change without starting the server:
 
 ```sh
-dotnet build frle_fieldguide/frle_fieldguide.csproj
+dotnet build PokemonFieldGuide/PokemonFieldGuide.csproj
 ```
 
 ## Project structure
 
-- `frle_fieldguide/Pages/Home.razor` — primary atlas and checklist UI
-- `frle_fieldguide/Models/FieldGuideData.cs` — generated-data and saved-progress models
-- `frle_fieldguide/wwwroot/data/` — generated encounter, item, and Pokédex data
-- `frle_fieldguide/wwwroot/maps/` — rendered maps and connected-world metadata
-- `frle_fieldguide/wwwroot/sprites/` — item and Pokémon menu sprites
+- `PokemonFieldGuide/Pages/Home.razor` — game-agnostic atlas and checklist UI
+- `PokemonFieldGuide/Models/FieldGuideData.cs` — generated-data and saved-progress models
+- `PokemonFieldGuide/Models/GamePackage.cs` — game catalog and package metadata
+- `PokemonFieldGuide/Services/` — package loading and game-specific rules modules
+- `PokemonFieldGuide/wwwroot/games/catalog.json` — installed game-package catalog
+- `PokemonFieldGuide/wwwroot/games/frlg/data/` — generated FRLG guide, Pokédex, and world data
+- `PokemonFieldGuide/wwwroot/games/frlg/maps/` — rendered FRLG maps
+- `PokemonFieldGuide/wwwroot/games/frlg/sprites/` — FRLG item and Pokémon menu sprites
 - `tools/generate-fieldguide.mjs` — extracts guide data from the decompilation
 - `tools/render-maps.mjs` — renders layouts and connected world maps
 - `.github/workflows/deploy-pages.yml` — publishes the Blazor WebAssembly build to GitHub Pages
@@ -47,15 +50,21 @@ dotnet build frle_fieldguide/frle_fieldguide.csproj
 The generated data and assets are committed so normal development does not require the decompilation. To regenerate them, clone `pret/pokefirered` separately and pass its path to the tools:
 
 ```sh
-node tools/generate-fieldguide.mjs /path/to/pokefirered frle_fieldguide/wwwroot/data/fieldguide.json
-node tools/render-maps.mjs /path/to/pokefirered frle_fieldguide/wwwroot/maps
+node tools/generate-fieldguide.mjs /path/to/pokefirered
+node tools/render-maps.mjs /path/to/pokefirered
 ```
 
 The map renderer requires the Node.js `sharp` package. The data generator intentionally excludes prototype, unused, and multiplayer/link-room maps from the guide while retaining normally reachable interiors and event-island encounters. Regeneration should be followed by a build and a review of generated changes.
 
 ## Saved progress
 
-Progress is stored locally in the browser under `frlg-field-guide-v1`. FireRed and LeafGreen have separate caught/item states. **Reset progress** clears both games' checklist state after confirmation while preserving the selected game, theme, and Pokédex mode.
+Progress is stored locally in the browser under `frlg-field-guide-v1` for backward compatibility. Checklist profiles are namespaced by game package and version, so FireRed and LeafGreen remain separate and future games cannot collide with them. **Reset progress** clears every checklist profile after confirmation while preserving the selected game, version, theme, and Pokédex mode.
+
+## Adding another game
+
+Each supported game family is a package described in `wwwroot/games/catalog.json`. A package owns its version and region definitions, data paths, map and sprite paths, Pokédex modes, default map, and accent colors. Game-specific naming and grouping exceptions implement `IGameRules` and are registered through `IGameRulesProvider`; the shared atlas UI should not gain title-specific conditionals.
+
+New extraction or rendering tools should write into that package's directory. Checklist IDs must be stable within the package, and version IDs must match the values used by its generated encounter and availability data.
 
 ## Deployment
 
