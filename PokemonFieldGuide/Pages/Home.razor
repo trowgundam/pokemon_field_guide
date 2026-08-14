@@ -28,7 +28,15 @@
     </div>
 </header>
 
-@if (data is null) { <main class="loading-card">Rendering the map…</main> }
+@if (data is null && loadError is null) { <main class="loading-card">Rendering the map…</main> }
+else if (data is null)
+{
+    <main class="loading-card load-error" role="alert">
+        <strong>The field guide could not be loaded.</strong>
+        <span>@loadError</span>
+        <button @onclick="RetryLoad">Try again</button>
+    </main>
+}
 else
 {
     <main class="atlas-shell">
@@ -144,6 +152,7 @@ else
                         <label><input type="checkbox" checked="@exportGameIds.Contains(choice.Id)" @onchange="e=>ToggleExportGame(choice.Id,e)"/><span><strong>@choice.ShortName</strong><small>@choice.Name</small></span></label>
                     }
                 </div>
+                @if(!string.IsNullOrEmpty(backupMessage)){<p class="backup-message success">@backupMessage</p>}
                 <footer><button @onclick="CloseBackup">Cancel</button><button class="primary" disabled="@(exportGameIds.Count==0)" @onclick="ExportBackup">Download backup</button></footer>
             }
             else
@@ -160,7 +169,7 @@ else
 @if(confirmReset){<div class="modal-backdrop" @onclick="()=>confirmReset=false"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title" @onclick:stopPropagation><span class="warning">!</span><h2 id="reset-title">Reset all progress?</h2><p>This clears every caught Pokémon and collected item on this device.</p><div><button @onclick="()=>confirmReset=false">Cancel</button><button class="danger" @onclick="Reset">Reset everything</button></div></div></div>}
 
 @code {
-    GameCatalog? catalog; GameDefinition? game; IGameRules rules=null!; FieldGuideData? data; List<PokedexEntry> pokedex=[]; List<GuideWorld> worlds=[]; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; SavedProgress progress=new(); string query="",pokedexQuery="",backupMode="export",backupMessage=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<string> exportGameIds=[]; ElementReference mapViewport; string? initializedMap,initializedInterior;
+    GameCatalog? catalog; GameDefinition? game; IGameRules rules=null!; FieldGuideData? data; List<PokedexEntry> pokedex=[]; List<GuideWorld> worlds=[]; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; SavedProgress progress=new(); string query="",pokedexQuery="",backupMode="export",backupMessage=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<string> exportGameIds=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
     string ProfileKey=>ProfileKeyFor(game!.Id,progress.Version);
     VersionProgress CurrentProgress { get { progress.Profiles??=[];if(!progress.Profiles.TryGetValue(ProfileKey,out var profile)){profile=new();progress.Profiles[ProfileKey]=profile;}return profile;} }
     GameVersionDefinition ActiveVersion=>game!.Versions.First(version=>version.Id==progress.Version);
@@ -180,7 +189,26 @@ else
     IEnumerable<IGrouping<string,Encounter>> EncounterGroups => GroupEncounters(VisibleEncounters);
     List<GuideArea> InteriorFloors => interiorArea is null?[]:InteriorComponent(interiorArea.Id).OrderBy(a=>NaturalKey(a.Name)).ToList();
     string InteriorTitle=>interiorArea!.Name;
-    protected override async Task OnInitializedAsync(){catalog=await PackageLoader.LoadCatalogAsync();progress=await JS.InvokeAsync<SavedProgress?>("fieldGuide.load")??new();game=catalog.Games.FirstOrDefault(choice=>choice.Id==progress.GameId)??catalog.Games.First(choice=>choice.Id==catalog.DefaultGameId);progress.GameId=game.Id;await LoadGameAsync(game);if(MigrateProgress())await Save();}
+    protected override Task OnInitializedAsync()=>InitializeAsync();
+    async Task InitializeAsync()
+    {
+        loadError=null;
+        try
+        {
+            catalog=await PackageLoader.LoadCatalogAsync();
+            progress=await JS.InvokeAsync<SavedProgress?>("fieldGuide.load")??new();
+            game=catalog.Games.FirstOrDefault(choice=>choice.Id==progress.GameId)??catalog.Games.First(choice=>choice.Id==catalog.DefaultGameId);
+            progress.GameId=game.Id;
+            await LoadGameAsync(game);
+            if(MigrateProgress())await Save();
+        }
+        catch(Exception ex)
+        {
+            data=null;
+            loadError=ex is HttpRequestException ? "The game data could not be downloaded. Check your connection and try again." : "The installed game package is invalid or unavailable. Reload the page or try again shortly.";
+        }
+    }
+    Task RetryLoad()=>InitializeAsync();
     protected override async Task OnAfterRenderAsync(bool first){if(game is not null)await ApplyAppearance();if(currentWorld?.Id!=initializedMap){initializedMap=currentWorld?.Id;await JS.InvokeVoidAsync("fieldMap.init",mapViewport);}if(interiorOpen&&interiorArea?.Id!=initializedInterior){initializedInterior=interiorArea?.Id;await JS.InvokeVoidAsync("fieldMap.initInterior");}if(!interiorOpen)initializedInterior=null;}
     async Task LoadGameAsync(GameDefinition definition){var package=await PackageLoader.LoadAsync(definition);game=package.Definition;rules=RulesRegistry.Get(game.Rules);data=package.FieldGuide;pokedex=package.Pokedex;worlds=package.Worlds;progress.SelectedVersions??=[];progress.SelectedDexModes??=[];if(progress.SelectedVersions.TryGetValue(game.Id,out var savedVersion)&&game.Versions.Any(version=>version.Id==savedVersion))progress.Version=savedVersion;else if(!game.Versions.Any(version=>version.Id==progress.Version))progress.Version=game.Versions[0].Id;if(progress.SelectedDexModes.TryGetValue(game.Id,out var savedDexMode)&&game.DexModes.Any(mode=>mode.Id==savedDexMode))progress.DexMode=savedDexMode;else if(!game.DexModes.Any(mode=>mode.Id==progress.DexMode))progress.DexMode=game.DexModes[0].Id;progress.SelectedVersions[game.Id]=progress.Version;progress.SelectedDexModes[game.Id]=progress.DexMode;progress.Accent=ActiveVersion.Accent;currentWorld=worlds.First(world=>world.Id==game.DefaultWorldId);currentRegion=game.Regions.First(region=>region.WorldId==currentWorld.Id);mapArea=AreaFor(game.DefaultAreaId)??data.Areas.First();detailArea=mapArea;interiorArea=null;interiorOpen=false;initializedMap=null;}
     GuideArea? AreaFor(string id)=>data!.Areas.FirstOrDefault(a=>a.Id==rules.NormalizeAreaId(id));
