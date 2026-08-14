@@ -17,8 +17,8 @@
       "defaultAreaId": "MAP_ROUTE1",
       "defaultWorldId": "kanto",
       "versions": [
-        { "id": "FireRed", "name": "FireRed", "accent": "#ef4b43", "accentSoft": "#5a2928" },
-        { "id": "LeafGreen", "name": "LeafGreen", "accent": "#55e06f", "accentSoft": "#214b2d" }
+        { "id": "FireRed", "name": "FireRed", "progressVersion": 1, "accent": "#ef4b43", "accentSoft": "#5a2928" },
+        { "id": "LeafGreen", "name": "LeafGreen", "progressVersion": 1, "accent": "#55e06f", "accentSoft": "#214b2d" }
       ],
       "regions": [
         { "id": "Kanto", "name": "Kanto", "worldId": "kanto" },

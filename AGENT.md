@@ -23,4 +23,5 @@ Keep commits small, focused, and independently revertible. Separate unrelated da
 - Follow [architecture](docs/architecture.md), [game-package](docs/adding-a-game.md), [development](docs/development.md), and [deployment](docs/deployment.md) guidance rather than duplicating it here.
 - Do not add or request a ROM.
 - Preserve user progress and stable checklist identifiers unless an explicit migration is part of the task.
+- Follow the mandatory save-versioning and migration procedure in [docs/save-backups.md](docs/save-backups.md). Any serialized-contract or checklist-identifier change must increment the appropriate envelope or per-game profile version and include a tested forward migration; never reinterpret a released version in place.
 - Preserve unrelated user changes in a dirty worktree.

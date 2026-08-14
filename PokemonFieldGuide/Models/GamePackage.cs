@@ -31,6 +31,7 @@ public sealed class GameVersionDefinition
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
+    public int ProgressVersion { get; set; } = 1;
     public string Accent { get; set; } = "#ef4b43";
     public string AccentSoft { get; set; } = "#5a2928";
 }
