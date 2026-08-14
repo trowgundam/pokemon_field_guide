@@ -42,7 +42,7 @@ else
     <main class="atlas-shell">
         <aside class="atlas-sidebar">
             <div class="atlas-heading"><span class="eyebrow">WORLD MAP</span><h1>@game?.AtlasTitle</h1></div>
-            <div class="search"><span>⌕</span><input aria-label="Search locations" placeholder="Search locations…" value="@query" @oninput="SearchChanged" @onfocus="()=>searchOpen=true" /></div>
+            <div class="search"><span>⌕</span><input aria-label="Search locations and their contents" placeholder="Search locations, Pokémon, items…" value="@query" @oninput="SearchChanged" @onfocus="()=>searchOpen=true" /></div>
             @if(game?.Regions.Count > 1){<div class="map-filters">@foreach(var choice in game.Regions){<button class="@(currentRegion?.Id==choice.Id?"active":"")" @onclick="()=>ShowRegion(choice)">@choice.Name</button>}</div>}
             <nav class="outdoor-list @(!searchOpen?"closed":"")">
                 @foreach (var area in OutdoorAreas)
@@ -183,7 +183,7 @@ else
     IEnumerable<PokedexEntry> FilteredPokedex=>VisiblePokedex.Where(p=>string.IsNullOrWhiteSpace(pokedexQuery)||p.Name.Contains(pokedexQuery,StringComparison.OrdinalIgnoreCase)||DexNumber(p).ToString().Contains(pokedexQuery.Trim()));
     int DexNumber(PokedexEntry mon)=>ActiveDexMode.Regional?mon.RegionalNumber??mon.Number:mon.Number;
     int DexCaughtCount=>VisiblePokedex.Count(p=>CurrentProgress.Caught.Contains(p.SpeciesId));
-    IEnumerable<GuideArea> OutdoorAreas => (string.IsNullOrWhiteSpace(query)?currentWorld!.Maps.Select(m=>AreaFor(m.Id)).OfType<GuideArea>():data!.Areas.Where(a=>a.MapImage is not null&&a.Name.Contains(query,StringComparison.OrdinalIgnoreCase))).OrderBy(a=>NaturalKey(a.Name)).Take(80);
+    IEnumerable<GuideArea> OutdoorAreas => (string.IsNullOrWhiteSpace(query)?currentWorld!.Maps.Select(m=>AreaFor(m.Id)).OfType<GuideArea>():data!.Areas.Where(a=>a.MapImage is not null&&AreaMatchesSearch(a,query))).OrderBy(a=>NaturalKey(a.Name)).Take(80);
     IEnumerable<Encounter> VisibleEncounters => (detailArea?.Encounters??[]).Where(e=>e.Version=="Both"||e.Version==progress.Version);
     IEnumerable<SpecialPokemon> VisibleSpecial => (detailArea?.SpecialPokemon??[]).Where(e=>e.Version=="Both"||e.Version==progress.Version);
     IEnumerable<IGrouping<string,Encounter>> EncounterGroups => GroupEncounters(VisibleEncounters);
@@ -220,6 +220,17 @@ else
     IEnumerable<IGrouping<string,Encounter>> EncounterGroupsFor(GuideArea area)=>GroupEncounters(area.Encounters.Where(e=>e.Version=="Both"||e.Version==progress.Version));
     IEnumerable<IGrouping<string,Encounter>> GroupEncounters(IEnumerable<Encounter> rows)=>rows.GroupBy(rules.EncounterGroupName).OrderBy(g=>rules.EncounterGroupOrder(g.Key));
     IEnumerable<IGrouping<string,GuideItem>> ItemGroupsFor(GuideArea area)=>area.Items.GroupBy(x=>x.Kind).OrderBy(x=>rules.ItemGroupOrder(x.Key));
+    bool AreaMatchesSearch(GuideArea area,string search)
+    {
+        var term=search.Trim();
+        bool Matches(string? value)=>value?.Contains(term,StringComparison.OrdinalIgnoreCase)==true;
+        return Matches(area.Name)
+            ||Matches(area.Region)
+            ||area.Items.Any(item=>Matches(item.Name)||Matches(item.Kind))
+            ||area.Encounters.Any(encounter=>(encounter.Version=="Both"||encounter.Version==progress.Version)&&(Matches(encounter.Species)||Matches(encounter.Method)))
+            ||area.SpecialPokemon.Any(mon=>(mon.Version=="Both"||mon.Version==progress.Version)&&(Matches(mon.Species)||Matches(mon.Kind)||Matches(mon.RequestedSpecies)))
+            ||area.Entrances.Any(entrance=>Matches(entrance.Name));
+    }
     IEnumerable<DisplayEntrance> RelevantEntrancesFor(GuideArea area)
     {
         var resolved=area.Entrances.Select(e=>(Warp:e,Target:ResolveRelevantTarget(area.Id,e.TargetId))).Where(x=>x.Target is not null).Select(x=>new DisplayEntrance(x.Target!.Id,x.Target.Name,x.Warp.X,x.Warp.Y)).ToList();
