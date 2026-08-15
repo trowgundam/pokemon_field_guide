@@ -102,7 +102,7 @@ async function makeWorld(name, positions) {
   await sharp({ create: { width, height, channels: 4, background: { r: 120, g: 184, b: 211, alpha: 1 } } }).composite(composite).png({ compressionLevel: 9, palette: true }).toFile(path.join(out, `WORLD_${name.toUpperCase()}.png`));
   return { id: name, image: `${mapWebPath}/WORLD_${name.toUpperCase()}.png`, width, height, maps: entries.map(e => ({ id: e.id, x: e.x * 16, y: e.y * 16, width: e.width * 16, height: e.height * 16 })) };
 }
-const kantoIds = new Set(rendered.filter(m => !/(ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN)_ISLAND|MT_EMBER|KINDLE|CAPE_BRINK|BOND_BRIDGE|BERRY_FOREST|ICEFALL|LOST_CAVE|MEMORIAL|WATER_PATH|RUIN_VALLEY|PATTERN_BUSH|ALTERING_CAVE|OUTCAST|GREEN_PATH|TANOBY|TRAINER_TOWER/.test(m.id)).map(m => m.id));
+const kantoIds = new Set(rendered.filter(m => !/(ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN)_ISLAND|MT_EMBER|KINDLE|CAPE_BRINK|BOND_BRIDGE|BERRY_FOREST|ICEFALL|LOST_CAVE|MEMORIAL|WATER_PATH|RUIN_VALLEY|PATTERN_BUSH|ALTERING_CAVE|OUTCAST|GREEN_PATH|TANOBY|TRAINER_TOWER|BIRTH_ISLAND|NAVEL_ROCK/.test(m.id)).map(m => m.id));
 const kanto = connectedPositions('MAP_PALLET_TOWN', kantoIds);
 // Each Sevii island is a separate connection component; arrange those components side-by-side.
 const seviiIds = new Set(rendered.filter(m => !kantoIds.has(m.id)).map(m => m.id)), sevii = new Map(); let componentX = 0;
@@ -115,4 +115,13 @@ while ([...seviiIds].some(id => !sevii.has(id))) {
 const worlds = [await makeWorld('kanto', kanto), await makeWorld('sevii', sevii)];
 fs.mkdirSync(path.dirname(worldsOutput), { recursive: true });
 fs.writeFileSync(worldsOutput, JSON.stringify(worlds));
+const fieldGuidePath = path.join(path.dirname(worldsOutput), 'fieldguide.json');
+if (!fs.existsSync(fieldGuidePath)) throw new Error(`Generate FRLG field-guide data before rendering maps: ${fieldGuidePath}`);
+const guide = JSON.parse(fs.readFileSync(fieldGuidePath));
+const referencedMapFiles = new Set([
+  ...worlds.map(world => path.basename(world.image)),
+  ...guide.areas.map(area => path.basename(area.mapImage))
+]);
+for (const file of fs.readdirSync(out).filter(file => file.endsWith('.png')))
+  if (!referencedMapFiles.has(file)) fs.rmSync(path.join(out, file));
 console.log(`Rendered ${count} game layouts and ${worlds.length} connected world canvases.`);

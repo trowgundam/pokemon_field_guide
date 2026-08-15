@@ -29,7 +29,7 @@ Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `p
 
 Always build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
 
-`just check` also validates every registered package's configured paths, integer fields, unique area/checklist/Pokédex IDs, entrance and world references, version values, and per-version availability coverage. Packages that set `validateWorldReachability` additionally require every area with guide data to be connected to a world placement.
+`just check` also validates every registered package's configured paths, integer fields, unique area/checklist/Pokédex IDs, entrance and world references, version values, per-version availability coverage, complete encounter-table probabilities, and exact map/sprite asset usage. Packages that set `validateWorldReachability` additionally require every area with guide data to be connected to a world placement.
 
 ## Generated files
 
@@ -48,8 +48,9 @@ just generate-frlg /path/to/pokefirered
 - includes starter-dependent roaming beasts;
 - extracts event-script static encounters;
 - excludes prototype, unused, and multiplayer/link-room maps;
-- removes entrances to excluded maps;
-- retains reachable interiors and event-island content.
+- contracts empty transition rooms and removes entrances to excluded maps;
+- retains reachable interiors and event-island content;
+- removes map, item-icon, and Pokémon-sprite outputs that the final package does not reference.
 
 `render-maps.mjs` writes native-scale individual maps and connected world canvases into `PokemonFieldGuide/wwwroot/games/frlg/maps/`, plus `worlds.json` in the package data directory. FRLG reserves palettes 0–6 for primary tilesets and 7–12 for secondary tilesets; preserve that renderer behavior.
 
@@ -61,7 +62,7 @@ Use Pokémon menu sprites and bag item icons where available. The FRLG rules mod
 just generate-rb /path/to/pokered
 ```
 
-The Red/Blue generator parses RGBDS map headers, Red/Blue-conditional wild encounter tables, all three fishing rods, visible and hidden item events, scripted rewards, gifts, Game Corner prizes, NPC trades, static encounters, map blocks, tilesets, and Kanto map connections. It writes the complete `rb` package, including native-scale individual maps, a connected Kanto canvas, Pokédex data, and source sprites with border-connected backgrounds made transparent. Generation fails if an area with a collection list or marker is unreachable from the outdoor Kanto graph. The committed outputs are sufficient to run the site; neither a source checkout nor a ROM is used at runtime.
+The Red/Blue generator parses RGBDS map headers, Red/Blue-conditional wild encounter tables, all three fishing rods, visible and hidden item events, scripted rewards, gifts, Game Corner prizes, NPC trades, every source-defined static encounter, map blocks, tilesets, and Kanto map connections. It writes the complete `rb` package, including native-scale individual maps, a connected Kanto canvas, Pokédex data, and source sprites with the dominant border-connected background made transparent. Generation fails unless encounter tables total 100 percent per version, source-derived item and special-acquisition totals match, the expected unavailable Pokédex lists match, every relevant area is reachable from the outdoor Kanto graph, and every generated asset is referenced. The committed outputs are sufficient to run the site; neither a source checkout nor a ROM is used at runtime.
 
 Game-specific generators belong under `tools/<game-id>/`; see the [tooling conventions](../tools/README.md). Do not assume another game's source layout or rendering rules match FRLG.
 
@@ -71,7 +72,7 @@ Game-specific generators belong under `tools/<game-id>/`; see the [tooling conve
 just generate-yellow /path/to/pokeyellow
 ```
 
-The Yellow generator parses Yellow's RGBDS map headers, wild encounters, all three fishing rods, visible and hidden items, scripted rewards (including split `_2.asm` map scripts), gifts, Game Corner prizes, NPC trades, static encounters, map blocks, tilesets, Kanto connections, CGB base palettes, overworld palette-selection context, and per-species Pokémon palettes. It writes the complete `yellow` package with authentic GBC-colored maps and sprites, and fails unless its palette tables, source-derived item totals, 39 distinct special acquisitions, expected unobtainable Pokédex list, and world reachability audit all pass. Inaccessible source events are deliberately excluded.
+The Yellow generator parses Yellow's RGBDS map headers, wild encounters, all three fishing rods, visible and hidden items, scripted rewards (including split `_2.asm` map scripts), gifts, Game Corner prizes, NPC trades, static encounters, map blocks, tilesets, Kanto connections, CGB base palettes, overworld palette-selection context, and per-species Pokémon palettes. It writes the complete `yellow` package with authentic GBC-colored maps and sprites, removes unused outputs, and makes each sprite's dominant border-connected background transparent before applying its CGB palette. Generation fails unless its palette tables, source-derived item totals, 39 distinct special acquisitions, expected unobtainable Pokédex list, and world reachability audit all pass. Inaccessible source events are deliberately excluded.
 
 ## Regression expectations
 

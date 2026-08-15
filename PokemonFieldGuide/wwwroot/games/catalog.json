@@ -43,6 +43,7 @@
       "itemSpritePath": "games/frlg/sprites/items",
       "defaultAreaId": "MAP_ROUTE1",
       "defaultWorldId": "kanto",
+      "validateWorldReachability": true,
       "versions": [
         { "id": "FireRed", "name": "FireRed", "progressVersion": 1, "accent": "#ef4b43", "accentSoft": "#5a2928" },
         { "id": "LeafGreen", "name": "LeafGreen", "progressVersion": 1, "accent": "#55e06f", "accentSoft": "#214b2d" }

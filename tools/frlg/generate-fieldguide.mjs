@@ -3,6 +3,9 @@ import path from 'node:path';
 
 const source = process.argv[2] ?? '/tmp/pokefirered-fieldguide';
 const output = process.argv[3] ?? 'PokemonFieldGuide/wwwroot/games/frlg/data/fieldguide.json';
+const packageRoot = path.dirname(path.dirname(output));
+const pokemonOut = path.join(packageRoot, 'sprites/pokemon');
+const itemsOut = path.join(packageRoot, 'sprites/items');
 const mapWebPath = 'games/frlg/maps';
 const title = value => value
   .replace(/^MAP_/, '').replace(/^SPECIES_/, '').replace(/^ITEM_/, '')
@@ -47,6 +50,9 @@ const methods = { land_mons: 'Grass / cave', water_mons: 'Surf', rock_smash_mons
 for (const group of wild.wild_encounter_groups) {
   const rates = Object.fromEntries(group.fields.map(f => [f.type, f.encounter_rates]));
   for (const set of group.encounters ?? []) {
+    // The eight alternate Altering Cave tables were reserved for an event that
+    // was never distributed. Only the normal Zubat table is reachable in-game.
+    if (set.map === 'MAP_SIX_ISLAND_ALTERING_CAVE' && /AlteringCave_[2-9]_/.test(set.base_label)) continue;
     const a = area(set.map);
     const version = /_FireRed/i.test(set.base_label) ? 'FireRed' : /_LeafGreen/i.test(set.base_label) ? 'LeafGreen' : 'Both';
     for (const [key, block] of Object.entries(set)) {
@@ -81,6 +87,7 @@ for (const dir of fs.readdirSync(mapRoot)) {
   const scriptsPath = path.join(mapRoot, dir, 'scripts.inc');
   const scripts = fs.existsSync(scriptsPath) ? fs.readFileSync(scriptsPath, 'utf8') : '';
   const a = area(id);
+  a.isOutdoor = ['MAP_TYPE_TOWN', 'MAP_TYPE_ROUTE', 'MAP_TYPE_OCEAN_ROUTE'].includes(map.map_type);
   const layout = layoutById.get(map.layout);
   if (layout) {
     a.mapImage = `${mapWebPath}/${map.layout}.png`; a.mapWidth = layout.width * 16; a.mapHeight = layout.height * 16;
@@ -154,10 +161,39 @@ for (const a of areas.values()) {
   a.specialPokemon = [...new Map(a.specialPokemon.map(p => [[p.kind,p.speciesId,p.version].join('|'),p])).values()];
 }
 const excludedMaps = /(?:PROTOTYPE|UNUSED)|^MAP_(?:BATTLE_COLOSSEUM_[24]P|RECORD_CORNER|TRADE_CENTER|UNION_ROOM)$/;
-const data = [...areas.values()].filter(a => !excludedMaps.test(a.id) && (a.mapImage || a.encounters.length || a.items.length || a.specialPokemon.length))
+const hasRelevantData = a => a.encounters.length || a.items.length || a.specialPokemon.length;
+const outdoorIds = new Set([...areas.values()].filter(a => a.isOutdoor && !excludedMaps.test(a.id)).map(a => a.id));
+const resolveContractedTarget = (sourceId, targetId) => {
+  const queue = targetId ? [targetId] : [], visited = new Set([sourceId]);
+  while (queue.length) {
+    const id = queue.shift(); if (visited.has(id)) continue; visited.add(id);
+    const target = areas.get(id); if (!target || excludedMaps.test(id)) continue;
+    if (outdoorIds.has(id) || hasRelevantData(target)) return target;
+    for (const exit of target.entrances) if (exit.targetId && !visited.has(exit.targetId)) queue.push(exit.targetId);
+  }
+  return null;
+};
+for (const a of areas.values()) {
+  a.entrances = a.entrances.map(entrance => {
+    const target = resolveContractedTarget(a.id, entrance.targetId);
+    return target ? { ...entrance, targetId: target.id, name: target.name } : null;
+  }).filter(Boolean);
+  delete a.isOutdoor;
+}
+const data = [...areas.values()].filter(a => !excludedMaps.test(a.id) && (outdoorIds.has(a.id) || hasRelevantData(a)))
   .sort((a, b) => a.region.localeCompare(b.region) || a.name.localeCompare(b.name));
-const includedMapIds = new Set(data.map(a=>a.id));
-for(const a of data)a.entrances=a.entrances.filter(e=>!e.targetId||includedMapIds.has(e.targetId));
+const includedMapIds = new Set(data.map(a => a.id));
+for (const a of data) for (const entrance of a.entrances)
+  if (!includedMapIds.has(entrance.targetId)) throw new Error(`${a.id} targets omitted area ${entrance.targetId}`);
+const adjacency = new Map(data.map(a => [a.id, new Set()]));
+for (const a of data) for (const entrance of a.entrances) {
+  adjacency.get(a.id).add(entrance.targetId);
+  adjacency.get(entrance.targetId).add(a.id);
+}
+const reachable = new Set(outdoorIds), reachQueue = [...reachable];
+while (reachQueue.length) for (const target of adjacency.get(reachQueue.shift()) ?? []) if (!reachable.has(target)) { reachable.add(target); reachQueue.push(target); }
+const unreachableRelevant = data.filter(a => hasRelevantData(a) && !reachable.has(a.id));
+if (unreachableRelevant.length) throw new Error(`Relevant areas are unreachable from an outdoor map: ${unreachableRelevant.map(a => a.id).join(', ')}`);
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, JSON.stringify({ source: 'pret/pokefirered', generated: new Date().toISOString().slice(0, 10), areas: data }));
 const dexHeader = fs.readFileSync(path.join(source, 'include/constants/pokedex.h'), 'utf8');
@@ -176,4 +212,9 @@ for(const version of ['FireRed','LeafGreen']){
 }
 const pokedex=dexSpecies.map((id,index)=>{const speciesId=`SPECIES_${id}`;const availability={};for(const version of ['FireRed','LeafGreen'])availability[version]=obtainable[version].has(speciesId)?'Obtainable':eventSpecies.has(speciesId)?'Event distribution':'Trade / transfer required';return {number:index+1,regionalNumber:index<151?index+1:null,name:title(speciesId).replace('Ho Oh','Ho-Oh'),speciesId,availability};});
 fs.writeFileSync(path.join(path.dirname(output),'pokedex.json'),JSON.stringify(pokedex));
+const referencedPokemonFiles = new Set(['question_mark.png', ...pokedex.filter(entry => entry.speciesId !== 'SPECIES_UNOWN').map(entry => entry.speciesId.replace('SPECIES_', '').toLowerCase() + '.png')]);
+const referencedItemFiles = new Set(['question_mark.png', ...data.flatMap(a => a.items.map(item => item.icon))]);
+for (const [directory, referenced] of [[pokemonOut, referencedPokemonFiles], [itemsOut, referencedItemFiles]])
+  for (const file of fs.readdirSync(directory).filter(file => file.endsWith('.png')))
+    if (!referenced.has(file)) fs.rmSync(path.join(directory, file));
 console.log(`Generated ${data.length} areas, ${data.reduce((n,a)=>n+a.encounters.length,0)} encounter rows, ${data.reduce((n,a)=>n+a.items.length,0)} items, and ${data.reduce((n,a)=>n+a.specialPokemon.length,0)} special Pokémon.`);

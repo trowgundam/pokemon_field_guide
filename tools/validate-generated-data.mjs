@@ -13,6 +13,13 @@ const walk = (value, visit) => {
   if (Array.isArray(value)) for (const item of value) walk(item, visit);
   else if (value && typeof value === 'object') { visit(value); for (const child of Object.values(value)) walk(child, visit); }
 };
+const pokemonSpriteName = (rules, speciesId) => rules === 'rb' || rules === 'yellow'
+  ? ({ SPECIES_NIDORAN_F: 'nidoranf.png', SPECIES_NIDORAN_M: 'nidoranm.png', SPECIES_MR_MIME: 'mr.mime.png' }[speciesId]
+    ?? speciesId.replace('SPECIES_', '').toLowerCase() + '.png')
+  : speciesId.replace('SPECIES_', '').toLowerCase() + '.png';
+const hasEmbeddedPokemonIcon = (rules, speciesId) => rules === 'frlg' && speciesId === 'SPECIES_UNOWN';
+const normalizeAreaId = (rules, id) => rules === 'frlg' && id === 'MAP_SAFFRON_CITY_CONNECTION' ? 'MAP_SAFFRON_CITY' : id;
+const pngFiles = directory => fs.readdirSync(directory).filter(file => file.endsWith('.png')).map(file => path.join(directory, file));
 
 for (const game of catalog.games) {
   const versions = new Set(game.versions.map(version => version.id));
@@ -47,6 +54,12 @@ for (const game of catalog.games) {
     for (const encounter of area.encounters ?? [])
       if (typeof encounter.chance !== 'number' || !Number.isFinite(encounter.chance) || encounter.chance <= 0 || encounter.chance > 100)
         throw new Error(`${game.id}: invalid encounter chance '${encounter.chance}' in ${area.id}`);
+    const methods = new Set((area.encounters ?? []).map(encounter => encounter.method).filter(method => !method.startsWith('Roaming')));
+    for (const method of methods) for (const version of versions) {
+      const rows = area.encounters.filter(encounter => encounter.method === method && (encounter.version === 'Both' || encounter.version === version));
+      if (rows.length && Math.abs(rows.reduce((sum, encounter) => sum + encounter.chance, 0) - 100) > 1e-8)
+        throw new Error(`${game.id}: ${area.id} ${method} encounter chances do not total 100 for ${version}`);
+    }
   }
   for (const area of areas) for (const entrance of area.entrances ?? [])
     if (entrance.targetId && !areaById.has(entrance.targetId)) throw new Error(`${game.id}: ${area.id} targets missing area ${entrance.targetId}`);
@@ -57,8 +70,9 @@ for (const game of catalog.games) {
   for (const world of worlds) {
     if (!world.image || !fs.existsSync(path.join(root, world.image))) throw new Error(`${game.id}: missing world image: ${world.image}`);
     for (const placement of world.maps ?? []) {
-      if (!areaById.has(placement.id)) throw new Error(`${game.id}: world placement targets missing area ${placement.id}`);
-      placed.add(placement.id);
+      const areaId = normalizeAreaId(game.rules, placement.id);
+      if (!areaById.has(areaId)) throw new Error(`${game.id}: world placement targets missing area ${areaId}`);
+      placed.add(areaId);
     }
   }
   const adjacency = new Map(areas.map(area => [area.id, new Set()]));
@@ -78,6 +92,25 @@ for (const game of catalog.games) {
     if (!entry.speciesId || dexSpecies.has(entry.speciesId)) throw new Error(`${game.id}: duplicate or empty Pokédex species ID: ${entry.speciesId}`);
     dexSpecies.add(entry.speciesId);
     for (const version of versions) if (!(version in (entry.availability ?? {}))) throw new Error(`${game.id}: ${entry.speciesId} lacks availability for ${version}`);
+  }
+
+  const expectedPokemon = new Set([path.join(root, game.pokemonSpritePath, 'question_mark.png')]);
+  for (const entry of dex) if (!hasEmbeddedPokemonIcon(game.rules, entry.speciesId))
+    expectedPokemon.add(path.join(root, game.pokemonSpritePath, pokemonSpriteName(game.rules, entry.speciesId)));
+  const expectedItems = new Set([path.join(root, game.itemSpritePath, 'question_mark.png')]);
+  for (const area of areas) for (const item of area.items ?? []) expectedItems.add(path.join(root, game.itemSpritePath, item.icon));
+  const expectedMaps = new Set([
+    ...areas.map(area => path.join(root, area.mapImage)),
+    ...worlds.map(world => path.join(root, world.image))
+  ]);
+  for (const [kind, expected, actual] of [
+    ['Pokémon sprite', expectedPokemon, pngFiles(path.join(root, game.pokemonSpritePath))],
+    ['item sprite', expectedItems, pngFiles(path.join(root, game.itemSpritePath))],
+    ['map', expectedMaps, [...new Set(worlds.flatMap(world => pngFiles(path.dirname(path.join(root, world.image)))))] ]
+  ]) {
+    for (const file of expected) if (!fs.existsSync(file)) throw new Error(`${game.id}: missing referenced ${kind}: ${path.relative(root, file)}`);
+    const unused = actual.filter(file => !expected.has(file));
+    if (unused.length) throw new Error(`${game.id}: unreferenced ${kind} assets: ${unused.map(file => path.relative(root, file)).join(', ')}`);
   }
 }
 
