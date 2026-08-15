@@ -55,6 +55,32 @@
         { "id": "Normal", "name": "Normal", "regional": true },
         { "id": "National", "name": "National", "regional": false }
       ]
+    },
+    {
+      "id": "yellow",
+      "rules": "yellow",
+      "name": "Pokémon Yellow",
+      "shortName": "Yellow",
+      "pageTitle": "Pokémon Yellow | Pokemon Field Guide",
+      "atlasTitle": "Kanto",
+      "loadingLabel": "LOADING KANTO",
+      "dataPath": "games/yellow/data/fieldguide.json",
+      "pokedexPath": "games/yellow/data/pokedex.json",
+      "worldsPath": "games/yellow/data/worlds.json",
+      "pokemonSpritePath": "games/yellow/sprites/pokemon",
+      "itemSpritePath": "games/yellow/sprites/items",
+      "defaultAreaId": "MAP_ROUTE_1",
+      "defaultWorldId": "yellow-kanto",
+      "validateWorldReachability": true,
+      "versions": [
+        { "id": "Yellow", "name": "Yellow", "progressVersion": 1, "accent": "#e6bd27", "accentSoft": "#594b20" }
+      ],
+      "regions": [
+        { "id": "Kanto", "name": "Kanto", "worldId": "yellow-kanto" }
+      ],
+      "dexModes": [
+        { "id": "Kanto", "name": "Kanto", "regional": true }
+      ]
     }
   ]
 }

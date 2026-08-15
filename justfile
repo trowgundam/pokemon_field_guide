@@ -29,11 +29,16 @@ install-frlg-tools:
 install-rb-tools:
     npm ci --prefix tools/rb
 
+# Install the pinned Yellow generator dependencies.
+install-yellow-tools:
+    npm ci --prefix tools/yellow
+
 # Check generator syntax and compile the application.
 check:
     node --check tools/frlg/generate-fieldguide.mjs
     node --check tools/frlg/render-maps.mjs
     node --check tools/rb/generate-fieldguide.mjs
+    node --check tools/yellow/generate-fieldguide.mjs
     node tools/validate-generated-data.mjs
     dotnet restore {{project}} --locked-mode
     dotnet build {{project}} --no-restore
@@ -54,3 +59,7 @@ generate-frlg source: install-frlg-tools
 # Regenerate the complete Red/Blue package from a pokered checkout.
 generate-rb source: install-rb-tools
     node tools/rb/generate-fieldguide.mjs "{{source}}"
+
+# Regenerate the complete Yellow package from a pokeyellow checkout.
+generate-yellow source: install-yellow-tools
+    node tools/yellow/generate-fieldguide.mjs "{{source}}"

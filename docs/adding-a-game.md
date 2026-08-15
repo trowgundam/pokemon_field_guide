@@ -87,6 +87,8 @@ Requirements:
 
 Use `Both` for a row shared by every package version, otherwise use an exact catalog version ID. Multiple slots for one species may remain separate; the UI groups display by species while retaining method and level information.
 
+`chance` is a JSON number and may contain a fractional percentage when that is the most accurate representation of the game's random selection logic. Do not round or redistribute probabilities merely to produce integers. Keep it between 0 and 100, and make the slots for each encounter table total 100 percent. The UI retains the exact stored value for calculations but formats the displayed aggregate to one decimal place.
+
 ### Items
 
 ```json
@@ -195,13 +197,25 @@ Disconnected landmasses may either become separate worlds/region tabs or be arra
 
 Include the complete full Pokédex supported by the game's generation, not only species obtainable in the package.
 
-Derive availability only after all acquisition sources and evolution paths have been collected. For each version, compare every `Obtainable` Pokédex entry with the encounter and special-Pokémon records that make it obtainable, including evolution chains. Review every remaining unavailable species as a named list. The expected version exclusives, trade requirements, transfers, or distribution-only species should explain the entire list; an unexpected entry usually indicates a skipped fishing table, gift, prize, trade, fossil, static encounter, or event source.
+Derive availability only after all acquisition sources and evolution paths have been collected. For each version, compare every `Obtainable` Pokédex entry with the encounter and special-Pokémon records that make it obtainable, including evolution chains. Evolutions that require a player-to-player trade are not `Obtainable`; mark them `Trade / transfer required` unless the game contains an in-game trade or other local mechanic that actually yields the evolved species. When such an exception exists, represent the species the player ultimately receives, including any evolution forced by the trade routine. Review every remaining unavailable species as a named list. The expected version exclusives, trade requirements, transfers, or distribution-only species should explain the entire list; an unexpected entry usually indicates a skipped fishing table, gift, prize, trade, fossil, static encounter, or event source.
 
 ## 6. Add sprites
 
 Provide Pokémon menu sprites and bag item icons using the filenames returned by the package's rules implementation. Images should retain native pixel art and transparency. Do not rely on browser smoothing.
 
+Keep only assets referenced by the final package data and catalog configuration. Generators that render a broader source set before filtering areas must remove the unused outputs before they finish. Audit the output after regeneration and treat unreferenced generated assets as a package error.
+
 If a predictable file cannot represent a species, return a data URI from `EmbeddedPokemonIcon`. If an individual asset is unavailable, allow the required `question_mark.png` fallback to render rather than emitting a broken URL.
+
+### Palette selection
+
+When a game supports enhanced color on the Game Boy Color, or on the equivalent color-capable platform relevant to that title, render maps and sprites with that platform's color data. Do not render the monochrome-compatible tile or sprite data as grayscale merely because palettes are stored separately from the pixel indices. Follow the game's runtime palette-selection rules, including location-, tileset-, sprite-, and context-specific assignments, so the generated assets represent the authentic color presentation.
+
+Some ROM hacks and source projects provide multiple alternative palette sets. Before generating or committing assets for such a game, ask the developer which palette set is the canonical choice. Do not choose one by assumption.
+
+The site supports exactly one canonical rendered palette choice for each shared asset. There are no plans to add a palette selector or maintain parallel asset variants. Do not duplicate map or sprite asset trees to represent alternate palettes; generate the shared assets once using the palette selected by the developer. Normal palette changes that are part of the selected game's runtime presentation are not alternate site palettes and should still be reproduced where applicable.
+
+When palettes or environmental colors vary by time of day or weather, use daytime with clear or no-weather conditions as the canonical asset state. Do not generate separate night, weather, or seasonal variants.
 
 When rendering maps from tiles and blocks, validate the source format's native tile size, block ordering, palette rules, animated or dynamically loaded tiles, and output dimensions. Inspect representative towns, interiors, caves, water boundaries, doors, and map connections at original resolution. A map can have the expected outer dimensions while still clipping or omitting part of every block, so dimensions alone are not sufficient validation.
 
@@ -305,20 +319,22 @@ Before committing:
 3. Confirm every non-empty entrance target exists.
 4. Traverse entrances in both directions and confirm every area with encounters, items, special Pokémon, or markers is reachable from a world placement.
 5. Confirm all encounter, special-Pokémon, and availability versions are `Both` or registered version IDs.
-6. Confirm every obtainable Pokémon is represented by an encounter, special acquisition, or a documented evolution from one.
+6. Confirm every obtainable Pokémon is represented by an encounter, special acquisition, or a documented locally available evolution from one; do not count player-to-player trade evolutions without an in-game exception.
 7. Confirm every acquisition channel and event source used by the title has been inspected, including sources stored outside normal map scripts.
 8. Review every unavailable Pokédex entry and confirm it has an expected, version-specific explanation.
 9. Confirm visible, hidden, and event items were extracted from all of their distinct source tables.
 10. Audit scripted rewards separately from map pickups, including Gym-leader TMs, HMs, NPC gifts, key items, conditional rewards, and rewards whose item ID is loaded indirectly before a shared give-item routine.
     Distinguish repeatable shop inventory from one-time gifts made at a counter or inside a commercial building; location alone does not make a reward shop stock.
 11. Confirm checklist IDs are unique and stable.
-12. Confirm referenced map and icon files exist or deliberately use a fallback.
-13. Visually inspect representative towns, interiors, caves, water boundaries, doors, and connections for complete blocks, correct palettes, alignment, and native pixel rendering.
-14. Confirm sprite backgrounds are transparent where expected without removing internal light-colored details.
-15. Build and publish the application.
-16. Test each version, region, dex mode, theme, and viewport size.
-17. Open representative relevant interiors, including multi-floor destinations reached through contracted transition-room chains.
-18. Verify caught/item state remains isolated between versions and packages.
+12. Confirm referenced map and icon files exist or deliberately use a fallback, and remove generated assets that the final package does not reference.
+13. Confirm color-capable games use the relevant platform's authentic palette data rather than grayscale output. If multiple alternative palette sets exist, record the developer's canonical choice and confirm that only one shared asset set was generated.
+14. Confirm games with time- or weather-dependent colors were rendered in daytime with clear or no-weather conditions.
+15. Visually inspect representative towns, interiors, caves, water boundaries, doors, and connections for complete blocks, correct palettes, alignment, and native pixel rendering.
+16. Confirm sprite backgrounds are transparent where expected without removing internal light-colored details.
+17. Build and publish the application.
+18. Test each version, region, dex mode, theme, and viewport size.
+19. Open representative relevant interiors, including multi-floor destinations reached through contracted transition-room chains.
+20. Verify caught/item state remains isolated between versions and packages.
 
 When importing warps, exclude entries the source identifies as inaccessible, unused, debug-only, or prototype-only before contracting empty transition areas. Otherwise an unreachable source warp can surface as a plausible-looking marker to a completely different relevant destination.
 
