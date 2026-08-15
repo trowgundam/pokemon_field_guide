@@ -249,7 +249,7 @@ The provider ID and the catalog's `rules` value must match. Do not add game-ID c
 
 ## 8. Register the package
 
-Append a definition to `wwwroot/games/catalog.json`:
+Add a definition to `wwwroot/games/catalog.json` in the game's original release order:
 
 ```json
 {
@@ -281,7 +281,7 @@ Append a definition to `wwwroot/games/catalog.json`:
 }
 ```
 
-The shared header renders every catalog version in one game selector. Package boundaries are not exposed as a second selection step. Region tabs appear only for packages with multiple regions/worlds.
+The shared header renders every catalog version in one game selector, preserving the order of packages in `games` and versions in each package's `versions` array. Keep both arrays in original release order whenever adding a game; do not merely append a package if a later-released package is already present. Package boundaries are not exposed as a second selection step. Region tabs appear only for packages with multiple regions/worlds.
 
 Catalog fields have the following contracts:
 
