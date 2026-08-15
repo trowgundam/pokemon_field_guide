@@ -330,6 +330,9 @@ const unavailable = new Set(dex.filter(entry => entry.availability.Yellow !== 'O
 if (unavailable.size !== expectedUnavailable.size || [...unavailable].some(name => !expectedUnavailable.has(name)))
   throw new Error(`Pokédex availability audit failed: ${[...unavailable].join(', ')}`);
 fs.writeFileSync(path.join(dataRoot, 'pokedex.json'), JSON.stringify(dex));
+const spriteName = speciesId => ({ SPECIES_NIDORAN_F: 'nidoranf.png', SPECIES_NIDORAN_M: 'nidoranm.png', SPECIES_MR_MIME: 'mr.mime.png' }[speciesId]
+  ?? speciesId.replace('SPECIES_', '').toLowerCase() + '.png');
+const referencedSpriteFiles = new Set(['question_mark.png', ...dex.map(entry => spriteName(entry.speciesId))]);
 const pokemonPaletteBySpecies = new Map();
 for (const match of read('data/pokemon/palettes.asm').matchAll(/^\s*db\s+(PAL_[A-Z0-9_]+)\s*;\s*([A-Z0-9_]+)/gm))
   pokemonPaletteBySpecies.set(match[2], match[1]);
@@ -347,7 +350,10 @@ async function copySpriteWithTransparentBackground(file) {
   const { data, info } = await sharp(path.join(source, 'gfx/pokemon/front', file)).toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const paletteName = pokemonPaletteBySpecies.get(spriteSpecies(file));
   if (!paletteName) throw new Error(`No Pokémon CGB palette found for ${file}`);
-  const spritePalette = palette(paletteName), background = data[0], seen = new Uint8Array(info.width * info.height), queue = [];
+  const borderCounts = new Map();
+  const countBorder = (x, y) => { const shade = data[(y * info.width + x) * 4]; borderCounts.set(shade, (borderCounts.get(shade) ?? 0) + 1); };
+  for(let x=0;x<info.width;x++){countBorder(x,0);countBorder(x,info.height-1);}for(let y=1;y<info.height-1;y++){countBorder(0,y);countBorder(info.width-1,y);}
+  const spritePalette = palette(paletteName), background = [...borderCounts].sort((a, b) => b[1] - a[1])[0][0], seen = new Uint8Array(info.width * info.height), queue = [];
   const enqueue = (x, y) => { if(x<0||y<0||x>=info.width||y>=info.height)return;const p=y*info.width+x;if(seen[p]||data[p*4]!==background)return;seen[p]=1;queue.push(p); };
   for(let x=0;x<info.width;x++){enqueue(x,0);enqueue(x,info.height-1);}for(let y=0;y<info.height;y++){enqueue(0,y);enqueue(info.width-1,y);}
   for(let i=0;i<queue.length;i++){const p=queue[i],x=p%info.width,y=Math.floor(p/info.width);data[p*4+3]=0;enqueue(x-1,y);enqueue(x+1,y);enqueue(x,y-1);enqueue(x,y+1);}
@@ -357,7 +363,9 @@ async function copySpriteWithTransparentBackground(file) {
   }
   await sharp(data,{raw:{width:info.width,height:info.height,channels:4}}).png().toFile(path.join(pokemonOut,file));
 }
-for (const file of fs.readdirSync(path.join(source, 'gfx/pokemon/front')).filter(x => x.endsWith('.png'))) await copySpriteWithTransparentBackground(file);
+for (const file of fs.readdirSync(path.join(source, 'gfx/pokemon/front')).filter(file => referencedSpriteFiles.has(file))) await copySpriteWithTransparentBackground(file);
 const fallback = await sharp({ create: { width: 32, height: 32, channels: 4, background: '#ffffff00' } }).composite([{ input: Buffer.from('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#eee" stroke="#333" stroke-width="2"/><text x="16" y="23" text-anchor="middle" font-size="22">?</text></svg>') }]).png().toBuffer();
 fs.writeFileSync(path.join(pokemonOut, 'question_mark.png'), fallback); fs.writeFileSync(path.join(itemsOut, 'question_mark.png'), fallback);
+for (const file of fs.readdirSync(pokemonOut).filter(file => file.endsWith('.png')))
+  if (!referencedSpriteFiles.has(file)) fs.rmSync(path.join(pokemonOut, file));
 console.log(`Generated Yellow: ${areas.length} areas, ${placed.length} outdoor maps, ${areas.reduce((n,a)=>n+a.encounters.length,0)} encounters, ${areas.reduce((n,a)=>n+a.items.length,0)} items, ${areas.reduce((n,a)=>n+a.specialPokemon.length,0)} special Pokémon; all ${areas.filter(a=>a.encounters.length||a.items.length||a.specialPokemon.length).length} relevant areas reachable.`);
