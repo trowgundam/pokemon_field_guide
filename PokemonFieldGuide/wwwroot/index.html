@@ -84,25 +84,32 @@
                     else image.addEventListener('load', ready, { once:true });
                 };
                 if (window.fieldMap.state.has(el)) { const s=window.fieldMap.state.get(el);s.world=el.querySelector('.map-world,.interior-canvas');window.fieldMap.fit(el);reveal(s.world);return; }
-                const state = { x: 80, y: 50, z: 1, drag: false, world: el.querySelector('.map-world,.interior-canvas') };
+                const state = { x: 80, y: 50, z: 1, drag: false, pointers: new Map(), world: el.querySelector('.map-world,.interior-canvas') };
                 const draw = () => { state.world.style.setProperty('--marker-scale', 1/state.z);state.world.style.transform = `matrix(${state.z},0,0,${state.z},${state.x},${state.y})`; };
-                const windowPointerUp = e => { if(e.pointerId===state.pointerId)endDrag(); };
                 const visibilityEnd = () => { if(document.hidden)endDrag(); };
-                const endDrag = () => {
+                const beginGesture = () => {
+                    const points=[...state.pointers.values()];
+                    state.startX=state.x;state.startY=state.y;state.startZ=state.z;
+                    state.startCenterX=points.reduce((sum,p)=>sum+p.x,0)/points.length;
+                    state.startCenterY=points.reduce((sum,p)=>sum+p.y,0)/points.length;
+                    state.startDistance=points.length>1?Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y):0;
+                };
+                const endDrag = (e, cancelled=false) => {
                     if (!state.drag) return;
-                    state.drag=false;state.suppressAreaClick=state.moved;el.classList.remove('dragging');
-                    if(state.pointerId!=null&&el.hasPointerCapture?.(state.pointerId))try{el.releasePointerCapture(state.pointerId);}catch{}
-                    state.pointerId=null;
-                    window.removeEventListener('pointerup',windowPointerUp);window.removeEventListener('blur',endDrag);document.removeEventListener('visibilitychange',visibilityEnd);
+                    if(e?.pointerId!=null){state.pointers.delete(e.pointerId);if(el.hasPointerCapture?.(e.pointerId))try{el.releasePointerCapture(e.pointerId);}catch{}}
+                    else state.pointers.clear();
+                    if(state.pointers.size&&!cancelled){beginGesture();return;}
+                    if(cancelled)state.pointers.clear();
+                    state.drag=false;state.suppressClick=state.moved;el.classList.remove('dragging');
+                    document.removeEventListener('visibilitychange',visibilityEnd);
                 };
                 el.addEventListener('dragstart', e => e.preventDefault());
                 el.addEventListener('wheel', e => { e.preventDefault(); const old=state.z; state.z=Math.max(.05,Math.min(3,state.z*(e.deltaY<0?1.15:.87))); const r=el.getBoundingClientRect(); const px=e.clientX-r.left,py=e.clientY-r.top; state.x=px-(px-state.x)*state.z/old;state.y=py-(py-state.y)*state.z/old;draw(); }, {passive:false});
-                el.addEventListener('pointerdown', e => { if(e.button!==0||e.target.closest('.map-marker'))return;e.preventDefault();state.drag=true;state.moved=false;state.pointerId=e.pointerId;state.downX=e.clientX;state.downY=e.clientY;state.sx=e.clientX-state.x;state.sy=e.clientY-state.y;el.classList.add('dragging');window.addEventListener('pointerup',windowPointerUp);window.addEventListener('blur',endDrag);document.addEventListener('visibilitychange',visibilityEnd); });
-                el.addEventListener('pointermove', e => { if(!state.drag||e.pointerId!==state.pointerId)return;e.preventDefault();if(Math.hypot(e.clientX-state.downX,e.clientY-state.downY)>4&&!state.moved){state.moved=true;el.setPointerCapture(state.pointerId);}if(!state.moved)return;state.x=e.clientX-state.sx;state.y=e.clientY-state.sy;draw(); });
+                el.addEventListener('pointerdown', e => { if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();state.drag=true;state.moved=false;state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});try{el.setPointerCapture(e.pointerId);}catch{}beginGesture();el.classList.add('dragging');document.addEventListener('visibilitychange',visibilityEnd); });
+                el.addEventListener('pointermove', e => { if(!state.drag||!state.pointers.has(e.pointerId))return;e.preventDefault();state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});const points=[...state.pointers.values()],cx=points.reduce((sum,p)=>sum+p.x,0)/points.length,cy=points.reduce((sum,p)=>sum+p.y,0)/points.length;if(Math.hypot(cx-state.startCenterX,cy-state.startCenterY)>4||points.length>1)state.moved=true;if(!state.moved)return;if(points.length>1&&state.startDistance>0){const nextZ=Math.max(.05,Math.min(3,state.startZ*Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y)/state.startDistance));const r=el.getBoundingClientRect(),anchorX=state.startCenterX-r.left,anchorY=state.startCenterY-r.top;state.z=nextZ;state.x=cx-r.left-(anchorX-state.startX)*nextZ/state.startZ;state.y=cy-r.top-(anchorY-state.startY)*nextZ/state.startZ;}else{state.x=state.startX+cx-state.startCenterX;state.y=state.startY+cy-state.startCenterY;}draw(); });
                 el.addEventListener('pointerup', endDrag);
-                el.addEventListener('pointercancel', endDrag);
-                el.addEventListener('lostpointercapture', endDrag);
-                el.addEventListener('click', e => { if(state.suppressAreaClick&&e.target.closest('.area-hotspot')){e.preventDefault();e.stopImmediatePropagation();}state.suppressAreaClick=false; }, true);
+                el.addEventListener('pointercancel', e => endDrag(e,true));
+                el.addEventListener('click', e => { if(state.suppressClick){e.preventDefault();e.stopImmediatePropagation();}state.suppressClick=false; }, true);
                 window.fieldMap.state.set(el,state); window.fieldMap.fit(el); reveal(state.world);
             },
             zoom: (el, amount) => { const s=window.fieldMap.state.get(el);if(!s)return;const cx=el.clientWidth/2,cy=el.clientHeight/2,old=s.z;s.z=Math.max(.05,Math.min(3,s.z*amount));s.x=cx-(cx-s.x)*s.z/old;s.y=cy-(cy-s.y)*s.z/old;s.world.style.setProperty('--marker-scale',1/s.z);s.world.style.transform=`matrix(${s.z},0,0,${s.z},${s.x},${s.y})`; },
