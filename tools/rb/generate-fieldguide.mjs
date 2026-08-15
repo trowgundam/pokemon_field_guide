@@ -11,6 +11,8 @@ const itemsOut = path.join(packageRoot, 'sprites/items');
 for (const dir of [dataRoot, mapsOut, pokemonOut, itemsOut]) fs.mkdirSync(dir, { recursive: true });
 
 const read = relative => fs.readFileSync(path.join(source, relative), 'utf8');
+const readMapScripts = label => [path.join(source, `scripts/${label}.asm`), path.join(source, `scripts/${label}_2.asm`)]
+  .filter(fs.existsSync).map(file => fs.readFileSync(file, 'utf8')).join('\n');
 const title = value => value === 'TM_COUNTER' ? 'TM18 (Counter)' : value.replace(/^MAP_/, '').replace(/^SPECIES_/, '').replace(/^ITEM_/, '')
   .toLowerCase().split('_').map(x => x ? x[0].toUpperCase() + x.slice(1) : x).join(' ')
   .replace(/Route (\d+)/g, 'Route $1').replace(/(\d)f\b/g, '$1F').replace(/B(\d)f\b/g, 'B$1F')
@@ -46,21 +48,34 @@ const mapByLabel = new Map([...maps.values()].map(x => [x.label, x]));
 for (const file of fs.readdirSync(path.join(source, 'data/wild/maps')).filter(x => x.endsWith('.asm'))) {
   const chunks = read(`data/wild/maps/${file}`).split(/(?=^\w+WildMons:)/m);
   for (const chunk of chunks) {
-  const wildLabel = chunk.match(/^(\w+)WildMons:/m)?.[1];
-  const area = mapByLabel.get(wildLabel);
-  if (!area) continue;
-  const lines = chunk.split(/\r?\n/);
-  let method = null, slot = 0, version = 'Both';
-  for (const line of lines) {
-    if (/def_grass_wildmons\s+[1-9]/.test(line)) { method = 'Grass / cave'; slot = 0; continue; }
-    if (/def_water_wildmons\s+[1-9]/.test(line)) { method = 'Surf'; slot = 0; continue; }
-    if (/end_(grass|water)_wildmons/.test(line)) { method = null; continue; }
-    if (/IF DEF\(_RED\)/.test(line)) { version = 'Red'; slot = 0; continue; }
-    if (/IF DEF\(_BLUE\)/.test(line)) { version = 'Blue'; slot = 0; continue; }
-    if (/ENDC/.test(line)) { version = 'Both'; continue; }
-    const mon = method && line.match(/^\s*db\s+(\d+),\s*([A-Z0-9_]+)/);
-    if (mon) area.encounters.push({ species: title(mon[2]), speciesId: `SPECIES_${mon[2]}`, minLevel: +mon[1], maxLevel: +mon[1], chance: slotChances[slot++] ?? 0, method, version });
-  }}
+    const wildLabel = chunk.match(/^(\w+)WildMons:/m)?.[1];
+    const area = mapByLabel.get(wildLabel);
+    if (!area) continue;
+    const parsed = [];
+    for (const version of ['Red', 'Blue']) {
+      let method = null, slot = 0, conditionalVersion = null;
+      for (const line of chunk.split(/\r?\n/)) {
+        if (/IF DEF\(_RED\)/.test(line)) { conditionalVersion = 'Red'; continue; }
+        if (/IF DEF\(_BLUE\)/.test(line)) { conditionalVersion = 'Blue'; continue; }
+        if (/ENDC/.test(line)) { conditionalVersion = null; continue; }
+        if (conditionalVersion && conditionalVersion !== version) continue;
+        if (/def_grass_wildmons\s+[1-9]/.test(line)) { method = 'Grass / cave'; slot = 0; continue; }
+        if (/def_water_wildmons\s+[1-9]/.test(line)) { method = 'Surf'; slot = 0; continue; }
+        if (/end_(grass|water)_wildmons/.test(line)) { method = null; continue; }
+        const mon = method && line.match(/^\s*db\s+(\d+),\s*([A-Z0-9_]+)/);
+        if (mon) parsed.push({ species: title(mon[2]), speciesId: `SPECIES_${mon[2]}`, minLevel: +mon[1], maxLevel: +mon[1], chance: slotChances[slot++] ?? 0, method, version });
+      }
+    }
+    const blueRows = parsed.filter(row => row.version === 'Blue'), matchedBlue = new Set();
+    for (const row of parsed.filter(row => row.version === 'Red')) {
+      const matchIndex = blueRows.findIndex((candidate, index) => !matchedBlue.has(index)
+        && candidate.speciesId === row.speciesId && candidate.minLevel === row.minLevel && candidate.maxLevel === row.maxLevel
+        && candidate.chance === row.chance && candidate.method === row.method);
+      if (matchIndex >= 0) { row.version = 'Both'; matchedBlue.add(matchIndex); }
+      area.encounters.push(row);
+    }
+    blueRows.forEach((row, index) => { if (!matchedBlue.has(index)) area.encounters.push(row); });
+  }
 }
 
 const rodText = read('data/wild/super_rod.asm');
@@ -73,7 +88,7 @@ for (const match of rodText.matchAll(/^\s*dbw\s+([A-Z0-9_]+),\s*\.Group(\d+)/gm)
   const area = maps.get(`MAP_${match[1]}`), mons = rodGroups.get(match[2]) ?? []; if (!area) continue;
   area.encounters.push({ species: 'Magikarp', speciesId: 'SPECIES_MAGIKARP', minLevel: 5, maxLevel: 5, chance: 100, method: 'Old Rod', version: 'Both' });
   for (const species of ['GOLDEEN', 'POLIWAG']) area.encounters.push({ species: title(species), speciesId: `SPECIES_${species}`, minLevel: 10, maxLevel: 10, chance: 50, method: 'Good Rod', version: 'Both' });
-  for (const [index, mon] of mons.entries()) area.encounters.push({ species: title(mon.species), speciesId: `SPECIES_${mon.species}`, minLevel: mon.level, maxLevel: mon.level, chance: Math.floor(100 / mons.length) + (index < 100 % mons.length ? 1 : 0), method: 'Super Rod', version: 'Both' });
+  for (const mon of mons) area.encounters.push({ species: title(mon.species), speciesId: `SPECIES_${mon.species}`, minLevel: mon.level, maxLevel: mon.level, chance: 100 / mons.length, method: 'Super Rod', version: 'Both' });
 }
 
 for (const area of maps.values()) {
@@ -92,9 +107,8 @@ for (const area of maps.values()) {
       area.items.push({ id: `${area.id}:visible:${match[1]}:${match[2]}`, name: title(match[3]), kind: 'Visible', icon: 'question_mark.png', x: +match[1], y: +match[2], quantity: 1 });
     }
   }
-  const scriptPath = path.join(source, `scripts/${area.label}.asm`);
-  if (fs.existsSync(scriptPath)) {
-    const script = fs.readFileSync(scriptPath, 'utf8');
+  const script = readMapScripts(area.label);
+  if (script) {
     for (const match of script.matchAll(/lb bc,\s*([A-Z][A-Z0-9_]*),\s*(\d+)[\s\S]{0,240}?call GiveItem/g)) area.items.push({
       id: `${area.id}:event:${match[1]}:${match.index}`, name: title(match[1]), kind: 'Event', icon: 'question_mark.png', x: -1, y: -1, quantity: +match[2]
     });
@@ -116,10 +130,23 @@ for (const line of read('data/events/hidden_events.asm').split(/\r?\n/)) {
 const addSpecial = (map, species, level, kind = 'Static', version = 'Both', requestedSpecies = null) => maps.get(map)?.specialPokemon.push({
   id: `${map}:${kind}:${species}:${version}`, species: title(species), speciesId: `SPECIES_${species}`, level, kind, version, requestedSpecies
 });
+const dexSpeciesNames = new Set([...read('constants/pokedex_constants.asm').matchAll(/^\s*const\s+DEX_([A-Z0-9_]+)/gm)].map(match => match[1]));
+const staticCounts = new Map();
+for (const area of maps.values()) {
+  const objectPath = path.join(source, `data/maps/objects/${area.label}.asm`);
+  if (!fs.existsSync(objectPath)) continue;
+  for (const match of fs.readFileSync(objectPath, 'utf8').matchAll(/^\s*object_event\s+(\d+),\s*(\d+),[^\n]*,\s*([A-Z][A-Z0-9_]*),\s*(\d+)\s*(?:;.*)?$/gm)) {
+    if (!dexSpeciesNames.has(match[3])) continue;
+    const countKey = `${area.id}:${match[3]}`, count = staticCounts.get(countKey) ?? 0;
+    staticCounts.set(countKey, count + 1);
+    // Preserve the released checklist ID for the first instance of each species;
+    // coordinate IDs distinguish additional source-defined encounters.
+    const id = count === 0 ? `${area.id}:Static:${match[3]}:Both` : `${area.id}:static:${match[1]}:${match[2]}:${match[3]}`;
+    area.specialPokemon.push({ id, species: title(match[3]), speciesId: `SPECIES_${match[3]}`, level: +match[4], kind: 'Static', version: 'Both', requestedSpecies: null });
+  }
+}
 for (const starter of ['BULBASAUR', 'CHARMANDER', 'SQUIRTLE']) addSpecial('MAP_OAKS_LAB', starter, 5, 'Gift');
 for (const fighter of ['HITMONLEE', 'HITMONCHAN']) addSpecial('MAP_FIGHTING_DOJO', fighter, 30, 'Gift');
-addSpecial('MAP_POWER_PLANT', 'ZAPDOS', 50); addSpecial('MAP_SEAFOAM_ISLANDS_B4F', 'ARTICUNO', 50);
-addSpecial('MAP_VICTORY_ROAD_2F', 'MOLTRES', 50); addSpecial('MAP_CERULEAN_CAVE_B1F', 'MEWTWO', 70);
 addSpecial('MAP_SILPH_CO_7F', 'LAPRAS', 15, 'Gift');
 addSpecial('MAP_CELADON_MANSION_ROOF_HOUSE', 'EEVEE', 25, 'Gift');
 addSpecial('MAP_MT_MOON_POKECENTER', 'MAGIKARP', 5, 'Gift');
@@ -136,7 +163,6 @@ for (const [map, received, requested] of [
   ['MAP_UNDERGROUND_PATH_ROUTE_5','NIDORAN_F','Nidoran♂']
 ]) addSpecial(map, received, 0, 'Trade', 'Both', requested);
 addSpecial('MAP_ROUTE_12', 'SNORLAX', 30); addSpecial('MAP_ROUTE_16', 'SNORLAX', 30);
-addSpecial('MAP_POWER_PLANT', 'VOLTORB', 40); addSpecial('MAP_POWER_PLANT', 'ELECTRODE', 43);
 
 // Render each .blk through its 4x4-tile blockset at the game's native 2x scale.
 const tilesetAliases = { REDS_HOUSE_1: 'reds_house', REDS_HOUSE_2: 'reds_house', MART: 'pokecenter', DOJO: 'gym', FOREST_GATE: 'gate', MUSEUM: 'gate' };
@@ -206,7 +232,13 @@ const resolveContractedTarget = (sourceId, targetId) => {
   return null;
 };
 for (const area of maps.values()) {
-  area.encounters = [...new Map(area.encounters.map(e => [[e.speciesId, e.method, e.version, e.minLevel].join('|'), e])).values()];
+  const combined = new Map();
+  for (const encounter of area.encounters) {
+    const key = [encounter.speciesId, encounter.method, encounter.version, encounter.minLevel, encounter.maxLevel].join('|');
+    if (combined.has(key)) combined.get(key).chance += encounter.chance;
+    else combined.set(key, { ...encounter });
+  }
+  area.encounters = [...combined.values()];
   delete area.key; delete area.label; delete area.tileset; delete area.width; delete area.height; delete area.connections;
   area.entrances = area.entrances.map(entrance => {
     const target = resolveContractedTarget(area.id, entrance.targetId);
@@ -223,6 +255,14 @@ const reachable = new Set(placed.map(placement => placement.id)), reachQueue = [
 while (reachQueue.length) for (const target of adjacency.get(reachQueue.shift()) ?? []) if (!reachable.has(target)) { reachable.add(target); reachQueue.push(target); }
 const unreachableRelevant = areas.filter(area => (area.encounters.length || area.items.length || area.specialPokemon.length) && !reachable.has(area.id));
 if (unreachableRelevant.length) throw new Error(`Relevant areas are unreachable from Kanto: ${unreachableRelevant.map(area => area.id).join(', ')}`);
+const referencedMapFiles = new Set(['WORLD_KANTO.png', ...areas.map(area => path.basename(area.mapImage))]);
+for (const file of fs.readdirSync(mapsOut).filter(file => file.endsWith('.png')))
+  if (!referencedMapFiles.has(file)) fs.rmSync(path.join(mapsOut, file));
+const itemCounts = areas.flatMap(area => area.items).reduce((counts, item) => counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1), new Map());
+const expectedItemCounts = { Visible: 104, Hidden: 53, Event: 44 };
+for (const [kind, expected] of Object.entries(expectedItemCounts)) if (itemCounts.get(kind) !== expected)
+  throw new Error(`${kind} item audit failed: expected ${expected}, generated ${itemCounts.get(kind) ?? 0}`);
+if (areas.reduce((sum, area) => sum + area.specialPokemon.length, 0) !== 46) throw new Error('Special Pokémon audit failed: expected 46 distinct acquisitions');
 fs.writeFileSync(path.join(dataRoot, 'fieldguide.json'), JSON.stringify({ source: 'pret/pokered', generated: new Date().toISOString().slice(0, 10), areas }));
 
 const species = [...read('constants/pokedex_constants.asm').matchAll(/^\s*const\s+DEX_([A-Z0-9_]+)/gm)].map(m => m[1]).slice(0, 151);
@@ -238,7 +278,8 @@ for (const section of read('data/pokemon/evos_moves.asm').split(/(?=^\w+EvosMove
   const from = dexByCompactName.get(fromName);
   if (!from) continue;
   const evolutionBlock = section.slice(0, section.search(/^\s*db\s+0/m));
-  for (const match of evolutionBlock.matchAll(/EVOLVE_[A-Z]+,[^\n,]+,(?:[^\n,]+,)?\s*([A-Z0-9_]+)\s*$/gm)) evolutionLinks.push([from, `SPECIES_${match[1]}`]);
+  for (const match of evolutionBlock.matchAll(/(EVOLVE_[A-Z]+),[^\n,]+,(?:[^\n,]+,)?\s*([A-Z0-9_]+)\s*$/gm))
+    if (match[1] !== 'EVOLVE_TRADE') evolutionLinks.push([from, `SPECIES_${match[2]}`]);
 }
 for (const version of ['Red', 'Blue']) {
   let changed = true;
@@ -246,16 +287,33 @@ for (const version of ['Red', 'Blue']) {
 }
 const event = new Set(['MEW']);
 const dex = species.map((name, i) => ({ number: i + 1, regionalNumber: i + 1, name: title(name), speciesId: `SPECIES_${name}`, availability: Object.fromEntries(['Red', 'Blue'].map(v => [v, obtainable[v].has(`SPECIES_${name}`) ? 'Obtainable' : event.has(name) ? 'Event distribution' : 'Trade / transfer required'])) }));
+const expectedUnavailable = {
+  Red: new Set(['SANDSHREW', 'SANDSLASH', 'VULPIX', 'NINETALES', 'MEOWTH', 'PERSIAN', 'ALAKAZAM', 'MACHAMP', 'BELLSPROUT', 'WEEPINBELL', 'VICTREEBEL', 'GOLEM', 'GENGAR', 'MAGMAR', 'PINSIR', 'MEW']),
+  Blue: new Set(['EKANS', 'ARBOK', 'ODDISH', 'GLOOM', 'VILEPLUME', 'MANKEY', 'PRIMEAPE', 'GROWLITHE', 'ARCANINE', 'ALAKAZAM', 'MACHAMP', 'GOLEM', 'GENGAR', 'SCYTHER', 'ELECTABUZZ', 'MEW'])
+};
+for (const version of ['Red', 'Blue']) {
+  const unavailable = new Set(dex.filter(entry => entry.availability[version] !== 'Obtainable').map(entry => entry.speciesId.replace('SPECIES_', '')));
+  if (unavailable.size !== expectedUnavailable[version].size || [...unavailable].some(name => !expectedUnavailable[version].has(name)))
+    throw new Error(`${version} Pokédex availability audit failed: ${[...unavailable].join(', ')}`);
+}
 fs.writeFileSync(path.join(dataRoot, 'pokedex.json'), JSON.stringify(dex));
+const spriteName = speciesId => ({ SPECIES_NIDORAN_F: 'nidoranf.png', SPECIES_NIDORAN_M: 'nidoranm.png', SPECIES_MR_MIME: 'mr.mime.png' }[speciesId]
+  ?? speciesId.replace('SPECIES_', '').toLowerCase() + '.png');
+const referencedSpriteFiles = new Set(['question_mark.png', ...dex.map(entry => spriteName(entry.speciesId))]);
 async function copySpriteWithTransparentBackground(file) {
   const { data, info } = await sharp(path.join(source, 'gfx/pokemon/front_rg', file)).toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const background = data[0], seen = new Uint8Array(info.width * info.height), queue = [];
+  const borderCounts = new Map();
+  const countBorder = (x, y) => { const shade = data[(y * info.width + x) * 4]; borderCounts.set(shade, (borderCounts.get(shade) ?? 0) + 1); };
+  for(let x=0;x<info.width;x++){countBorder(x,0);countBorder(x,info.height-1);}for(let y=1;y<info.height-1;y++){countBorder(0,y);countBorder(info.width-1,y);}
+  const background = [...borderCounts].sort((a, b) => b[1] - a[1])[0][0], seen = new Uint8Array(info.width * info.height), queue = [];
   const enqueue = (x, y) => { const p=y*info.width+x;if(x<0||y<0||x>=info.width||y>=info.height||seen[p]||data[p*4]!==background)return;seen[p]=1;queue.push(p); };
   for(let x=0;x<info.width;x++){enqueue(x,0);enqueue(x,info.height-1);}for(let y=0;y<info.height;y++){enqueue(0,y);enqueue(info.width-1,y);}
   for(let i=0;i<queue.length;i++){const p=queue[i],x=p%info.width,y=Math.floor(p/info.width);data[p*4+3]=0;enqueue(x-1,y);enqueue(x+1,y);enqueue(x,y-1);enqueue(x,y+1);}
   await sharp(data,{raw:{width:info.width,height:info.height,channels:4}}).png().toFile(path.join(pokemonOut,file));
 }
-for (const file of fs.readdirSync(path.join(source, 'gfx/pokemon/front_rg')).filter(x => x.endsWith('.png'))) await copySpriteWithTransparentBackground(file);
+for (const file of fs.readdirSync(path.join(source, 'gfx/pokemon/front_rg')).filter(file => referencedSpriteFiles.has(file))) await copySpriteWithTransparentBackground(file);
 const fallback = await sharp({ create: { width: 32, height: 32, channels: 4, background: '#ffffff00' } }).composite([{ input: Buffer.from('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#eee" stroke="#333" stroke-width="2"/><text x="16" y="23" text-anchor="middle" font-size="22">?</text></svg>') }]).png().toBuffer();
 fs.writeFileSync(path.join(pokemonOut, 'question_mark.png'), fallback); fs.writeFileSync(path.join(itemsOut, 'question_mark.png'), fallback);
+for (const file of fs.readdirSync(pokemonOut).filter(file => file.endsWith('.png')))
+  if (!referencedSpriteFiles.has(file)) fs.rmSync(path.join(pokemonOut, file));
 console.log(`Generated Red/Blue: ${areas.length} areas, ${placed.length} outdoor maps, ${areas.reduce((n,a)=>n+a.encounters.length,0)} encounters, ${areas.reduce((n,a)=>n+a.items.length,0)} items; all ${areas.filter(a=>a.encounters.length||a.items.length||a.specialPokemon.length).length} relevant areas reachable.`);
