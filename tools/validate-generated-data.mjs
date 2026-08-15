@@ -4,7 +4,7 @@ import path from 'node:path';
 const root = path.resolve(process.argv[2] ?? 'PokemonFieldGuide/wwwroot');
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'games/catalog.json')));
 const integerFields = {
-  fieldguide: ['minLevel', 'maxLevel', 'chance', 'level', 'x', 'y', 'quantity', 'mapWidth', 'mapHeight'],
+  fieldguide: ['minLevel', 'maxLevel', 'level', 'x', 'y', 'quantity', 'mapWidth', 'mapHeight'],
   pokedex: ['number', 'regionalNumber'],
   worlds: ['width', 'height', 'x', 'y']
 };
@@ -44,6 +44,9 @@ for (const game of catalog.games) {
     }
     for (const row of [...(area.encounters ?? []), ...(area.specialPokemon ?? [])])
       if (row.version !== 'Both' && !versions.has(row.version)) throw new Error(`${game.id}: invalid version '${row.version}' in ${area.id}`);
+    for (const encounter of area.encounters ?? [])
+      if (typeof encounter.chance !== 'number' || !Number.isFinite(encounter.chance) || encounter.chance <= 0 || encounter.chance > 100)
+        throw new Error(`${game.id}: invalid encounter chance '${encounter.chance}' in ${area.id}`);
   }
   for (const area of areas) for (const entrance of area.entrances ?? [])
     if (entrance.targetId && !areaById.has(entrance.targetId)) throw new Error(`${game.id}: ${area.id} targets missing area ${entrance.targetId}`);

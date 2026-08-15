@@ -38,7 +38,7 @@ public sealed class Encounter
     public string SpeciesId { get; set; } = "";
     public int MinLevel { get; set; }
     public int MaxLevel { get; set; }
-    public int Chance { get; set; }
+    public double Chance { get; set; }
     public string Method { get; set; } = "";
     public string Version { get; set; } = "Both";
 }

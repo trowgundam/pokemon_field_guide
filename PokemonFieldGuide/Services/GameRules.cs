@@ -38,6 +38,12 @@ public sealed class RbGameRulesProvider : IGameRulesProvider
     public IGameRules Rules { get; } = new RbGameRules();
 }
 
+public sealed class YellowGameRulesProvider : IGameRulesProvider
+{
+    public string Id => "yellow";
+    public IGameRules Rules { get; } = new RbGameRules();
+}
+
 internal sealed class RbGameRules : IGameRules
 {
     public string NormalizeAreaId(string id) => id;
