@@ -6,7 +6,7 @@
 <PageTitle>@(game?.PageTitle ?? "Pokémon Field Guide")</PageTitle>
 
 <header class="topbar">
-    <div class="brand"><span class="brand-ball">●</span><div><strong>POKEMON FIELD GUIDE</strong><small>@(game?.Name ?? "INTERACTIVE MAP ATLAS")</small></div></div>
+    <div class="brand"><span class="brand-ball">●</span><div><strong>POKEMON FIELD GUIDE</strong><small>@(game is null ? "INTERACTIVE MAP ATLAS" : $"Pokémon {ActiveVersion.Name}")</small></div></div>
     <div class="top-actions">
         <button class="header-icon desktop-dex" aria-label="Open Pokédex" @onclick="OpenPokedex"><span aria-hidden="true">▦</span></button>
         <button class="header-menu-button" aria-label="Open menu" aria-expanded="@menuOpen" @onclick="()=>menuOpen=!menuOpen"><span aria-hidden="true">☰</span><span>Menu</span></button>
