@@ -15,7 +15,6 @@
       "itemSpritePath": "games/rb/sprites/items",
       "defaultAreaId": "MAP_ROUTE_1",
       "defaultWorldId": "rb-kanto",
-      "validateWorldReachability": true,
       "versions": [
         { "id": "Red", "name": "Red", "progressVersion": 2, "accent": "#e84848", "accentSoft": "#572626" },
         { "id": "Blue", "name": "Blue", "progressVersion": 2, "accent": "#4f6de0", "accentSoft": "#27345c" }
@@ -41,7 +40,6 @@
       "itemSpritePath": "games/yellow/sprites/items",
       "defaultAreaId": "MAP_ROUTE_1",
       "defaultWorldId": "yellow-kanto",
-      "validateWorldReachability": true,
       "versions": [
         { "id": "Yellow", "name": "Yellow", "progressVersion": 2, "accent": "#e6bd27", "accentSoft": "#594b20" }
       ],
@@ -50,6 +48,57 @@
       ],
       "dexModes": [
         { "id": "Kanto", "name": "Kanto", "regional": true }
+      ]
+    },
+    {
+      "id": "gs",
+      "name": "Pokémon Gold / Silver",
+      "shortName": "G/S",
+      "pageTitle": "Pokémon Gold / Silver | Pokemon Field Guide",
+      "atlasTitle": "Johto & Kanto",
+      "loadingLabel": "LOADING JOHTO & KANTO",
+      "dataPath": "games/gs/data/fieldguide.json",
+      "pokedexPath": "games/gs/data/pokedex.json",
+      "worldsPath": "games/gs/data/worlds.json",
+      "pokemonSpritePath": "games/gs/sprites/pokemon",
+      "itemSpritePath": "games/gs/sprites/items",
+      "defaultAreaId": "MAP_NEW_BARK_TOWN",
+      "defaultWorldId": "gs-johto-kanto",
+      "versions": [
+        { "id": "Gold", "name": "Gold", "progressVersion": 2, "accent": "#d3ad32", "accentSoft": "#54471f" },
+        { "id": "Silver", "name": "Silver", "progressVersion": 2, "accent": "#9daabd", "accentSoft": "#3d4654" }
+      ],
+      "regions": [
+        { "id": "JohtoKanto", "name": "Johto & Kanto", "worldId": "gs-johto-kanto" }
+      ],
+      "dexModes": [
+        { "id": "New", "name": "New Pokédex", "regional": true },
+        { "id": "National", "name": "National", "regional": false }
+      ]
+    },
+    {
+      "id": "crystal",
+      "name": "Pokémon Crystal",
+      "shortName": "Crystal",
+      "pageTitle": "Pokémon Crystal | Pokemon Field Guide",
+      "atlasTitle": "Johto & Kanto",
+      "loadingLabel": "LOADING JOHTO & KANTO",
+      "dataPath": "games/crystal/data/fieldguide.json",
+      "pokedexPath": "games/crystal/data/pokedex.json",
+      "worldsPath": "games/crystal/data/worlds.json",
+      "pokemonSpritePath": "games/crystal/sprites/pokemon",
+      "itemSpritePath": "games/crystal/sprites/items",
+      "defaultAreaId": "MAP_NEW_BARK_TOWN",
+      "defaultWorldId": "crystal-johto-kanto",
+      "versions": [
+        { "id": "Crystal", "name": "Crystal", "progressVersion": 2, "accent": "#4ba8df", "accentSoft": "#244b63" }
+      ],
+      "regions": [
+        { "id": "JohtoKanto", "name": "Johto & Kanto", "worldId": "crystal-johto-kanto" }
+      ],
+      "dexModes": [
+        { "id": "New", "name": "New Pokédex", "regional": true },
+        { "id": "National", "name": "National", "regional": false }
       ]
     },
     {
@@ -66,7 +115,6 @@
       "itemSpritePath": "games/frlg/sprites/items",
       "defaultAreaId": "MAP_ROUTE1",
       "defaultWorldId": "kanto",
-      "validateWorldReachability": true,
       "versions": [
         { "id": "FireRed", "name": "FireRed", "progressVersion": 2, "accent": "#ef4b43", "accentSoft": "#5a2928" },
         { "id": "LeafGreen", "name": "LeafGreen", "progressVersion": 2, "accent": "#55e06f", "accentSoft": "#214b2d" }

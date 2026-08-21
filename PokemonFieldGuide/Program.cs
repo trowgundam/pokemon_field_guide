@@ -20,6 +20,8 @@ public class Program
         builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("frlg"));
         builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("rb"));
         builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("yellow"));
+        builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("gs"));
+        builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("crystal"));
 
         await builder.Build().RunAsync();
     }

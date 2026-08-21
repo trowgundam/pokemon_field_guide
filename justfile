@@ -45,6 +45,14 @@ install-rb-tools: install-schema-tools
 install-yellow-tools: install-schema-tools
     npm ci --prefix tools/yellow
 
+# Install the pinned Gold/Silver generator dependencies.
+install-gs-tools: install-schema-tools
+    npm ci --prefix tools/gs
+
+# Install the pinned Crystal generator dependencies.
+install-crystal-tools: install-schema-tools
+    npm ci --prefix tools/crystal
+
 # Install the pinned JSON Schema validator.
 install-schema-tools:
     npm ci --prefix tools/package-schema
@@ -54,10 +62,22 @@ check: install-schema-tools
     dotnet run --project {{schema_project}} -- --check
     node --test tools/package-schema/validate.test.mjs
     node --test tools/package-finalization.test.mjs
+    node --test tools/gen2/generated-package.test.mjs
+    node --test tools/crystal/generated-package.test.mjs
     node --check tools/frlg/generate-fieldguide.mjs
     node --check tools/frlg/render-maps.mjs
     node --check tools/rb/generate-fieldguide.mjs
     node --check tools/yellow/generate-fieldguide.mjs
+    node --check tools/gen2/build-package.mjs
+    node --check tools/gen2/connected-world.mjs
+    node --check tools/gen2/display-names.mjs
+    node --check tools/gen2/map-layouts.mjs
+    node --check tools/gen2/map-rendering.mjs
+    node --check tools/gen2/sprite-rendering.mjs
+    node --check tools/gs/build-package.mjs
+    node --check tools/gs/generate-fieldguide.mjs
+    node --check tools/crystal/build-package.mjs
+    node --check tools/crystal/generate-fieldguide.mjs
     node tools/validate-generated-data.mjs
     dotnet restore {{test_project}} --locked-mode
     dotnet test {{test_project}} --no-restore
@@ -74,3 +94,11 @@ generate-rb source: install-rb-tools
 # Regenerate the complete Yellow package from a pokeyellow checkout.
 generate-yellow source: install-yellow-tools
     node tools/yellow/generate-fieldguide.mjs "{{source}}"
+
+# Regenerate the complete Gold/Silver package from a pokegold checkout.
+generate-gs source: install-gs-tools
+    node tools/gs/generate-fieldguide.mjs "{{source}}"
+
+# Regenerate the complete Crystal package from a pokecrystal checkout.
+generate-crystal source: install-crystal-tools
+    node tools/crystal/generate-fieldguide.mjs "{{source}}"
