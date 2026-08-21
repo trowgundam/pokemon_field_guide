@@ -15,6 +15,15 @@
         "type": "string"
       }
     },
+    "pokemonSpritesByVersion": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
     "areaAliases": {
       "type": "object",
       "additionalProperties": {

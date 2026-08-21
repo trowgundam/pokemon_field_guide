@@ -26,7 +26,6 @@ public sealed class GameDefinition
     [JsonRequired] public string ItemSpritePath { get; set; } = "";
     [JsonRequired] public string DefaultAreaId { get; set; } = "";
     [JsonRequired] public string DefaultWorldId { get; set; } = "";
-    [JsonRequired] public bool ValidateWorldReachability { get; set; }
     [JsonRequired] public List<GameVersionDefinition> Versions { get; set; } = [];
     [JsonRequired] public List<GameRegionDefinition> Regions { get; set; } = [];
     [JsonRequired] public List<DexModeDefinition> DexModes { get; set; } = [];
@@ -63,5 +62,6 @@ public sealed class PackageManifest
 {
     [JsonRequired, Range(2, 2)] public int FormatVersion { get; set; } = 2;
     [JsonRequired] public Dictionary<string, string> PokemonSprites { get; set; } = [];
+    public Dictionary<string, Dictionary<string, string>> PokemonSpritesByVersion { get; set; } = [];
     [JsonRequired] public Dictionary<string, string> AreaAliases { get; set; } = [];
 }

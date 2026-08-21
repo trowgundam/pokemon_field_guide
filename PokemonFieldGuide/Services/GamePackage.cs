@@ -78,6 +78,7 @@ public sealed class GamePackage
                 (Matches(area.Name)
                  || Matches(area.Region)
                  || area.Items.Any(item => Matches(item.Name) || Matches(item.Kind))
+                 || area.Resources.Any(resource => Matches(resource.Name) || Matches(resource.Kind))
                  || EncountersFor(area, versionId).Any(encounter => Matches(encounter.Species) || Matches(encounter.Method))
                  || SpecialPokemonFor(area, versionId).Any(mon => Matches(mon.Species) || Matches(mon.Kind) || Matches(mon.RequestedSpecies))
                  || area.Entrances.Any(entrance => Matches(entrance.Name))))
@@ -166,10 +167,15 @@ public sealed class GamePackage
     }
 
     public IReadOnlyList<EncounterGroup> EncounterGroups(GuideArea area, string versionId) =>
-        EncountersFor(area, versionId)
-            .GroupBy(encounter => encounter.Type)
-            .OrderBy(group => group.Key.Presentation().Order)
-            .Select(group => new EncounterGroup(group.Key.Presentation().DisplayName, group.ToList()))
+        CollapseEquivalentTimeTables(EncountersFor(area, versionId))
+            .OrderBy(table => table.Type.Presentation().Order)
+            .ThenBy(table => ConditionOrder(table.Condition))
+            .ThenBy(table => table.Condition, StringComparer.Ordinal)
+            .Select(table => new EncounterGroup(
+                table.Condition is null
+                    ? table.Type.Presentation().DisplayName
+                    : $"{table.Type.Presentation().DisplayName} · {table.Condition}",
+                table.Encounters))
             .ToList();
 
     public IReadOnlyList<ItemGroup> ItemGroups(GuideArea area) =>
@@ -210,9 +216,17 @@ public sealed class GamePackage
             .ToList();
     }
 
-    public string PokemonIcon(string speciesId) => manifest.PokemonSprites.TryGetValue(speciesId, out var fileName)
-        ? $"{Definition.PokemonSpritePath}/{fileName}"
-        : PokemonFallback;
+    public string PokemonIcon(string speciesId, string versionId)
+    {
+        if (manifest.PokemonSpritesByVersion.GetValueOrDefault(versionId)?.GetValueOrDefault(speciesId) is { } versionFileName)
+        {
+            return $"{Definition.PokemonSpritePath}/{versionFileName}";
+        }
+
+        return manifest.PokemonSprites.TryGetValue(speciesId, out var fileName)
+            ? $"{Definition.PokemonSpritePath}/{fileName}"
+            : PokemonFallback;
+    }
 
     public string ItemIcon(GuideItem item) => $"{Definition.ItemSpritePath}/{item.Icon}";
 
@@ -281,10 +295,142 @@ public sealed class GamePackage
     };
 
     private static bool IsRelevant(GuideArea area) =>
-        area.Items.Count + area.SpecialPokemon.Count + area.Encounters.Count > 0;
+        area.IncludeInNavigation || area.Items.Count + area.Resources.Count + area.SpecialPokemon.Count + area.Encounters.Count > 0;
+
+    private static IReadOnlyList<EncounterTable> CollapseEquivalentTimeTables(IEnumerable<Encounter> encounters)
+    {
+        var tables = encounters
+            .GroupBy(encounter => (encounter.Type, encounter.Condition))
+            .Select(group =>
+            {
+                var timed = ParseTimedCondition(group.Key.Condition);
+                return new EncounterTable(
+                    group.Key.Type,
+                    timed is null ? group.Key.Condition : timed.Prefix,
+                    timed?.Times ?? EncounterTimes.None,
+                    group.ToList());
+            })
+            .ToList();
+        var collapsed = tables.Where(table => table.Times == EncounterTimes.None).ToList();
+
+        foreach (var bucket in tables.Where(table => table.Times != EncounterTimes.None)
+                     .GroupBy(table => (table.Type, table.Condition)))
+        {
+            var equivalent = new List<EncounterTable>();
+            foreach (var table in bucket)
+            {
+                var existingIndex = equivalent.FindIndex(candidate => EncounterTablesEqual(candidate.Encounters, table.Encounters));
+                if (existingIndex < 0)
+                {
+                    equivalent.Add(table);
+                }
+                else
+                {
+                    equivalent[existingIndex] = equivalent[existingIndex] with
+                    {
+                        Times = equivalent[existingIndex].Times | table.Times
+                    };
+                }
+            }
+
+            collapsed.AddRange(equivalent.Select(table => table with
+            {
+                Condition = table.Times == EncounterTimes.All
+                    ? table.Condition
+                    : JoinCondition(table.Condition, TimeLabel(table.Times))
+            }));
+        }
+
+        return collapsed;
+    }
+
+    private static bool EncounterTablesEqual(IReadOnlyList<Encounter> left, IReadOnlyList<Encounter> right) =>
+        EncounterSlots(left).SequenceEqual(EncounterSlots(right));
+
+    private static IEnumerable<EncounterSlot> EncounterSlots(IEnumerable<Encounter> encounters) =>
+        encounters
+            .Select(encounter => new EncounterSlot(
+                encounter.SpeciesId,
+                encounter.Method,
+                encounter.MinLevel,
+                encounter.MaxLevel,
+                encounter.Chance))
+            .OrderBy(slot => slot.SpeciesId, StringComparer.Ordinal)
+            .ThenBy(slot => slot.Method, StringComparer.Ordinal)
+            .ThenBy(slot => slot.MinLevel)
+            .ThenBy(slot => slot.MaxLevel)
+            .ThenBy(slot => slot.Chance);
+
+    private static TimedCondition? ParseTimedCondition(string? condition)
+    {
+        if (condition is null)
+        {
+            return null;
+        }
+
+        var separator = condition.LastIndexOf(" · ", StringComparison.Ordinal);
+        var prefix = separator < 0 ? null : condition[..separator];
+        var timeText = separator < 0 ? condition : condition[(separator + 3)..];
+        var times = EncounterTimes.None;
+        foreach (var part in timeText.Split(" / ", StringSplitOptions.None))
+        {
+            var time = part switch
+            {
+                "Morning" => EncounterTimes.Morning,
+                "Day" => EncounterTimes.Day,
+                "Night" => EncounterTimes.Night,
+                _ => EncounterTimes.None
+            };
+            if (time == EncounterTimes.None)
+            {
+                return null;
+            }
+            times |= time;
+        }
+
+        return new TimedCondition(prefix, times);
+    }
+
+    private static string TimeLabel(EncounterTimes times) => string.Join(" / ", new[]
+    {
+        (EncounterTimes.Morning, "Morning"),
+        (EncounterTimes.Day, "Day"),
+        (EncounterTimes.Night, "Night")
+    }.Where(entry => times.HasFlag(entry.Item1)).Select(entry => entry.Item2));
+
+    private static string JoinCondition(string? prefix, string suffix) =>
+        prefix is null ? suffix : $"{prefix} · {suffix}";
+
+    private static int ConditionOrder(string? condition)
+    {
+        if (condition is null)
+        {
+            return 0;
+        }
+
+        var times = ParseTimedCondition(condition)?.Times ?? EncounterTimes.None;
+        if (times.HasFlag(EncounterTimes.Morning)) return 1;
+        if (times.HasFlag(EncounterTimes.Day)) return 2;
+        if (times.HasFlag(EncounterTimes.Night)) return 3;
+        return 4;
+    }
 
     private static string NaturalKey(string name) =>
         Regex.Replace(name.ToUpperInvariant(), @"\d+", match => int.Parse(match.Value).ToString("D8"));
+
+    [Flags]
+    private enum EncounterTimes
+    {
+        None = 0,
+        Morning = 1,
+        Day = 2,
+        Night = 4,
+        All = Morning | Day | Night
+    }
+
+    private sealed record TimedCondition(string? Prefix, EncounterTimes Times);
+    private sealed record EncounterTable(EncounterType Type, string? Condition, EncounterTimes Times, IReadOnlyList<Encounter> Encounters);
+    private sealed record EncounterSlot(string SpeciesId, string Method, int MinLevel, int MaxLevel, double Chance);
 }
 
 public sealed record DisplayEntrance(string TargetId, string Name, double X, double Y);
@@ -307,6 +453,7 @@ public static class EncounterTypeExtensions
         EncounterType.SuperRod => new("Fishing · Super Rod", 4),
         EncounterType.Roaming => new("Roaming encounters", 5),
         EncounterType.RockSmash => new("Rock Smash", 6),
+        EncounterType.Headbutt => new("Headbutt", 7),
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "The encounter type has no presentation metadata.")
     };
 }

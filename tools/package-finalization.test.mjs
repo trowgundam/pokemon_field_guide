@@ -22,7 +22,6 @@ async function fixture() {
       pokemonSpritePath: 'games/test/sprites/pokemon',
       itemSpritePath: 'games/test/sprites/items',
       defaultAreaId: 'AREA_OUTDOOR', defaultWorldId: 'test-world',
-      validateWorldReachability: true,
       versions: [{ id: 'Test', name: 'Test', progressVersion: 1, accent: '#000000', accentSoft: '#111111' }],
       regions: [{ id: 'Test', name: 'Test', worldId: 'test-world' }],
       dexModes: [{ id: 'Regional', name: 'Regional', regional: true }]
@@ -46,6 +45,7 @@ async function validDraft(assets) {
       mapWidth: 16, mapHeight: 16,
       encounters: [{ species: 'Test', speciesId: 'SPECIES_TEST', minLevel: 2, maxLevel: 2, chance: 100, method: 'Grass', type: 'Random', version: 'Both' }],
       items: [{ id: 'AREA_OUTDOOR:item:0', name: 'Item', kind: 'Visible', icon: itemFallback, x: 0, y: 0, quantity: 1 }],
+      resources: [{ name: 'Berry', kind: 'Daily fruit tree', x: 0, y: 0 }],
       specialPokemon: [], entrances: []
     }],
     worlds: [{ id: 'test-world', image: worldMap, width: 16, height: 16, maps: [{ id: 'AREA_OUTDOOR', x: 0, y: 0, width: 16, height: 16 }] }],
@@ -75,10 +75,86 @@ test('generates a complete package and checks the installed result', async t => 
   assert.deepEqual(report.map(result => result.gameId), ['test']);
   assert.equal(formatPackageReport(report[0]), 'Generated Test: 1 area, 1 encounter, 1 item, and 0 special Pokémon.');
 
-  assert.equal(JSON.parse(await fs.readFile(path.join(packageRoot, 'data/fieldguide.json'))).areas.length, 1);
+  const fieldGuide = JSON.parse(await fs.readFile(path.join(packageRoot, 'data/fieldguide.json')));
+  assert.equal(fieldGuide.areas.length, 1);
+  assert.deepEqual(fieldGuide.areas[0].resources, [{ name: 'Berry', kind: 'Daily fruit tree', x: 0, y: 0 }]);
   assert.equal(JSON.parse(await fs.readFile(path.join(packageRoot, 'data/package-manifest.json'))).pokemonSprites.SPECIES_TEST, 'test.png');
   await assert.rejects(fs.stat(path.join(packageRoot, 'maps/UNUSED.png')), { code: 'ENOENT' });
   await assert.rejects(fs.stat(path.join(packageRoot, 'stale.txt')), { code: 'ENOENT' });
+});
+
+test('keeps conditional encounter tables and version-specific sprites independent', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await generatePackage({
+    gameId: 'test', webRoot,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets);
+      draft.areas[0].encounters = [
+        { ...draft.areas[0].encounters[0], condition: 'Morning' },
+        { ...draft.areas[0].encounters[0], species: 'Night Test', speciesId: 'SPECIES_NIGHT_TEST', condition: 'Night' }
+      ];
+      draft.pokedex.push({ number: 2, regionalNumber: 2, name: 'Night Test', speciesId: 'SPECIES_NIGHT_TEST', availability: { Test: 'Obtainable' } });
+      const nightSprite = await assets.pokemonSprite('night.png', target => fs.writeFile(target, png));
+      const versionSprite = await assets.pokemonSprite('test-version.png', target => fs.writeFile(target, png));
+      draft.pokemonSprites.SPECIES_NIGHT_TEST = nightSprite;
+      draft.pokemonSpritesByVersion = { Test: { SPECIES_TEST: versionSprite } };
+      return draft;
+    }
+  });
+
+  const packageRoot = path.join(webRoot, 'games/test');
+  const fieldGuide = JSON.parse(await fs.readFile(path.join(packageRoot, 'data/fieldguide.json')));
+  const manifest = JSON.parse(await fs.readFile(path.join(packageRoot, 'data/package-manifest.json')));
+  assert.deepEqual(fieldGuide.areas[0].encounters.map(encounter => encounter.condition), ['Morning', 'Night']);
+  assert.equal(manifest.pokemonSpritesByVersion.Test.SPECIES_TEST, 'test-version.png');
+  assert.equal((await fs.stat(path.join(packageRoot, 'sprites/pokemon/test-version.png'))).isFile(), true);
+});
+
+test('retains an empty map explicitly included in navigation', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await generatePackage({
+    gameId: 'test', webRoot,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets);
+      draft.areas[0].entrances.push({ id: 'AREA_OUTDOOR:nav', targetId: 'NAVIGATION_MAP', name: 'Navigation Map', x: 0, y: 0 });
+      draft.areas.push({
+        id: 'NAVIGATION_MAP', name: 'Navigation Map', region: 'Test', mapImage: draft.areas[0].mapImage,
+        mapWidth: 16, mapHeight: 16, encounters: [], items: [], specialPokemon: [], includeInNavigation: true,
+        entrances: [{ id: 'NAVIGATION_MAP:out', targetId: 'AREA_OUTDOOR', name: 'Outdoor', x: 0, y: 0 }]
+      });
+      return draft;
+    }
+  });
+
+  const fieldGuide = JSON.parse(await fs.readFile(path.join(webRoot, 'games/test/data/fieldguide.json')));
+  assert.equal(fieldGuide.areas.find(area => area.id === 'NAVIGATION_MAP').includeInNavigation, true);
+});
+
+test('retains a connected area whose only guide content is a renewable resource', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await generatePackage({
+    gameId: 'test', webRoot,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets);
+      draft.areas[0].entrances.push({ id: 'AREA_OUTDOOR:grove', targetId: 'GROVE', name: 'Grove', x: 0, y: 0 });
+      draft.areas.push({
+        id: 'GROVE', name: 'Grove', region: 'Test', mapImage: draft.areas[0].mapImage,
+        mapWidth: 16, mapHeight: 16, encounters: [], items: [],
+        resources: [{ name: 'Berry', kind: 'Daily fruit tree', x: 0, y: 0 }], specialPokemon: [],
+        entrances: [{ id: 'GROVE:out', targetId: 'AREA_OUTDOOR', name: 'Outdoor', x: 0, y: 0 }]
+      });
+      return draft;
+    }
+  });
+
+  const fieldGuide = JSON.parse(await fs.readFile(path.join(webRoot, 'games/test/data/fieldguide.json')));
+  assert.deepEqual(fieldGuide.areas.map(area => area.id), ['AREA_OUTDOOR', 'GROVE']);
 });
 
 test('rejects a relevant interior that no world marker can open', async t => {
@@ -96,7 +172,7 @@ test('rejects a relevant interior that no world marker can open', async t => {
   });
   await fs.writeFile(fieldGuidePath, JSON.stringify(fieldGuide));
 
-  await assert.rejects(checkPackages({ webRoot }), /BACK_ONLY.*not navigable|not navigable.*BACK_ONLY/i);
+  await assert.rejects(checkPackages({ webRoot }), /not reachable from a world warp.*BACK_ONLY/i);
 });
 
 test('retains an empty junction instead of guessing among relevant targets', async t => {
@@ -205,24 +281,38 @@ test('rejects a visible marker outside its cropped world placement', async t => 
   }), /visible marker.*outside.*placement/i);
 });
 
-test('ignores missing targets in disconnected discarded draft areas', async t => {
+test('rejects every disconnected draft area before contraction', async t => {
   const webRoot = await fixture();
   t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
 
-  await generatePackage({
+  await assert.rejects(generatePackage({
     gameId: 'test', webRoot,
     build: async ({ assets }) => {
       const draft = await validDraft(assets);
       draft.areas.push({
-        id: 'DISCARDED', name: 'Discarded', region: 'Test', mapImage: null,
-        mapWidth: 0, mapHeight: 0, encounters: [], items: [], specialPokemon: [],
-        entrances: [{ id: 'DISCARDED:warp:0', targetId: 'MISSING', name: 'Missing', x: 0, y: 0 }]
+        id: 'DISCONNECTED', name: 'Disconnected', region: 'Test', mapImage: draft.areas[0].mapImage,
+        mapWidth: 16, mapHeight: 16, encounters: [], items: [], specialPokemon: [],
+        entrances: [{ id: 'DISCONNECTED:warp:0', targetId: 'AREA_OUTDOOR', name: 'Outdoor', x: 0, y: 0 }]
       });
       return draft;
     }
-  });
+  }), /draft areas are not reachable from a world warp.*DISCONNECTED/i);
+});
 
-  assert.equal(JSON.parse(await fs.readFile(path.join(webRoot, 'games/test/data/fieldguide.json'))).areas.length, 1);
+test('rejects every disconnected retained area after contraction', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+  await generatePackage({ gameId: 'test', webRoot, build: async ({ assets }) => validDraft(assets) });
+
+  const fieldGuidePath = path.join(webRoot, 'games/test/data/fieldguide.json');
+  const fieldGuide = JSON.parse(await fs.readFile(fieldGuidePath));
+  fieldGuide.areas.push({
+    id: 'DISCONNECTED', name: 'Disconnected', region: 'Test', mapImage: fieldGuide.areas[0].mapImage,
+    mapWidth: 16, mapHeight: 16, encounters: [], items: [], specialPokemon: [], entrances: []
+  });
+  await fs.writeFile(fieldGuidePath, JSON.stringify(fieldGuide));
+
+  await assert.rejects(checkPackages({ webRoot }), /final areas are not reachable from a world warp.*DISCONNECTED/i);
 });
 
 test('omits an entrance whose valid chain contains no guide data', async t => {
@@ -289,7 +379,7 @@ test('rejects a missing branch beside a valid contraction target', async t => {
       draft.areas[0].entrances.push({ id: 'AREA_OUTDOOR:warp:0', targetId: 'JUNCTION', name: 'Junction', x: 0, y: 0 });
       return draft;
     }
-  }), /reached missing area MISSING/i);
+  }), /targets missing area MISSING/i);
 });
 
 test('leaves the installed package unchanged when a build fails', async t => {

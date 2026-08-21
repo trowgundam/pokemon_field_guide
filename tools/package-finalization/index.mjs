@@ -28,7 +28,11 @@ const pruneUnreferencedAssets = async (stageRoot, relative, finalized) => {
     ...finalized.fieldGuide.areas.filter(area => area.mapImage).map(area => path.posix.basename(area.mapImage)),
     ...finalized.worlds.map(world => path.posix.basename(world.image))
   ]);
-  const pokemon = new Set(['question_mark.png', ...Object.values(finalized.manifest.pokemonSprites)]);
+  const pokemon = new Set([
+    'question_mark.png',
+    ...Object.values(finalized.manifest.pokemonSprites),
+    ...Object.values(finalized.manifest.pokemonSpritesByVersion ?? {}).flatMap(sprites => Object.values(sprites))
+  ]);
   const items = new Set(['question_mark.png', ...finalized.fieldGuide.areas.flatMap(area => area.items.map(item => item.icon))]);
   await Promise.all([
     prunePngs(path.join(stageRoot, relative.mapDirectory), maps),

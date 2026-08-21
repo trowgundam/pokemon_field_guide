@@ -52,10 +52,10 @@ else
             <nav class="outdoor-list @(!searchOpen?"closed":"")">
                 @foreach (var area in OutdoorAreas)
                 {
-                    <button class="outdoor-row @(area==mapArea?"active":"")" @onclick="()=>SelectSearchArea(area)"><span><strong>@area.Name</strong><small>@area.Items.Count items · @(IsOutdoor(area.Id)?$"{RelevantEntrancesFor(area).Count()} entrances":"interior map")</small></span><b>@AreaPercent(area)%</b></button>
+                    <button class="outdoor-row @(area==mapArea?"active":"")" @onclick="()=>SelectSearchArea(area)"><span><strong>@area.Name</strong><small>@area.Items.Count items@(area.Resources.Count>0?$" · {area.Resources.Count} resources":"") · @(IsOutdoor(area.Id)?$"{RelevantEntrancesFor(area).Count()} entrances":"interior map")</small></span><b>@AreaPercent(area)%</b></button>
                 }
             </nav>
-            <div class="legend"><span><i class="legend-pin item-pin">◆</i> Item</span><span><i class="legend-pin hidden-pin">?</i> Hidden</span><span><i class="legend-pin door-pin">⌂</i> Entrance</span></div>
+            <div class="legend"><span><i class="legend-pin item-pin">◆</i> Item</span><span><i class="legend-pin hidden-pin">?</i> Hidden</span><span><i class="legend-pin resource-pin">●</i> Resource</span><span><i class="legend-pin door-pin">⌂</i> Entrance</span></div>
         </aside>
 
         <section class="map-stage">
@@ -78,6 +78,10 @@ else
                                 {
                                     <button aria-label="@item.Name — @item.Kind item" style="left:@(placement.X+(item.X-placement.MarkerOffsetX)*16+8)px;top:@(placement.Y+(item.Y-placement.MarkerOffsetY)*16+8)px" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.IsCollected(item.Id)?"done":"")" @onclick="()=>InspectItem(area,item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@area.Name · @item.Name</label></button>
                                 }
+                                @foreach (var resource in area.Resources)
+                                {
+                                    <button aria-label="@resource.Name — @resource.Kind" style="left:@(placement.X+(resource.X-placement.MarkerOffsetX)*16+8)px;top:@(placement.Y+(resource.Y-placement.MarkerOffsetY)*16+8)px" class="map-marker resource-marker" @onclick="()=>InspectResource(area,resource)"><span>●</span><label>@area.Name · @resource.Name · @resource.Kind</label></button>
+                                }
                                 @foreach (var entrance in RelevantEntrancesFor(area))
                                 {
                                     <button aria-label="Enter @entrance.Name" style="left:@(placement.X+(entrance.X-placement.MarkerOffsetX)*16+8)px;top:@(placement.Y+(entrance.Y-placement.MarkerOffsetY)*16+8)px" class="map-marker entrance-marker" @onclick="()=>OpenEntrance(entrance.TargetId)"><span>⌂</span><label>@area.Name · @entrance.Name</label></button>
@@ -98,6 +102,10 @@ else
                     {
                         <div class="focused-find"><span class="item-gem">◆</span><div><strong>@inspectedItem.Name</strong><small>@inspectedItem.Kind item · X @inspectedItem.X, Y @inspectedItem.Y</small></div><label><input type="checkbox" checked="@CurrentProgress.IsCollected(inspectedItem.Id)" @onchange="()=>ToggleItem(inspectedItem.Id)" /> Collected</label></div>
                     }
+                    @if (inspectedResource is not null)
+                    {
+                        <div class="focused-find resource-find"><span>●</span><div><strong>@inspectedResource.Name</strong><small>@inspectedResource.Kind · X @inspectedResource.X, Y @inspectedResource.Y</small></div></div>
+                    }
                     @if (EncounterGroups.Any())
                     {
                         @foreach(var encounterGroup in EncounterGroups)
@@ -114,6 +122,10 @@ else
                     {
                         @foreach(var group in ItemGroupsFor(detailArea)){<h3>@group.Kind items <small>@group.Items.Count</small></h3><div class="drawer-items">@foreach(var item in group.Items.OrderBy(x=>x.Name)){<label class="@(CurrentProgress.IsCollected(item.Id)?"done":"")"><input type="checkbox" checked="@CurrentProgress.IsCollected(item.Id)" @onchange="()=>ToggleItem(item.Id)"/><img alt="" src="@ItemIcon(item)" onerror="@ItemFallbackScript"/><span><strong>@item.Name</strong><small>@(item.X<0?"Received from an event":$"X {item.X}, Y {item.Y}")</small></span></label>}</div>}
                     }
+                    @if (detailArea.Resources.Any())
+                    {
+                        <h3>Renewable resources <small>@detailArea.Resources.Count</small></h3><div class="resource-list">@foreach(var resource in detailArea.Resources.OrderBy(x=>x.Name)){<button @onclick="()=>InspectResource(detailArea,resource)"><i>●</i><span><strong>@resource.Name</strong><small>@resource.Kind · X @resource.X, Y @resource.Y</small></span></button>}</div>
+                    }
                 }
             </aside>
         </section>
@@ -128,12 +140,14 @@ else
         <section class="interior-modal" role="dialog" aria-modal="true" aria-labelledby="interior-title">
             <header><div><span class="eyebrow">INTERIOR MAP</span><h2 id="interior-title">@InteriorTitle</h2></div>@if(InteriorFloors.Count>1){<select aria-label="Interior floor" @onchange="ChangeInterior">@foreach(var floor in InteriorFloors){<option value="@floor.Id" selected="@(floor==interiorArea)">@floor.Name</option>}</select>}<button aria-label="Close interior map" @onclick="()=>interiorOpen=false">×</button></header>
             <div class="interior-body">
-                <div class="interior-map"><div class="interior-map-controls"><button aria-label="Zoom interior out" @onclick="()=>ZoomInterior(.8)">−</button><button aria-label="Fit interior map" @onclick="FitInterior">⌖</button><button aria-label="Zoom interior in" @onclick="()=>ZoomInterior(1.25)">+</button></div><div class="interior-canvas" style="width:@(interiorArea.MapWidth)px;height:@(interiorArea.MapHeight)px"><img alt="@InteriorTitle map" src="@interiorArea.MapImage" draggable="false"/>@foreach(var item in interiorArea.Items.Where(x=>x.X>=0)){<button aria-label="@item.Name" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.IsCollected(item.Id)?"done":"")" style="left:@(item.X*16+8)px;top:@(item.Y*16+8)px" @onclick="()=>InspectInteriorItem(item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@item.Name@(item.Quantity>1?$" ×{item.Quantity}":"")</label></button>}@foreach(var warp in RelevantEntrancesFor(interiorArea).Where(x=>InteriorFloors.Any(f=>f.Id==x.TargetId))){<button aria-label="Go to @warp.Name" class="map-marker entrance-marker" style="left:@(warp.X*16+8)px;top:@(warp.Y*16+8)px" @onclick="()=>NavigateInterior(warp.TargetId)"><span>⌂</span><label>@warp.Name</label></button>}</div></div>
+                <div class="interior-map"><div class="interior-map-controls"><button aria-label="Zoom interior out" @onclick="()=>ZoomInterior(.8)">−</button><button aria-label="Fit interior map" @onclick="FitInterior">⌖</button><button aria-label="Zoom interior in" @onclick="()=>ZoomInterior(1.25)">+</button></div><div class="interior-canvas" style="width:@(interiorArea.MapWidth)px;height:@(interiorArea.MapHeight)px"><img alt="@InteriorTitle map" src="@interiorArea.MapImage" draggable="false"/>@foreach(var item in interiorArea.Items.Where(x=>x.X>=0)){<button aria-label="@item.Name" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.IsCollected(item.Id)?"done":"")" style="left:@(item.X*16+8)px;top:@(item.Y*16+8)px" @onclick="()=>InspectInteriorItem(item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@item.Name@(item.Quantity>1?$" ×{item.Quantity}":"")</label></button>}@foreach(var resource in interiorArea.Resources){<button aria-label="@resource.Name — @resource.Kind" class="map-marker resource-marker" style="left:@(resource.X*16+8)px;top:@(resource.Y*16+8)px" @onclick="()=>InspectInteriorResource(resource)"><span>●</span><label>@resource.Name · @resource.Kind</label></button>}@foreach(var warp in RelevantEntrancesFor(interiorArea).Where(x=>InteriorFloors.Any(f=>f.Id==x.TargetId))){<button aria-label="Go to @warp.Name" class="map-marker entrance-marker" style="left:@(warp.X*16+8)px;top:@(warp.Y*16+8)px" @onclick="()=>NavigateInterior(warp.TargetId)"><span>⌂</span><label>@warp.Name</label></button>}</div></div>
                 <div class="interior-guide">
                     @if(inspectedItem is not null){<div class="focused-find"><img alt="" src="@ItemIcon(inspectedItem)" onerror="@ItemFallbackScript"/><div><strong>@inspectedItem.Name</strong><small>@inspectedItem.Kind item</small></div><label><input type="checkbox" checked="@CurrentProgress.IsCollected(inspectedItem.Id)" @onchange="()=>ToggleItem(inspectedItem.Id)"/> Collected</label></div>}
+                    @if(inspectedResource is not null){<div class="focused-find resource-find"><span>●</span><div><strong>@inspectedResource.Name</strong><small>@inspectedResource.Kind</small></div></div>}
                     @foreach(var encounterGroup in EncounterGroupsFor(interiorArea)){<h3>@encounterGroup.Name</h3><div class="drawer-grid">@foreach(var mon in encounterGroup.Encounters.GroupBy(x=>x.SpeciesId).OrderBy(x=>x.First().Species)){var first=mon.First();<button class="mini-find @(CurrentProgress.IsCaught(mon.Key)?"done":"")" @onclick="()=>ToggleCaught(mon.Key)"><i>✓</i><img alt="" src="@PokemonIcon(first.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@first.Species</strong><small>@LevelText(mon) · @ChanceText(mon)</small></span></button>}</div>}
                     @foreach(var group in SpecialPokemonGroupsFor(interiorArea)){<h3>@(group.Kind=="Trade"?"In-game trades":group.Kind+" Pokémon")</h3><div class="drawer-grid">@foreach(var mon in group.Pokemon.OrderBy(x=>x.Species)){<button class="mini-find @(CurrentProgress.IsSpecialCompleted(mon.Id)?"done":"")" @onclick="()=>ToggleSpecial(mon)"><i>★</i><img alt="" src="@PokemonIcon(mon.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@mon.Species</strong><small>@(mon.Kind=="Trade"?$"For {mon.RequestedSpecies}":$"Lv. {mon.Level}")</small></span></button>}</div>}
                     @foreach(var group in ItemGroupsFor(interiorArea)){<h3>@group.Kind items</h3>@foreach(var item in group.Items.OrderBy(x=>x.Name)){<label class="interior-check @(CurrentProgress.IsCollected(item.Id)?"done":"")"><input type="checkbox" checked="@CurrentProgress.IsCollected(item.Id)" @onchange="()=>ToggleItem(item.Id)"/><img alt="" src="@ItemIcon(item)" onerror="@ItemFallbackScript"/><span>@item.Name</span></label>}}
+                    @if(interiorArea.Resources.Any()){<h3>Renewable resources</h3><div class="resource-list">@foreach(var resource in interiorArea.Resources.OrderBy(x=>x.Name)){<button @onclick="()=>InspectInteriorResource(resource)"><i>●</i><span><strong>@resource.Name</strong><small>@resource.Kind</small></span></button>}</div>}
                 </div>
             </div>
         </section>
@@ -188,7 +202,7 @@ else
 @if(confirmReset){<div class="modal-backdrop" @onclick="()=>confirmReset=false"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title" @onclick:stopPropagation><span class="warning">!</span><h2 id="reset-title">Reset checklist progress?</h2><p>Select the games to clear. Preferences remain unchanged.</p><div class="backup-games">@foreach(var choice in localState!.ResetChoices){<label><input type="checkbox" checked="@resetProfileIds.Contains(choice.ProfileId)" @onchange="e=>ToggleProfile(resetProfileIds,choice.ProfileId,e)"/><span><strong>@choice.VersionName</strong><small>@choice.PackageName</small></span></label>}</div><div><button @onclick="()=>confirmReset=false">Cancel</button><button class="danger" disabled="@(resetProfileIds.Count==0)" @onclick="Reset">Reset selected</button></div></div></div>}
 
 @code {
-    GameCatalog? catalog; GamePackage? gamePackage; GameDefinition? game; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; LocalGuideSession? localState; LocalGuideRecovery? recovery; PortableBackupPreview? importPreview; string query="",pokedexQuery="",backupMode="export",backupMessage="",stateError=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<ChecklistProfileId> exportProfileIds=[],importProfileIds=[],resetProfileIds=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
+    GameCatalog? catalog; GamePackage? gamePackage; GameDefinition? game; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; GuideMapResource? inspectedResource; LocalGuideSession? localState; LocalGuideRecovery? recovery; PortableBackupPreview? importPreview; string query="",pokedexQuery="",backupMode="export",backupMessage="",stateError=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<ChecklistProfileId> exportProfileIds=[],importProfileIds=[],resetProfileIds=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
     LocalGuideSnapshot State=>localState?.Current??LocalGuideSnapshot.Empty;
     ChecklistProfileView CurrentProgress=>State.Checklist;
     GameVersionDefinition ActiveVersion=>game!.Versions.First(version=>version.Id==State.ActiveVersionId);
@@ -235,12 +249,15 @@ else
     IReadOnlyList<DisplayEntrance> RelevantEntrancesFor(GuideArea area)=>gamePackage!.RelevantEntrances(area);
     bool IsOutdoor(string id)=>gamePackage!.IsOutdoor(id);
     void SearchChanged(ChangeEventArgs e){query=e.Value?.ToString()??"";searchOpen=true;}
-    void SelectArea(GuideArea area){mapArea=area;detailArea=area;inspectedItem=null;searchOpen=false;query="";}
+    void SelectArea(GuideArea area){mapArea=area;detailArea=area;inspectedItem=null;inspectedResource=null;searchOpen=false;query="";}
     void SelectSearchArea(GuideArea area){if(IsOutdoor(area.Id)){var world=gamePackage!.WorldForArea(area.Id);if(world is not null&&world!=currentWorld){currentWorld=world;currentRegion=game!.Regions.First(region=>region.WorldId==world.Id);initializedMap=null;}SelectArea(area);}else{OpenEntrance(area.Id);searchOpen=false;query="";}}
     void ShowRegion(GameRegionDefinition selected){currentRegion=selected;currentWorld=gamePackage!.World(selected.WorldId);initializedMap=null;}
-    void OpenEntrance(string targetId){interiorArea=gamePackage!.Area(targetId);if(interiorArea is not null){interiorOpen=true;inspectedItem=null;}}
-    void InspectItem(GuideArea area,GuideItem item){mapArea=area;detailArea=area;inspectedItem=item;}
-    void InspectInteriorItem(GuideItem item)=>inspectedItem=item; void NavigateInterior(string targetId){interiorArea=gamePackage!.Area(targetId)??interiorArea;inspectedItem=null;} void ChangeInterior(ChangeEventArgs e){interiorArea=gamePackage!.Area((string?)e.Value??"")??interiorArea;inspectedItem=null;}
+    void OpenEntrance(string targetId){interiorArea=gamePackage!.Area(targetId);if(interiorArea is not null){interiorOpen=true;inspectedItem=null;inspectedResource=null;}}
+    void InspectItem(GuideArea area,GuideItem item){mapArea=area;detailArea=area;inspectedItem=item;inspectedResource=null;}
+    void InspectResource(GuideArea area,GuideMapResource resource){mapArea=area;detailArea=area;inspectedItem=null;inspectedResource=resource;}
+    void InspectInteriorItem(GuideItem item){inspectedItem=item;inspectedResource=null;}
+    void InspectInteriorResource(GuideMapResource resource){inspectedItem=null;inspectedResource=resource;}
+    void NavigateInterior(string targetId){interiorArea=gamePackage!.Area(targetId)??interiorArea;inspectedItem=null;inspectedResource=null;} void ChangeInterior(ChangeEventArgs e){interiorArea=gamePackage!.Area((string?)e.Value??"")??interiorArea;inspectedItem=null;inspectedResource=null;}
     async Task Zoom(double z)=>await JS.InvokeVoidAsync("fieldMap.zoom",mapViewport,z); async Task ResetView()=>await JS.InvokeVoidAsync("fieldMap.reset",mapViewport);
     async Task ZoomInterior(double z)=>await JS.InvokeVoidAsync("fieldMap.zoomInterior",z); async Task FitInterior()=>await JS.InvokeVoidAsync("fieldMap.fitInterior");
     async Task<bool> Apply(Task<LocalGuideChangeResult> pending)
@@ -316,6 +333,6 @@ else
     static string PackageLoadError(Exception ex)=>ex switch{HttpRequestException=>"The game data could not be downloaded. Check your connection and try again.",InvalidOperationException=>ex.Message,_=>"The installed game package is invalid or unavailable. Reload the page or try again shortly."};
     async Task ApplyAppearance()=>await JS.InvokeVoidAsync("fieldGuide.applyAppearance",State.Theme,game!.Id,State.ActiveVersionId,ActiveVersion.Accent,ActiveVersion.AccentSoft);
     sealed record ProfileChoice(ChecklistProfileId ProfileId,string PackageName,string VersionName);
-    string PokemonIcon(string id)=>gamePackage!.PokemonIcon(id);
+    string PokemonIcon(string id)=>gamePackage!.PokemonIcon(id,State.ActiveVersionId);
     string ItemIcon(GuideItem item)=>gamePackage!.ItemIcon(item);
 }

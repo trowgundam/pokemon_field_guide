@@ -17,7 +17,32 @@ const walk = (value, visit) => {
   }
 };
 
-const relevant = area => area.encounters.length + area.items.length + area.specialPokemon.length > 0;
+const relevant = area => area.includeInNavigation === true
+  || area.encounters.length + area.items.length + (area.resources?.length ?? 0) + area.specialPokemon.length > 0;
+
+const assertAllAreasReachWorld = (gameId, areas, worlds, aliases, phase) => {
+  const normalize = id => aliases?.[id] ?? id;
+  const areasById = new Map(areas.map(area => [area.id, area]));
+  const reachable = new Set(), queue = [];
+  for (const placement of worlds.flatMap(world => world.maps ?? [])) {
+    const id = normalize(placement.id);
+    if (!areasById.has(id)) throw new Error(`${gameId}: ${phase} world placement targets missing area ${id}.`);
+    if (!reachable.has(id)) { reachable.add(id); queue.push(id); }
+  }
+  for (const area of areas) for (const entrance of area.entrances ?? []) if (entrance.targetId) {
+    const targetId = normalize(entrance.targetId);
+    if (!areasById.has(targetId)) throw new Error(`${gameId}: ${phase} entrance ${area.id} '${entrance.id}' targets missing area ${targetId}.`);
+  }
+  while (queue.length) {
+    const area = areasById.get(queue.shift());
+    for (const entrance of area.entrances ?? []) {
+      const targetId = normalize(entrance.targetId);
+      if (targetId && !reachable.has(targetId)) { reachable.add(targetId); queue.push(targetId); }
+    }
+  }
+  const unreachable = areas.map(area => area.id).filter(id => !reachable.has(id)).sort();
+  if (unreachable.length) throw new Error(`${gameId}: ${phase} areas are not reachable from a world warp: ${unreachable.join(', ')}.`);
+};
 
 const assetFileName = (gameId, kind, fileName) => {
   if (!isPackageFileName(fileName))
@@ -132,7 +157,7 @@ const contractTarget = (gameId, sourceArea, entrance, areasById, finalIds) => {
 const combineEncounters = encounters => {
   const combined = new Map();
   for (const encounter of encounters) {
-    const key = [encounter.speciesId, encounter.method, encounter.type, encounter.version, encounter.minLevel, encounter.maxLevel].join('|');
+    const key = [encounter.speciesId, encounter.method, encounter.condition ?? '', encounter.type, encounter.version, encounter.minLevel, encounter.maxLevel].join('|');
     if (combined.has(key)) combined.get(key).chance += encounter.chance;
     else combined.set(key, { ...encounter });
   }
@@ -148,6 +173,7 @@ export function finalizeDraft(game, draft) {
     if (!area?.id || areasById.has(area.id)) throw new Error(`${game.id}: duplicate or empty draft area ID '${area?.id ?? ''}'.`);
     areasById.set(area.id, area);
   }
+  assertAllAreasReachWorld(game.id, draft.areas, draft.worlds, draft.areaAliases, 'draft');
   const outdoorIds = new Set(draft.worlds.flatMap(world => world.maps.map(placement => placement.id)));
   for (const id of outdoorIds) if (!areasById.has(id)) throw new Error(`${game.id}: world placement targets missing draft area ${id}.`);
   const finalIds = new Set([...outdoorIds, ...draft.areas.filter(relevant).map(area => area.id)]);
@@ -175,10 +201,12 @@ export function finalizeDraft(game, draft) {
       return { ...encounter };
     }),
     items: area.items.map(item => ({ ...item, icon: isAsset(item.icon, 'item') ? item.icon.fileName : item.icon })),
+    resources: (area.resources ?? []).map(resource => ({ ...resource })),
     specialPokemon: area.specialPokemon.map(mon => {
       if (mon.version !== 'Both' && !versions.has(mon.version)) throw new Error(`${game.id}: invalid version '${mon.version}' in ${area.id}.`);
       return { ...mon };
     }),
+    ...(area.includeInNavigation === true ? { includeInNavigation: true } : {}),
     entrances: area.entrances.map(entrance => {
       const target = contractTarget(game.id, area, entrance, areasById, finalIds);
       return target ? { id: entrance.id, targetId: target.id, name: target.name, x: entrance.x, y: entrance.y } : null;
@@ -202,6 +230,16 @@ export function finalizeDraft(game, draft) {
       pokemonSprites[entry.speciesId] = sprite.fileName;
     } else throw new Error(`${game.id}: no Pokémon sprite is registered for ${entry.speciesId}.`);
   }
+  const pokemonSpritesByVersion = {};
+  for (const [version, sprites] of Object.entries(draft.pokemonSpritesByVersion ?? {})) {
+    if (!versions.has(version)) throw new Error(`${game.id}: invalid Pokémon sprite version '${version}'.`);
+    pokemonSpritesByVersion[version] = {};
+    for (const [speciesId, sprite] of Object.entries(sprites)) {
+      if (!(speciesId in pokemonSprites)) throw new Error(`${game.id}: ${version} Pokémon sprite references unknown species ${speciesId}.`);
+      if (!isAsset(sprite, 'pokemon')) throw new Error(`${game.id}: invalid ${version} Pokémon sprite reference for ${speciesId}.`);
+      pokemonSpritesByVersion[version][speciesId] = sprite.fileName;
+    }
+  }
   if (!isAsset(draft.pokemonFallback, 'pokemon') || draft.pokemonFallback.fileName !== 'question_mark.png')
     throw new Error(`${game.id}: Pokémon fallback question_mark.png is required.`);
 
@@ -212,6 +250,7 @@ export function finalizeDraft(game, draft) {
     manifest: {
       formatVersion: 2,
       pokemonSprites,
+      ...(Object.keys(pokemonSpritesByVersion).length ? { pokemonSpritesByVersion } : {}),
       areaAliases: { ...(draft.areaAliases ?? {}) }
     }
   };
@@ -251,16 +290,25 @@ export async function checkPackage(game, packageRoot) {
       if (!row.id || checklistIds.has(row.id)) throw new Error(`${game.id}: duplicate or empty checklist ID '${row.id}'.`);
       checklistIds.add(row.id);
     }
+    for (const resource of area.resources ?? []) {
+      if (!resource.name || !resource.kind) throw new Error(`${game.id}: ${area.id} has a map resource without a name or kind.`);
+      const x = resource.x * 16 + 8, y = resource.y * 16 + 8;
+      if (!Number.isInteger(resource.x) || !Number.isInteger(resource.y)
+        || x < 0 || y < 0 || x >= area.mapWidth || y >= area.mapHeight)
+        throw new Error(`${game.id}: ${area.id} map resource '${resource.name}' falls outside its area map.`);
+    }
     for (const row of [...(area.encounters ?? []), ...(area.specialPokemon ?? [])])
       if (row.version !== 'Both' && !versions.has(row.version)) throw new Error(`${game.id}: invalid version '${row.version}' in ${area.id}.`);
     for (const encounter of area.encounters ?? [])
       if (typeof encounter.chance !== 'number' || !Number.isFinite(encounter.chance) || encounter.chance <= 0 || encounter.chance > 100)
         throw new Error(`${game.id}: invalid encounter chance '${encounter.chance}' in ${area.id}.`);
-    const types = new Set((area.encounters ?? []).map(encounter => encounter.type).filter(type => type !== 'Roaming'));
-    for (const type of types) for (const version of versions) {
-      const rows = area.encounters.filter(encounter => encounter.type === type && (encounter.version === 'Both' || encounter.version === version));
+    const tables = new Map((area.encounters ?? []).filter(encounter => encounter.type !== 'Roaming')
+      .map(encounter => [`${encounter.type}\0${encounter.condition ?? ''}`, { type: encounter.type, condition: encounter.condition ?? null }]));
+    for (const { type, condition } of tables.values()) for (const version of versions) {
+      const rows = area.encounters.filter(encounter => encounter.type === type && (encounter.condition ?? null) === condition
+        && (encounter.version === 'Both' || encounter.version === version));
       if (rows.length && Math.abs(rows.reduce((sum, encounter) => sum + encounter.chance, 0) - 100) > 1e-8)
-        throw new Error(`${game.id}: ${area.id} ${type} encounter chances do not total 100 for ${version}.`);
+        throw new Error(`${game.id}: ${area.id} ${type}${condition ? ` (${condition})` : ''} encounter chances do not total 100 for ${version}.`);
     }
   }
   for (const area of areaById.values()) for (const entrance of area.entrances ?? [])
@@ -291,6 +339,7 @@ export async function checkPackage(game, packageRoot) {
   for (const { area, placement, markerOffsetX, markerOffsetY } of placements) {
     const markers = [
       ...(area.items ?? []).filter(item => item.x >= 0 && item.y >= 0),
+      ...(area.resources ?? []),
       ...(area.entrances ?? []).filter(entrance => !placed.has(manifest.areaAliases?.[entrance.targetId] ?? entrance.targetId))
     ];
     for (const marker of markers) {
@@ -303,15 +352,7 @@ export async function checkPackage(game, packageRoot) {
   if (!worldById.has(game.defaultWorldId)) throw new Error(`${game.id}: default world '${game.defaultWorldId}' does not exist.`);
   for (const region of game.regions ?? []) if (!worldById.has(region.worldId)) throw new Error(`${game.id}: region '${region.id}' targets missing world ${region.worldId}.`);
 
-  const adjacency = new Map([...areaById.keys()].map(id => [id, new Set()]));
-  for (const area of areaById.values()) for (const entrance of area.entrances ?? []) if (entrance.targetId) {
-    adjacency.get(area.id).add(entrance.targetId);
-    adjacency.get(entrance.targetId).add(area.id);
-  }
-  const reachable = new Set(placed), queue = [...placed];
-  while (queue.length) for (const target of adjacency.get(queue.shift()) ?? []) if (!reachable.has(target)) { reachable.add(target); queue.push(target); }
-  const unreachable = [...areaById.values()].filter(area => relevant(area) && !reachable.has(area.id));
-  if (game.validateWorldReachability && unreachable.length) throw new Error(`${game.id}: relevant areas are unreachable: ${unreachable.map(area => area.id).join(', ')}.`);
+  assertAllAreasReachWorld(game.id, [...areaById.values()], worlds, manifest.areaAliases, 'final');
 
   const normalizeAreaId = id => manifest.areaAliases?.[id] ?? id;
   const resolveRelevantTarget = (sourceId, targetId) => {
@@ -343,12 +384,18 @@ export async function checkPackage(game, packageRoot) {
     }
   }
   const unnavigable = [...areaById.values()].filter(area => relevant(area) && !placed.has(area.id) && !navigableInteriors.has(area.id));
-  if (game.validateWorldReachability && unnavigable.length)
+  if (unnavigable.length)
     throw new Error(`${game.id}: relevant interior areas are not navigable from world markers: ${unnavigable.map(area => area.id).join(', ')}.`);
 
   const dexSpecies = new Set();
   const declaredPokemonSprites = Object.fromEntries(Object.entries(manifest.pokemonSprites ?? {})
     .map(([speciesId, fileName]) => [speciesId, assetFileName(game.id, 'Pokémon sprite', fileName)]));
+  const declaredVersionSprites = {};
+  for (const [version, sprites] of Object.entries(manifest.pokemonSpritesByVersion ?? {})) {
+    if (!versions.has(version)) throw new Error(`${game.id}: manifest contains unknown Pokémon sprite version '${version}'.`);
+    declaredVersionSprites[version] = Object.fromEntries(Object.entries(sprites)
+      .map(([speciesId, fileName]) => [speciesId, assetFileName(game.id, `${version} Pokémon sprite`, fileName)]));
+  }
   for (const entry of pokedex) {
     if (!entry.speciesId || dexSpecies.has(entry.speciesId)) throw new Error(`${game.id}: duplicate or empty Pokédex species ID '${entry.speciesId}'.`);
     dexSpecies.add(entry.speciesId);
@@ -364,7 +411,11 @@ export async function checkPackage(game, packageRoot) {
   const pokemonDirectory = path.join(packageRoot, relativeInsidePackage(game, game.pokemonSpritePath));
   const itemDirectory = path.join(packageRoot, relativeInsidePackage(game, game.itemSpritePath));
   const mapDirectories = new Set([...expectedMaps].map(file => path.dirname(file)));
-  const expectedPokemon = new Set([path.join(pokemonDirectory, 'question_mark.png'), ...Object.values(declaredPokemonSprites).map(file => path.join(pokemonDirectory, file))]);
+  const expectedPokemon = new Set([
+    path.join(pokemonDirectory, 'question_mark.png'),
+    ...Object.values(declaredPokemonSprites).map(file => path.join(pokemonDirectory, file)),
+    ...Object.values(declaredVersionSprites).flatMap(sprites => Object.values(sprites)).map(file => path.join(pokemonDirectory, file))
+  ]);
   const expectedItems = new Set([path.join(itemDirectory, 'question_mark.png'), ...[...areaById.values()].flatMap(area => area.items ?? [])
     .map(item => path.join(itemDirectory, assetFileName(game.id, 'item sprite', item.icon)))]);
   for (const [kind, expected, actual] of [
