@@ -52,6 +52,12 @@
                 "method": {
                   "type": "string"
                 },
+                "condition": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "type": {
                   "enum": [
                     "Random",
@@ -60,7 +66,8 @@
                     "GoodRod",
                     "SuperRod",
                     "Roaming",
-                    "RockSmash"
+                    "RockSmash",
+                    "Headbutt"
                   ]
                 },
                 "version": {
@@ -117,6 +124,33 @@
                 "x",
                 "y",
                 "quantity"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "x": {
+                  "type": "integer"
+                },
+                "y": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "name",
+                "kind",
+                "x",
+                "y"
               ],
               "additionalProperties": false
             }
@@ -194,6 +228,9 @@
               ],
               "additionalProperties": false
             }
+          },
+          "includeInNavigation": {
+            "type": "boolean"
           },
           "mapImage": {
             "type": [

@@ -54,6 +54,22 @@ public sealed class GamePackageTests
     }
 
     [Fact]
+    public async Task RelevantEntrances_keeps_an_area_with_only_renewable_resources()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.AddRange([
+            Area("OUT", "Outside", entrances: [Entrance("OUT:1", "GROVE", 1, 1)]),
+            Area("GROVE", "Grove", resources: [new GuideMapResource { Name = "Honey", Kind = "Weekly renewable pickup", X = 2, Y = 3 }])
+        ]);
+        fixture.Worlds.Add(World("world", "OUT"));
+        var package = await fixture.LoadAsync();
+
+        var entrance = Assert.Single(package.RelevantEntrances(package.Area("OUT")!));
+
+        Assert.Equal("GROVE", entrance.TargetId);
+    }
+
+    [Fact]
     public async Task InteriorFloors_omits_empty_connectors_but_traverses_through_them()
     {
         var fixture = PackageFixture.Create();
@@ -105,7 +121,132 @@ public sealed class GamePackageTests
         Assert.Equal("Pikachu", regional.Entry.Name);
         Assert.Equal(12, regional.Number);
         Assert.Equal("Obtainable", regional.Availability);
-        Assert.Equal("games/test/sprites/pokemon/mr.mime.png", package.PokemonIcon("SPECIES_MR_MIME"));
+        Assert.Equal("games/test/sprites/pokemon/mr.mime.png", package.PokemonIcon("SPECIES_MR_MIME", "Red"));
+    }
+
+    [Fact]
+    public async Task EncounterGroups_separates_conditional_tables()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.Add(Area(
+            "AREA",
+            "Area",
+            encounters:
+            [
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Both", "Morning"),
+                Encounter("Hoothoot", "SPECIES_HOOTHOOT", "Grass / cave", "Both", "Night")
+            ]));
+        fixture.Worlds.Add(World("world", "AREA"));
+        var package = await fixture.LoadAsync();
+
+        Assert.Equal(
+            ["Random encounters · Morning", "Random encounters · Night"],
+            package.EncounterGroups(package.Area("AREA")!, "Red").Select(group => group.Name));
+    }
+
+    [Fact]
+    public async Task EncounterGroups_collapses_identical_time_tables()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.Add(Area(
+            "AREA",
+            "Area",
+            encounters:
+            [
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Both", "Morning"),
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Both", "Day"),
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Both", "Night")
+            ]));
+        fixture.Worlds.Add(World("world", "AREA"));
+        var package = await fixture.LoadAsync();
+
+        var group = Assert.Single(package.EncounterGroups(package.Area("AREA")!, "Red"));
+        Assert.Equal("Random encounters", group.Name);
+        Assert.Equal(100, Assert.Single(group.Encounters).Chance);
+    }
+
+    [Fact]
+    public async Task EncounterGroups_collapses_only_the_equal_time_subset()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.Add(Area(
+            "AREA",
+            "Area",
+            encounters:
+            [
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Both", "Morning"),
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Both", "Day"),
+                Encounter("Hoothoot", "SPECIES_HOOTHOOT", "Grass / cave", "Both", "Night")
+            ]));
+        fixture.Worlds.Add(World("world", "AREA"));
+        var package = await fixture.LoadAsync();
+
+        var groups = package.EncounterGroups(package.Area("AREA")!, "Red");
+        Assert.Equal(["Random encounters · Morning / Day", "Random encounters · Night"], groups.Select(group => group.Name));
+        Assert.All(groups, group => Assert.Single(group.Encounters));
+    }
+
+    [Fact]
+    public async Task EncounterGroups_collapses_prefixed_and_precombined_time_tables()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.Add(Area(
+            "AREA",
+            "Area",
+            encounters:
+            [
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Both", "Swarm · Morning / Day"),
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Both", "Swarm · Night")
+            ]));
+        fixture.Worlds.Add(World("world", "AREA"));
+        var package = await fixture.LoadAsync();
+
+        var group = Assert.Single(package.EncounterGroups(package.Area("AREA")!, "Red"));
+        Assert.Equal("Random encounters · Swarm", group.Name);
+        Assert.Single(group.Encounters);
+    }
+
+    [Fact]
+    public async Task EncounterGroups_collapses_tables_after_version_selection()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.Add(Area(
+            "AREA",
+            "Area",
+            encounters:
+            [
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Red", "Morning"),
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Red", "Day"),
+                Encounter("Pidgey", "SPECIES_PIDGEY", "Grass / cave", "Red", "Night"),
+                Encounter("Hoothoot", "SPECIES_HOOTHOOT", "Grass / cave", "Blue", "Morning"),
+                Encounter("Hoothoot", "SPECIES_HOOTHOOT", "Grass / cave", "Blue", "Day"),
+                Encounter("Zubat", "SPECIES_ZUBAT", "Grass / cave", "Blue", "Night")
+            ]));
+        fixture.Worlds.Add(World("world", "AREA"));
+        var package = await fixture.LoadAsync();
+
+        Assert.Equal(
+            ["Random encounters"],
+            package.EncounterGroups(package.Area("AREA")!, "Red").Select(group => group.Name));
+        Assert.Equal(
+            ["Random encounters · Morning / Day", "Random encounters · Night"],
+            package.EncounterGroups(package.Area("AREA")!, "Blue").Select(group => group.Name));
+    }
+
+    [Fact]
+    public async Task PokemonIcon_prefers_the_selected_versions_sprite()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.Manifest.PokemonSprites["SPECIES_PIKACHU"] = "pikachu.png";
+        fixture.Manifest.PokemonSpritesByVersion["Red"] = new() { ["SPECIES_PIKACHU"] = "pikachu-red.png" };
+        fixture.Manifest.PokemonSpritesByVersion["Blue"] = new() { ["SPECIES_PIKACHU"] = "pikachu-blue.png" };
+        fixture.FieldGuide.Areas.Add(Area("AREA", "Area"));
+        fixture.Worlds.Add(World("world", "AREA"));
+        var package = await fixture.LoadAsync();
+
+        Assert.Equal("games/test/sprites/pokemon/pikachu-red.png", package.PokemonIcon("SPECIES_PIKACHU", "Red"));
+        Assert.Equal("games/test/sprites/pokemon/pikachu-blue.png", package.PokemonIcon("SPECIES_PIKACHU", "Blue"));
+        Assert.Equal("games/test/sprites/pokemon/pikachu.png", package.PokemonIcon("SPECIES_PIKACHU", "Unknown"));
     }
 
     [Fact]
@@ -159,6 +300,24 @@ public sealed class GamePackageTests
     }
 
     [Fact]
+    public async Task Renewable_map_resources_are_searchable_but_not_checklist_items()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.Add(Area(
+            "AREA",
+            "Area",
+            items: [Item("Potion", "Visible")],
+            resources: [new GuideMapResource { Name = "Blue Apricorn", Kind = "Weekly harvest", X = 4, Y = 6 }]));
+        fixture.Worlds.Add(World("world", "AREA"));
+        var package = await fixture.LoadAsync();
+
+        var area = Assert.Single(package.SearchAreas("Weekly", "Red"));
+        var checklist = package.AreaChecklist(area, "Red");
+
+        Assert.Equal(["item:Potion"], checklist.ItemIds);
+    }
+
+    [Fact]
     public async Task SearchAreas_returns_every_matching_area()
     {
         var fixture = PackageFixture.Create();
@@ -177,7 +336,8 @@ public sealed class GamePackageTests
         List<Encounter>? encounters = null,
         List<GuideItem>? items = null,
         List<SpecialPokemon>? special = null,
-        List<MapEntrance>? entrances = null) => new()
+        List<MapEntrance>? entrances = null,
+        List<GuideMapResource>? resources = null) => new()
         {
             Id = id,
             Name = name,
@@ -187,15 +347,17 @@ public sealed class GamePackageTests
             MapHeight = 16,
             Encounters = encounters ?? [],
             Items = items ?? [],
+            Resources = resources ?? [],
             SpecialPokemon = special ?? [],
             Entrances = entrances ?? []
         };
 
-    private static Encounter Encounter(string species, string speciesId, string method, string version) => new()
+    private static Encounter Encounter(string species, string speciesId, string method, string version, string? condition = null) => new()
     {
         Species = species,
         SpeciesId = speciesId,
         Method = method,
+        Condition = condition,
         Version = version,
         MinLevel = 5,
         MaxLevel = 5,

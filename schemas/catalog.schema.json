@@ -50,9 +50,6 @@
           "defaultWorldId": {
             "type": "string"
           },
-          "validateWorldReachability": {
-            "type": "boolean"
-          },
           "versions": {
             "type": "array",
             "items": {
@@ -147,7 +144,6 @@
           "itemSpritePath",
           "defaultAreaId",
           "defaultWorldId",
-          "validateWorldReachability",
           "versions",
           "regions",
           "dexModes"

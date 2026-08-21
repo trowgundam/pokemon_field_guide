@@ -19,11 +19,22 @@ public sealed class GuideArea
     [JsonRequired] public string Region { get; set; } = "";
     [JsonRequired] public List<Encounter> Encounters { get; set; } = [];
     [JsonRequired] public List<GuideItem> Items { get; set; } = [];
+    public List<GuideMapResource> Resources { get; set; } = [];
     [JsonRequired] public List<SpecialPokemon> SpecialPokemon { get; set; } = [];
     [JsonRequired] public List<MapEntrance> Entrances { get; set; } = [];
+    public bool IncludeInNavigation { get; set; }
     public string? MapImage { get; set; }
     [JsonRequired, Range(0, int.MaxValue)] public int MapWidth { get; set; }
     [JsonRequired, Range(0, int.MaxValue)] public int MapHeight { get; set; }
+}
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class GuideMapResource
+{
+    [JsonRequired] public string Name { get; set; } = "";
+    [JsonRequired] public string Kind { get; set; } = "";
+    [JsonRequired] public int X { get; set; }
+    [JsonRequired] public int Y { get; set; }
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -44,7 +55,8 @@ public enum EncounterType
     GoodRod,
     SuperRod,
     Roaming,
-    RockSmash
+    RockSmash,
+    Headbutt
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -56,6 +68,7 @@ public sealed class Encounter
     [JsonRequired, Range(0, int.MaxValue)] public int MaxLevel { get; set; }
     [JsonRequired, Range(double.Epsilon, 100)] public double Chance { get; set; }
     [JsonRequired] public string Method { get; set; } = "";
+    public string? Condition { get; set; }
     [JsonRequired] public EncounterType Type { get; set; }
     [JsonRequired] public string Version { get; set; } = "Both";
 }
