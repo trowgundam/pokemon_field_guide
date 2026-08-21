@@ -70,11 +70,12 @@ Build-time tooling follows the same ownership boundary. Scripts under `tools/<ga
 
 - wild `Encounter` rows, filtered by version;
 - visible, hidden, or event `GuideItem` rows;
+- renewable, non-checklist `GuideMapResource` rows;
 - static, gift, or trade `SpecialPokemon` rows;
 - `MapEntrance` edges to other areas;
 - an optional rendered map and its pixel dimensions.
 
-`GuideWorld` describes one connected outdoor canvas. Its `WorldMapPlacement` records use pixel coordinates and dimensions. Encounter and item coordinates use game-map tile coordinates; the current renderer places their markers at the center of a 16-pixel tile.
+`GuideWorld` describes one connected outdoor canvas. Its `WorldMapPlacement` records use pixel coordinates and dimensions. Item, entrance, and resource coordinates use game-map tile coordinates. The current renderer places their markers at the center of a 16-pixel tile.
 
 `PokedexEntry.Availability` is keyed by version ID. `RegionalNumber` is nullable so the same document supports regional and full-dex views.
 
@@ -103,11 +104,11 @@ Each `Encounter` retains its source `Method` and has a normalized `EncounterType
 
 Outdoor areas are those referenced by any loaded `GuideWorld`. The Game package indexes those placements during assembly. `NormalizeAreaId` allows a rendered placement to resolve to a differently named guide area when source data requires it.
 
-Interior reachability is graph-based. An outdoor marker opens the nearest interior that contains encounters, items, or special Pokémon. Once open, every connected non-outdoor area with guide data becomes a selectable floor. Package finalization contracts empty transition chains but retains a junction when distinct branches lead to relevant interiors, even when the branches have different lengths. Complete and correct source entrance edges are therefore essential for rooms that are omitted from the final package.
+Interior reachability is graph-based. An outdoor marker opens the nearest interior that contains encounters, items, resources, special Pokémon, or an explicit `IncludeInNavigation` value. Once open, every connected non-outdoor area with guide data becomes a selectable floor. Package finalization contracts empty transition chains but retains a junction when distinct branches lead to relevant interiors, even when the branches have different lengths. Complete and correct source entrance edges are therefore essential for rooms that are omitted from the final package.
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
 
-An area checklist contains each version-available Pokémon species once, across both encounters and special acquisitions, plus every item in the area. The page compares the checklist with the active Checklist profile to calculate the displayed percentage.
+An area checklist contains each version-available Pokémon species once, across both encounters and special acquisitions, plus every item in the area. Renewable resources are informational markers and never enter checklist state. The page compares the checklist with the active Checklist profile to calculate the displayed percentage.
 
 ## Local guide state
 

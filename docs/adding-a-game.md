@@ -8,7 +8,7 @@ Create one package for versions that share map topology, assets, data shape, Pok
 
 If paired games differ only in some records, keep one copy of shared maps and sprites and identify version-specific encounter or special-Pokémon records with the exact version ID. Split them into separate packages only when their topology, assets, source tooling, or runtime rules differ enough that a shared package would require pervasive exceptions.
 
-Set every catalog version's `progressVersion` to `1` when it is introduced. This is the schema version of that individual game's Checklist profile, not the package or application version. Do not rename an ID or increment `progressVersion` after release without adding and testing a sequential Checklist profile migration. See [Checklist backup format](save-backups.md).
+Set every catalog version's `progressVersion` to the current Checklist profile format, which is `2`. This is the schema version of that individual game's Checklist profile, not the package or application version. Do not rename an ID or increment `progressVersion` after release without adding and testing a sequential Checklist profile migration. See [Checklist backup format](save-backups.md).
 
 ## 2. Create the package directories
 
@@ -44,7 +44,7 @@ await generatePackage({
 });
 ```
 
-The adapter must not write final JSON or mutate the installed package directory. Package finalization reads `games/catalog.json`, contracts empty entrance chains, checks the complete staged package, removes unreferenced assets, and replaces the installed package only after every check passes. See [Package finalization](package-finalization.md).
+The adapter must not write final JSON or mutate the installed package directory. Package finalization reads `games/catalog.json`, verifies that every draft area is reachable from a world warp, contracts empty entrance chains, repeats the reachability check over every retained area, checks the complete staged package, removes unreferenced assets, and replaces the installed package only after every check passes. See [Package finalization](package-finalization.md).
 
 ## 3. Generate `fieldguide.json`
 
@@ -67,6 +67,7 @@ An area has this shape:
   "region": "Example Region",
   "encounters": [],
   "items": [],
+  "resources": [],
   "specialPokemon": [],
   "entrances": [],
   "mapImage": "games/example/maps/ROUTE_1.png",
@@ -93,6 +94,7 @@ Requirements:
   "maxLevel": 5,
   "chance": 10,
   "method": "Grass",
+  "condition": "Morning",
   "version": "ExampleRed"
 }
 ```
@@ -100,6 +102,8 @@ Requirements:
 Use `Both` for a row shared by every package version, otherwise use an exact catalog version ID. Multiple slots for one species may remain separate; the UI groups display by species while retaining method and level information.
 
 `chance` is a JSON number and may contain a fractional percentage when that is the most accurate representation of the game's random selection logic. Do not round or redistribute probabilities merely to produce integers. Keep it between 0 and 100, and make the slots for each encounter table total 100 percent. The UI retains the exact stored value for calculations but formats the displayed aggregate to one decimal place.
+
+Use the optional `condition` field when one method has independently normalized tables, such as morning, day, night, swarm, or tree rarity. Give every row in one table the same condition. Package finalization checks probability totals by encounter type, condition, and version. After version selection, the UI combines time-of-day categories whose encounter tables are identical. Other conditions remain separate.
 
 ### Items
 
@@ -116,6 +120,21 @@ Use `Both` for a row shared by every package version, otherwise use an exact cat
 ```
 
 Item IDs are checklist keys and must be stable. Coordinate-bearing items use tile coordinates. Event items without a map tile conventionally use `-1` for both coordinates and are listed without a map marker. The rules implementation controls group ordering, but generators should use consistent kinds such as `Visible`, `Hidden`, and `Event`.
+
+### Renewable map resources
+
+Use `resources` for repeatable map pickups that should appear on the map without becoming checklist entries:
+
+```json
+{
+  "name": "Blue Apricorn",
+  "kind": "Daily fruit tree",
+  "x": 16,
+  "y": 5
+}
+```
+
+Resources have no checklist ID and never contribute to saved progress or completion percentages. Their coordinates use the same tile convention as items. Include them in source audits and use the in-game reward name. Set `kind` to a user-facing description of the source and renewal schedule, such as `Daily fruit tree`, `Weekly harvest`, or `Repeatable pickup`. The UI displays this value and does not assume that every resource renews daily. See [Renewable map resources](renewable-map-resources.md) for the design rationale.
 
 ### Static, gift, and trade Pokémon
 
@@ -158,7 +177,7 @@ Represent locally repeatable encounters as encounters and one-time choices or in
 
 Include both directions where the game supports returning. Preserve edges through empty gates, stairwells, elevators, and transition rooms because interior discovery traverses the entrance graph. Outdoor-to-outdoor gates do not need a checklist entrance marker; the runtime stops traversal when it reaches an outdoor area.
 
-Treat reachability as a generated-data invariant. Starting from every outdoor world placement, traverse entrance edges in both directions and fail generation if any area containing encounters, items, special Pokémon, or another relevant marker cannot be reached. Also follow the runtime navigation rule and confirm that every relevant interior belongs to a component opened by a world marker. Do not expose linear empty transition rooms as selectable interiors. Retain an empty junction when separate branches lead to relevant interiors, including branches of different lengths. Also verify that every non-empty entrance target resolves to an included area. Do not filter a missing target to conceal incomplete extraction.
+Treat reachability as a generated-data invariant. Starting from every outdoor world placement, follow entrance edges in their declared direction and fail generation if any draft area cannot be reached. Run the same traversal over the retained package after contraction. Do not return unused, beta, debug, or inaccessible maps in the draft. Also follow the runtime navigation rule and confirm that every interior belongs to a component opened by a world marker. Do not expose linear empty transition rooms as selectable interiors. Set `includeInNavigation` only when an otherwise empty map has visual or navigational value that the player should be able to inspect. Retain an empty junction when separate branches lead to relevant interiors, including branches of different lengths. Also verify that every non-empty entrance target resolves to an included area. Do not filter a missing target to conceal incomplete extraction.
 
 ## 4. Generate `worlds.json`
 
@@ -215,6 +234,8 @@ Derive availability only after all acquisition sources and evolution paths have 
 
 Provide Pokémon menu sprites and bag item icons through the managed asset workspace. Package finalization records each species-to-filename association in `package-manifest.json`. Images must retain native pixel art and transparency. Do not rely on browser smoothing.
 
+When paired versions use different species sprites, also return `pokemonSpritesByVersion` from the adapter. Its outer keys are exact catalog version IDs and its inner keys are species IDs. The runtime prefers the selected version's association and falls back to the package-wide `pokemonSprites` entry. Register every variant through the managed asset workspace; package finalization retains and validates those variant files.
+
 Keep only assets referenced by the final package data and catalog configuration. Generators that render a broader source set before filtering areas must remove the unused outputs before they finish. Audit the output after regeneration and treat unreferenced generated assets as a package error.
 
 Every Pokémon sprite must be a Game package file. Do not embed a data URI in C# or generated JSON. If the upstream source lacks a standalone sprite, add a package-owned PNG under the matching Game adapter and register it through the managed asset workspace. If no suitable asset exists, allow the required `question_mark.png` fallback to render rather than emitting a broken URL.
@@ -253,6 +274,7 @@ Every draft encounter must include its raw source method and a normalized `type`
 - `SuperRod`
 - `Roaming`
 - `RockSmash`
+- `Headbutt`
 
 The Game adapter must classify every source method. Package generation fails when `type` is missing or unknown. Add an `EncounterType` value and its exhaustive C# presentation mapping when a game introduces a genuinely new encounter category. Keep display labels and ordering out of generated JSON.
 
@@ -284,8 +306,8 @@ Add a definition to `wwwroot/games/catalog.json` in the game's original release 
   "defaultAreaId": "MAP_EXAMPLE_ROUTE_1",
   "defaultWorldId": "example-region",
   "versions": [
-    { "id": "ExampleRed", "name": "Example Red", "progressVersion": 1, "accent": "#e34848", "accentSoft": "#572626" },
-    { "id": "ExampleBlue", "name": "Example Blue", "progressVersion": 1, "accent": "#4b70e2", "accentSoft": "#26365b" }
+    { "id": "ExampleRed", "name": "Example Red", "progressVersion": 2, "accent": "#e34848", "accentSoft": "#572626" },
+    { "id": "ExampleBlue", "name": "Example Blue", "progressVersion": 2, "accent": "#4b70e2", "accentSoft": "#26365b" }
   ],
   "regions": [
     { "id": "Example Region", "name": "Example", "worldId": "example-region" }
@@ -316,7 +338,6 @@ Catalog fields have the following contracts:
 | `itemSpritePath` | Directory containing item sprites and `question_mark.png`. |
 | `defaultAreaId` | Area selected when the package opens. |
 | `defaultWorldId` | World selected when the package opens. |
-| `validateWorldReachability` | Build-time validation flag requiring every relevant area to connect to a world placement. Enable it when the package promises complete atlas reachability. |
 | `versions` | Stable version IDs, per-game progress schema versions, display names, and normal/soft accent colors. |
 | `regions` | Region IDs, tab labels, and corresponding world IDs. |
 | `dexModes` | Pokédex choices; `regional: true` uses `RegionalNumber`, while false uses `Number`. |
@@ -332,7 +353,7 @@ Before committing:
 1. Parse every JSON document and confirm every configured path exists.
 2. Confirm all world placement IDs resolve after normalization.
 3. Confirm every non-empty entrance target exists.
-4. Confirm both forms of reachability: every relevant area connects to a world placement, and every relevant interior belongs to a component opened by a world marker.
+4. Confirm directed reachability before and after contraction: every area must be reachable from a world placement, and every interior must belong to a component opened by a world marker.
 5. Confirm all encounter, special-Pokémon, and availability versions are `Both` or registered version IDs.
 6. Confirm every obtainable Pokémon is represented by an encounter, special acquisition, or a documented locally available evolution from one; do not count player-to-player trade evolutions without an in-game exception.
 7. Confirm every acquisition channel and event source used by the title has been inspected, including sources stored outside normal map scripts.

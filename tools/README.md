@@ -10,7 +10,7 @@ The directory name must match the package ID in `wwwroot/games/catalog.json`. A 
 
 Each toolchain must declare its minimum compatible runtime, use exact direct package versions, and commit its dependency lock files. Install from the lock file (`npm ci` for Node toolchains); do not rely on globally installed packages or floating dependency ranges. Add its routine commands to the root `justfile` so generation is consistent locally and in automation.
 
-`tools/package-finalization/` contains the game-neutral package contract proven across FRLG, Red/Blue, and Yellow. Keep source parsing, palette rules, rendering decisions, checklist ID construction, and exact source audits in the game adapter.
+`tools/package-finalization/` contains the game-neutral package contract used by every installed game. `tools/gen2/` contains the stable source-format modules shared by the structurally similar Gold/Silver and Crystal projects. The package builders, public commands, dependency locks, and package-specific artifact tests remain under `tools/gs/` and `tools/crystal/`. Package-specific acquisition rules, graphics aliases, placements, sprite behavior, and audits belong to those package directories. Keep source parsing, palette rules, rendering decisions, checklist ID construction, and exact source audits outside package finalization.
 
 `tools/PokemonFieldGuide.SchemaGenerator/` generates the committed schemas from `PokemonFieldGuide.Shared.Contracts`. `tools/package-schema/` validates JSON with pinned Ajv during package generation and `just check`. JavaScript adapters may map source-specific values to the stable strings defined by a generated schema; schema validation must reject mappings that drift from the C# contract.
 
