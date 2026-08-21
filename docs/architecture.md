@@ -14,17 +14,18 @@ flowchart LR
     L --> D[fieldguide.json]
     L --> P[pokedex.json]
     L --> W[worlds.json]
-    C --> R[GameRulesRegistry]
-    R --> U[Shared atlas UI]
-    D --> U
-    P --> U
-    W --> U
+    L --> R[GameRulesRegistry]
+    D --> G[Game package]
+    P --> G
+    W --> G
+    R --> G
+    G --> U[Shared atlas UI]
     U <--> S[Browser local storage]
 ```
 
-At startup, `Home.razor` loads saved preferences and the catalog. It selects `SavedProgress.GameId`, falling back to `GameCatalog.DefaultGameId`, and asks `GamePackageLoader` to fetch the package's guide, Pokédex, and world documents concurrently. The package's `rules` value resolves an `IGameRules` implementation through `GameRulesRegistry`.
+At startup, `Home.razor` loads saved preferences and the catalog. It selects `SavedProgress.GameId`, falling back to `GameCatalog.DefaultGameId`. `GamePackageLoader` fetches the guide, Pokédex, and world documents concurrently. The loader resolves the package's `IGameRules` adapter and returns an assembled `GamePackage`.
 
-The page renders versions, regions, Pokédex modes, labels, paths, defaults, and colors from `GameDefinition`. The application menu flattens package versions into one game selector, so package boundaries remain an implementation detail. Region tabs render only when a package has multiple worlds. Title-specific exceptions are delegated to `IGameRules`.
+The Game package owns normalized area lookup, version-aware queries, entrance traversal, marker clustering, ordered groups, asset resolution, and Pokédex interpretation. `Home.razor` owns the selected version, saved progress, interaction state, and browser calls. The page renders versions, regions, Pokédex modes, labels, paths, defaults, and colors from `GameDefinition`.
 
 ## Source layout
 
@@ -38,6 +39,7 @@ PokemonFieldGuide/
 │   └── Home.razor              Shared atlas, checklist, interiors, and Pokédex UI
 ├── Services/
 │   ├── GamePackageLoader.cs    Catalog and package loading
+│   ├── GamePackage.cs          Read-only package queries and indexes
 │   └── GameRules.cs            Rules interface, registry, and providers
 └── wwwroot/
     ├── games/
@@ -89,7 +91,7 @@ Paths are URLs relative to `wwwroot` and must not start with `/`. This makes the
 
 ## Rules boundary
 
-`IGameRules` is the boundary for behavior that cannot be expressed by current package metadata:
+`IGameRules` is an internal seam in the Game package implementation. It contains behavior that cannot be expressed by current package metadata:
 
 - normalizing map IDs used by world placements and area data;
 - naming and ordering encounter groups;
@@ -97,15 +99,17 @@ Paths are URLs relative to `wwwroot` and must not start with `/`. This makes the
 - mapping species and item names to sprite filenames;
 - supplying an embedded Pokémon icon when no file exists.
 
-The shared page must not test game IDs, game titles, or title-specific map constants. Add metadata when the behavior is declarative; add or extend a rules implementation when it is procedural.
+The Game package interface hides `IGameRules` from the shared page. The page must not test game IDs, game titles, or title-specific map constants. Add metadata when the behavior is declarative. Add or extend a rules adapter when it is procedural.
 
 ## Map and interior behavior
 
-Outdoor areas are those referenced by any loaded `GuideWorld`. `NormalizeAreaId` allows a rendered placement to resolve to a differently named guide area when source data requires it.
+Outdoor areas are those referenced by any loaded `GuideWorld`. The Game package indexes those placements during assembly. `NormalizeAreaId` allows a rendered placement to resolve to a differently named guide area when source data requires it.
 
 Interior reachability is graph-based. An outdoor marker opens the nearest interior that contains encounters, items, or special Pokémon. Once open, every connected non-outdoor area with guide data becomes a selectable floor. Package finalization contracts empty transition chains but retains a junction when distinct branches lead to relevant interiors, even when the branches have different lengths. Complete and correct source entrance edges are therefore essential for rooms that are omitted from the final package.
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
+
+An area checklist contains each version-available Pokémon species once, across both encounters and special acquisitions, plus every item in the area. The page compares the checklist with saved progress to calculate the displayed percentage.
 
 ## Saved progress
 

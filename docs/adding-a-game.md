@@ -236,7 +236,7 @@ When rendering maps from tiles and blocks, validate the source format's native t
 Create an `IGameRules` implementation and provider, preferably in a game-specific source file once more packages exist:
 
 ```csharp
-public sealed class ExampleRulesProvider : IGameRulesProvider
+internal sealed class ExampleRulesProvider : IGameRulesProvider
 {
     public string Id => "example";
     public IGameRules Rules { get; } = new ExampleRules();
@@ -248,7 +248,7 @@ Implement every interface member:
 - `NormalizeAreaId` maps world-placement aliases to guide-area IDs.
 - `EncounterGroupName` converts raw encounter methods into headings.
 - `EncounterGroupOrder`, `SpecialGroupOrder`, and `ItemGroupOrder` return stable display order values.
-- `PokemonSpriteName` and `ItemSpriteName` return filenames only; the catalog supplies directory paths.
+- `PokemonSpriteName` returns a filename only. The catalog supplies the directory path.
 - `EmbeddedPokemonIcon` returns null unless a species needs an inline fallback.
 
 Register the provider in `Program.cs`:

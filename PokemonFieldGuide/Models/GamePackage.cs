@@ -49,9 +49,3 @@ public sealed class DexModeDefinition
     public string Name { get; set; } = "";
     public bool Regional { get; set; }
 }
-
-public sealed record LoadedGamePackage(
-    GameDefinition Definition,
-    FieldGuideData FieldGuide,
-    List<PokedexEntry> Pokedex,
-    List<GuideWorld> Worlds);

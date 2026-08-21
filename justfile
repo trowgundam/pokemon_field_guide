@@ -1,4 +1,5 @@
 project := "PokemonFieldGuide/PokemonFieldGuide.csproj"
+test_project := "PokemonFieldGuide.Tests/PokemonFieldGuide.Tests.csproj"
 release_dir := "release"
 
 # List available project commands.
@@ -8,6 +9,7 @@ default:
 # Restore the exact NuGet dependency graph from the lock file.
 restore:
     dotnet restore {{project}} --locked-mode
+    dotnet restore {{test_project}} --locked-mode
 
 # Build the application.
 build: restore
@@ -16,6 +18,10 @@ build: restore
 # Run the development server.
 run: restore
     dotnet run --project {{project}} --no-restore
+
+# Run the Game package tests.
+test: restore
+    dotnet test {{test_project}} --no-restore
 
 # Produce the release build used by GitHub Pages.
 publish: restore
@@ -41,7 +47,8 @@ check:
     node --check tools/rb/generate-fieldguide.mjs
     node --check tools/yellow/generate-fieldguide.mjs
     node tools/validate-generated-data.mjs
-    dotnet restore {{project}} --locked-mode
+    dotnet restore {{test_project}} --locked-mode
+    dotnet test {{test_project}} --no-restore
     dotnet build {{project}} --no-restore
 
 # Regenerate the complete FRLG package from a pokefirered checkout.
