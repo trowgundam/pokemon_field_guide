@@ -19,6 +19,7 @@ Run from the repository root:
 ```sh
 just build
 just run
+just test
 just publish
 just check
 ```
@@ -29,7 +30,7 @@ Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `p
 
 Always build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
 
-`just check` runs the package-finalization tests and validates every registered package. The checks cover configured paths, integer fields, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, and exact map and sprite use. Packages that set `validateWorldReachability` also require every area with guide data to connect to a world placement.
+`just test` exercises Game package assembly and queries through fake HTTP responses. `just check` runs those tests, the package-finalization tests, and validation for every registered package. The package checks cover configured paths, integer fields, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, and exact map and sprite use. Packages that set `validateWorldReachability` also require every area with guide data to connect to a world placement.
 
 ## Generated files
 

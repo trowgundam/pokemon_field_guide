@@ -2,7 +2,7 @@ using PokemonFieldGuide.Models;
 
 namespace PokemonFieldGuide.Services;
 
-public interface IGameRules
+internal interface IGameRules
 {
     string NormalizeAreaId(string id);
     string EncounterGroupName(Encounter encounter);
@@ -10,35 +10,34 @@ public interface IGameRules
     int SpecialGroupOrder(string kind);
     int ItemGroupOrder(string kind);
     string PokemonSpriteName(string speciesId);
-    string ItemSpriteName(string itemName);
     string? EmbeddedPokemonIcon(string speciesId);
 }
 
-public sealed class GameRulesRegistry(IEnumerable<IGameRulesProvider> providers)
+internal sealed class GameRulesRegistry(IEnumerable<IGameRulesProvider> providers)
 {
     public IGameRules Get(string id) => providers.FirstOrDefault(provider => provider.Id == id)?.Rules
         ?? throw new InvalidOperationException($"No rules module is registered for '{id}'.");
 }
 
-public interface IGameRulesProvider
+internal interface IGameRulesProvider
 {
     string Id { get; }
     IGameRules Rules { get; }
 }
 
-public sealed class FrlgGameRulesProvider : IGameRulesProvider
+internal sealed class FrlgGameRulesProvider : IGameRulesProvider
 {
     public string Id => "frlg";
     public IGameRules Rules { get; } = new FrlgGameRules();
 }
 
-public sealed class RbGameRulesProvider : IGameRulesProvider
+internal sealed class RbGameRulesProvider : IGameRulesProvider
 {
     public string Id => "rb";
     public IGameRules Rules { get; } = new RbGameRules();
 }
 
-public sealed class YellowGameRulesProvider : IGameRulesProvider
+internal sealed class YellowGameRulesProvider : IGameRulesProvider
 {
     public string Id => "yellow";
     public IGameRules Rules { get; } = new RbGameRules();
@@ -70,7 +69,6 @@ internal sealed class RbGameRules : IGameRules
         "SPECIES_MR_MIME" => "mr.mime.png",
         _ => speciesId.Replace("SPECIES_", "").ToLowerInvariant() + ".png"
     };
-    public string ItemSpriteName(string itemName) => "question_mark.png";
     public string? EmbeddedPokemonIcon(string speciesId) => null;
 }
 
@@ -107,22 +105,6 @@ internal sealed class FrlgGameRules : IGameRules
     public int SpecialGroupOrder(string kind) => kind switch { "Static" => 0, "Gift" => 1, "Trade" => 2, _ => 3 };
     public int ItemGroupOrder(string kind) => kind switch { "Visible" => 0, "Hidden" => 1, "Event" => 2, _ => 3 };
     public string PokemonSpriteName(string speciesId) => speciesId.Replace("SPECIES_", "").ToLowerInvariant() + ".png";
-
-    public string ItemSpriteName(string itemName)
-    {
-        var slug = System.Text.RegularExpressions.Regex.Replace(itemName.ToLowerInvariant(), @"[^a-z0-9]+", "_").Trim('_');
-        slug = slug switch
-        {
-            "full_restore" or "max_potion" => "large_potion",
-            "max_elixir" or "elixir" or "max_ether" => "ether",
-            "awakening" or "burn_heal" or "ice_heal" or "paralyze_heal" => "status_heal",
-            "calcium" or "carbos" or "iron" or "protein" or "zinc" => "vitamin",
-            "ruby" or "sapphire" => "gem",
-            _ when slug.StartsWith("tm") || slug.StartsWith("hm") => "tm_hm",
-            _ => slug
-        };
-        return slug + ".png";
-    }
 
     public string? EmbeddedPokemonIcon(string speciesId) => speciesId == "SPECIES_UNOWN" ? UnownIcon : null;
 }

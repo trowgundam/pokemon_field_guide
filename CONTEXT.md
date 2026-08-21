@@ -19,3 +19,7 @@ _Avoid_: Package cleanup, post-processing
 **Package invariant**:
 A rule that every game package must satisfy regardless of its source. Source-specific facts and audits are not package invariants and remain with the game adapter.
 _Avoid_: Shared rule, global rule
+
+**Area checklist**:
+The unique Pokemon species available through encounters or special acquisitions in one area and game version, together with the items found there. A species appears once regardless of how many ways it can be acquired.
+_Avoid_: Area completion, location checklist
