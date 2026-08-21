@@ -30,7 +30,7 @@ Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `p
 
 Always build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
 
-`just test` exercises Game package assembly and queries through fake HTTP responses. `just check` runs those tests, the package-finalization tests, and validation for every registered package. The package checks cover configured paths, integer fields, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, and exact map and sprite use. Packages that set `validateWorldReachability` also require every area with guide data to connect to a world placement.
+`just test` exercises Game package assembly and Local guide state behavior. The Local guide state tests cover migration, recovery, atomic writes, queued changes, backup v2, partial import, selective reset, and special-acquisition provenance. `just check` runs those tests, the package-finalization tests, and validation for every registered package. The package checks cover configured paths, integer fields, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, and exact map and sprite use. Packages that set `validateWorldReachability` also require every area with guide data to connect to a world placement.
 
 ## Generated files
 
@@ -93,8 +93,12 @@ At minimum, verify:
 - mobile layouts do not scroll horizontally;
 - Pokédex numbering, availability, search, and caught state are correct;
 - progress is isolated by package and version;
-- reset clears checklist profiles but preserves preferences;
-- v1 local saves and backups preserve per-game profile versions and round-trip without losing progress;
+- selective reset clears only confirmed Checklist profiles and preserves preferences;
+- malformed Local guide state remains downloadable until the user explicitly deletes it;
+- local profile v1 migrates to v2 without removing direct caught marks or unknown checklist IDs;
+- backup v1 imports checklist data without preferences, and backup v2 round-trips selected profiles;
+- import previews replacements and applies only the profiles confirmed by the user;
+- failed browser writes do not change the displayed Local guide state;
 - whenever a released version is incremented, representative fixtures for every supported prior version migrate without changing unrelated profiles.
 
 `just check` also parses every registered generated JSON document and verifies that numeric fields required by the .NET models are integers. Keep generator output aligned with the runtime contracts; JavaScript accepting a numeric value does not imply that `System.Text.Json` can deserialize it into the declared C# type.

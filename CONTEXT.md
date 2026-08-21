@@ -23,3 +23,15 @@ _Avoid_: Shared rule, global rule
 **Area checklist**:
 The unique Pokemon species available through encounters or special acquisitions in one area and game version, together with the items found there. A species appears once regardless of how many ways it can be acquired.
 _Avoid_: Area completion, location checklist
+
+**Local guide state**:
+The information one browser keeps for the guide, including preferences and every checklist profile.
+_Avoid_: Saved progress, local save
+
+**Checklist profile**:
+The caught Pokemon, collected items, and completed special acquisitions recorded for one game version.
+_Avoid_: Game state, save slot
+
+**Portable backup**:
+A file containing user-selected checklist profiles for transfer between browsers or devices. It does not contain guide preferences.
+_Avoid_: Local guide state, save file
