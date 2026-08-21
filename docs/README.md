@@ -4,8 +4,11 @@ This directory is the canonical technical documentation for the project.
 
 - [Architecture](architecture.md): runtime boundaries, data flow, persistence, and extension points
 - [Package finalization](package-finalization.md): shared generation seam, package invariants, and atomic replacement
+- [Generation II packages](gen2-packages.md): Gold/Silver and Crystal source adapter, rendering rules, and package boundaries
+- [Encounter table presentation](encounter-table-presentation.md): condition grouping and identical-table combination rules
+- [Renewable map resources](renewable-map-resources.md): non-checklist resource markers and generator guidance
 - [Adding a game](adding-a-game.md): end-to-end instructions for creating and registering a game package
-- [Development](development.md): local commands, generated-data practices, testing, and FRLG regeneration
+- [Development](development.md): local commands, generated-data practices, testing, and package regeneration
 - [Deployment](deployment.md): GitHub Pages publishing and base-path behavior
 - [Checklist backups](save-backups.md): portable backup schema, version policy, and import semantics
 - [JSON contracts](json-contracts.md): authoritative C# contracts, generated schemas, and validation

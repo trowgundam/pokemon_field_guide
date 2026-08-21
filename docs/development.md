@@ -9,6 +9,8 @@
 - A compatible `pret/pokefirered` checkout for FRLG regeneration
 - A compatible `pret/pokered` checkout for Red/Blue regeneration
 - A compatible `pret/pokeyellow` checkout for Yellow regeneration
+- A compatible `pret/pokegold` checkout for Gold/Silver regeneration
+- A compatible `pret/pokecrystal` checkout for Crystal regeneration
 
 No ROM is required or permitted in the repository.
 
@@ -31,7 +33,7 @@ Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `p
 
 Always build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
 
-`just test` exercises Game package assembly and Local guide state behavior. The Local guide state tests cover migration, recovery, atomic writes, queued changes, backup v2, partial import, selective reset, and special-acquisition provenance. `just check` verifies schema drift, validates every generated JSON document, runs the package-finalization tests, and validates every registered package. The package checks cover configured paths, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, and exact map and sprite use. Packages that set `validateWorldReachability` also require every area with guide data to connect to a world placement.
+`just test` exercises Game package assembly and Local guide state behavior. The Local guide state tests cover migration, recovery, atomic writes, queued changes, backup v2, partial import, selective reset, and special-acquisition provenance. `just check` verifies schema drift, validates every generated JSON document, runs the package-finalization tests, and validates every registered package. The package checks cover configured paths, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, exact map and sprite use, and directed reachability from world warps for every area.
 
 `PokemonFieldGuide.Shared.Contracts` owns runtime JSON formats. After changing one of those C# types, run `just generate-schemas` and commit the schema diff. See [JSON contracts](json-contracts.md).
 
@@ -77,6 +79,21 @@ just generate-yellow /path/to/pokeyellow
 ```
 
 The Yellow generator parses Yellow's RGBDS map headers, wild encounters, all three fishing rods, visible and hidden items, scripted rewards (including split `_2.asm` map scripts), gifts, Game Corner prizes, NPC trades, static encounters, map blocks, tilesets, Kanto connections, CGB base palettes, overworld palette-selection context, and per-species Pokémon palettes. It writes the complete `yellow` package with authentic GBC-colored maps and sprites, removes unused outputs, and makes each sprite's dominant border-connected background transparent before applying its CGB palette. Generation fails unless its palette tables, source-derived item totals, 39 distinct special acquisitions, expected unobtainable Pokédex list, and world reachability audit all pass. Inaccessible source events are deliberately excluded.
+
+## Regenerating Generation II
+
+```sh
+just generate-gs /path/to/pokegold
+just generate-crystal /path/to/pokecrystal
+```
+
+Gold/Silver and Crystal have separate package commands, dependency locks, and package builders. The builders use modules under `tools/gen2/` for stable RGBDS parsing, display-name conversion, map rendering, connected-world construction, and sprite processing. Package-specific acquisition rules, graphics aliases, world placement, and sprite-file selection remain in `tools/gs/build-package.mjs` and `tools/crystal/build-package.mjs`.
+
+The builders extract time-of-day and swarm tables as separate encounter conditions; fishing, headbutt, Rock Smash, roaming, gift, static, prize, egg, and NPC-trade sources; one connected Johto and Kanto world canvas; and the New and National Pokédex orders. They join ordered fruit-tree constants and item tables to `SPRITE_FRUIT_TREE` map objects, audit all 30 source trees, and emit them as renewable resources. They follow outdoor map connections instead of placing every town- or route-classified source map on the world. Parks, ports, and landmark exteriors reached through warps remain interior maps unless their rendered edges align with the connected outdoor canvas. Route 26 and Route 27 stay in the New Bark Town outdoor component. Routes 22, 23, 26, and 28 remain full-size maps on the cardinal sides of a 320-pixel rocky Victory Road connector, with no overlap between routes. The builders filter fishing by the water permissions of blocks used in each map instead of treating the broad map fish-group field as proof that a location is fishable. Maps use the canonical daytime palette and reproduce each map group's dynamically loaded roof graphics, roof colors, and two-bank tileset addressing. In Crystal, the Route 40 gate contracts away and Battle Tower Outside is placed directly above Route 40 on the world canvas. Its entrance opens Battle Tower 1F, which records the five possible stat-boosting rewards.
+
+Gold/Silver registers distinct per-version battle sprites when the source provides them. Crystal extracts the first native battle frame from each animated front-sprite sheet. The adapter makes each battle sprite's dominant border-connected background transparent without removing enclosed light details. Generation II does not provide standalone bag item icons, so both packages use the required item fallback.
+
+The public generators install a package only after schema, probability, reachability, reference, and asset-use checks pass. Source records marked as beta are excluded.
 
 ## Regression expectations
 

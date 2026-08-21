@@ -2,6 +2,8 @@
 
 Package finalization turns one game adapter's draft into a checked game package. It gives every current and future adapter the same package contract without teaching the shared module how any source project stores maps, encounters, palettes, or scripts.
 
+Before contraction, finalization follows directed entrance edges from every world placement and requires every draft area to be reachable. Adapters must omit unused, beta, debug, and inaccessible maps instead of relying on contraction to discard them. After contraction, package validation repeats the directed traversal over every retained area. This catches both source-graph gaps and disconnects introduced by contraction.
+
 ## Usage
 
 A public generator command calls `generatePackage` once:
@@ -60,18 +62,19 @@ Package finalization owns every package invariant:
 - catalog paths and version IDs;
 - unique area, checklist, world, and Pokédex IDs;
 - deterministic encounter merging;
-- empty entrance-chain contraction;
+- empty entrance-chain contraction and explicit `includeInNavigation` retention;
 - junction retention across relevant branches of unequal length;
 - missing-target rejection;
 - area reachability from world placements;
-- relevant-interior navigation from world markers;
+- directed draft and final graph reachability from world warps;
+- interior navigation from world markers;
 - cross-document references;
 - exact map and sprite use;
-- world crop and marker bounds;
+- world crop and item, resource, and entrance marker bounds;
 - final JSON serialization;
 - staged checking and whole-package replacement.
 
-The generated `data/package-manifest.json` contains runtime package facts that span the generated documents. Manifest format v2 records Pokémon sprite associations and area aliases. Package finalization validates the manifest before installation, and `GamePackageLoader` reads it with the other Game package documents.
+The generated `data/package-manifest.json` contains runtime package facts that span the generated documents. Manifest format v2 records package-wide Pokémon sprite associations, optional per-version sprite associations, and area aliases. Package finalization validates the manifest before installation, and `GamePackageLoader` reads it with the other Game package documents.
 
 The authoritative C# contracts in `PokemonFieldGuide.Shared` generate the JSON Schemas in `schemas/`. Package finalization validates staged documents against those schemas before it runs cross-document, graph, and asset checks. Run `just generate-schemas` after changing a serialized C# contract. `just check` fails when a committed schema is stale.
 
@@ -83,7 +86,7 @@ If any extraction, rendering, transformation, or package check fails, package fi
 
 ## Tests
 
-`node --test tools/package-finalization.test.mjs` uses real temporary directories. The tests cover complete replacement, unequal branch lengths, world-marker navigation, missing-target rejection, map and crop rejection, unused staged-asset removal, and preservation of an installed package after extraction or finalization fails. `just check` runs these tests before it checks the three committed packages.
+`node --test tools/package-finalization.test.mjs` uses real temporary directories. The tests cover complete replacement, conditional encounter tables, per-version sprite retention, explicit empty-map navigation, unequal branch lengths, world-marker navigation, missing-target rejection, map and crop rejection, unused staged-asset removal, and preservation of an installed package after extraction or finalization fails. `just check` runs these tests before it checks the installed packages.
 
 ## Synthesis decision
 
