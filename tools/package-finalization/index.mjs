@@ -88,3 +88,7 @@ export async function checkPackages({ webRoot = defaultWebRoot } = {}) {
   for (const game of catalog.games) reports.push(await checkPackage(game, path.join(webRoot, 'games', game.id)));
   return reports;
 }
+
+const formatCount = (count, singular, plural = `${singular}s`) => `${count} ${count === 1 ? singular : plural}`;
+
+export const formatPackageReport = report => `Generated ${report.gameName}: ${formatCount(report.areaCount, 'area')}, ${formatCount(report.encounterCount, 'encounter')}, ${formatCount(report.itemCount, 'item')}, and ${formatCount(report.specialPokemonCount, 'special Pokémon', 'special Pokémon')}.`;

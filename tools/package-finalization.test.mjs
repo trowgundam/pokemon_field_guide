@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { checkPackages, generatePackage } from './package-finalization/index.mjs';
+import { checkPackages, formatPackageReport, generatePackage } from './package-finalization/index.mjs';
 
 const png = Buffer.from('89504e470d0a1a0a', 'hex');
 
@@ -73,6 +73,7 @@ test('generates a complete package and checks the installed result', async t => 
 
   const report = await checkPackages({ webRoot });
   assert.deepEqual(report.map(result => result.gameId), ['test']);
+  assert.equal(formatPackageReport(report[0]), 'Generated Test: 1 area, 1 encounter, 1 item, and 0 special Pokémon.');
 
   assert.equal(JSON.parse(await fs.readFile(path.join(packageRoot, 'data/fieldguide.json'))).areas.length, 1);
   assert.equal(JSON.parse(await fs.readFile(path.join(packageRoot, 'data/package-manifest.json'))).pokemonSprites.SPECIES_TEST, 'test.png');

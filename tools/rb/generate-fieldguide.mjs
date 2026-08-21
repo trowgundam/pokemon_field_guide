@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
-import { generatePackage } from '../package-finalization/index.mjs';
+import { registerQuestionMarkSprites } from '../package-finalization/assets.mjs';
+import { formatPackageReport, generatePackage } from '../package-finalization/index.mjs';
 
 const source = path.resolve(process.argv[2] ?? '/tmp/pokered-fieldguide');
-await generatePackage({ gameId: 'rb', build: async ({ assets }) => {
+const report = await generatePackage({ gameId: 'rb', build: async ({ assets }) => {
 
 const read = relative => fs.readFileSync(path.join(source, relative), 'utf8');
 const readMapScripts = label => [path.join(source, `scripts/${label}.asm`), path.join(source, `scripts/${label}_2.asm`)]
@@ -276,9 +277,7 @@ for (const entry of dex) {
   const file = spriteName(entry.speciesId);
   pokemonSprites[entry.speciesId] = await assets.pokemonSprite(file, target => copySpriteWithTransparentBackground(file, target));
 }
-const fallback = await sharp({ create: { width: 32, height: 32, channels: 4, background: '#ffffff00' } }).composite([{ input: Buffer.from('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#eee" stroke="#333" stroke-width="2"/><text x="16" y="23" text-anchor="middle" font-size="22">?</text></svg>') }]).png().toBuffer();
-const pokemonFallback = await assets.pokemonSprite('question_mark.png', target => fs.promises.writeFile(target, fallback));
-await assets.itemSprite('question_mark.png', target => fs.promises.writeFile(target, fallback));
-console.log(`Generated Red/Blue: ${areas.length} areas, ${placed.length} outdoor maps, ${areas.reduce((n,a)=>n+a.encounters.length,0)} encounters, ${areas.reduce((n,a)=>n+a.items.length,0)} items; all ${areas.filter(a=>a.encounters.length||a.items.length||a.specialPokemon.length).length} relevant areas reachable.`);
+const pokemonFallback = await registerQuestionMarkSprites(assets, sharp);
 return { source: 'pret/pokered', generated: new Date().toISOString().slice(0, 10), areas: [...maps.values()], worlds, pokedex: dex, pokemonSprites, embeddedPokemon: [], pokemonFallback };
 } });
+console.log(formatPackageReport(report));
