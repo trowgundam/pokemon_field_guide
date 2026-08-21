@@ -30,14 +30,17 @@ await checkPackages();
 
 ## Interface shape
 
-The module exports two operations:
+The module exports three operations:
 
 ```js
 generatePackage({ gameId, build, webRoot? })
 checkPackages({ webRoot? })
+formatPackageReport(report)
 ```
 
 `webRoot` exists for temporary-directory tests. Routine callers omit it.
+
+`generatePackage` and `checkPackages` return finalized package reports. Pass a report to `formatPackageReport` when a command needs a consistent count summary.
 
 The interface does not expose catalog parsing, graph helpers, validation phases, asset pruning, serialization, staging paths, or replacement functions. Callers cannot skip or reorder those steps.
 

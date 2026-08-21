@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { isAsset } from './assets.mjs';
+import { isAsset, isPackageFileName } from './assets.mjs';
 
 const integerFields = {
   fieldguide: ['minLevel', 'maxLevel', 'level', 'x', 'y', 'quantity', 'mapWidth', 'mapHeight'],
@@ -19,7 +19,7 @@ const walk = (value, visit) => {
 const relevant = area => area.encounters.length + area.items.length + area.specialPokemon.length > 0;
 
 const assetFileName = (gameId, kind, fileName) => {
-  if (typeof fileName !== 'string' || !fileName || path.posix.basename(fileName) !== fileName || fileName === '.' || fileName === '..')
+  if (!isPackageFileName(fileName))
     throw new Error(`${gameId}: invalid ${kind} asset filename '${fileName}'.`);
   return fileName;
 };
@@ -347,14 +347,8 @@ export async function checkPackage(game, packageRoot) {
     throw new Error(`${game.id}: relevant interior areas are not navigable from world markers: ${unnavigable.map(area => area.id).join(', ')}.`);
 
   const dexSpecies = new Set();
-  const declaredPokemonSprites = manifest.pokemonSpriteRule ? Object.fromEntries(pokedex
-    .filter(entry => !(manifest.embeddedPokemon ?? []).includes(entry.speciesId))
-    .map(entry => {
-      if (manifest.pokemonSpriteRule !== 'species-id-lowercase') throw new Error(`${game.id}: unknown Pokémon sprite rule '${manifest.pokemonSpriteRule}'.`);
-      const override = manifest.pokemonSpriteOverrides?.[entry.speciesId];
-      return [entry.speciesId, assetFileName(game.id, 'Pokémon sprite', override ?? entry.speciesId.replace('SPECIES_', '').toLowerCase() + '.png')];
-    })) : Object.fromEntries(Object.entries(manifest.pokemonSprites ?? {})
-      .map(([speciesId, fileName]) => [speciesId, assetFileName(game.id, 'Pokémon sprite', fileName)]));
+  const declaredPokemonSprites = Object.fromEntries(Object.entries(manifest.pokemonSprites ?? {})
+    .map(([speciesId, fileName]) => [speciesId, assetFileName(game.id, 'Pokémon sprite', fileName)]));
   for (const entry of pokedex) {
     if (!entry.speciesId || dexSpecies.has(entry.speciesId)) throw new Error(`${game.id}: duplicate or empty Pokédex species ID '${entry.speciesId}'.`);
     dexSpecies.add(entry.speciesId);
@@ -385,6 +379,7 @@ export async function checkPackage(game, packageRoot) {
 
   return {
     gameId: game.id,
+    gameName: game.name,
     areaCount: areaById.size,
     encounterCount: [...areaById.values()].reduce((sum, area) => sum + area.encounters.length, 0),
     itemCount: [...areaById.values()].reduce((sum, area) => sum + area.items.length, 0),
