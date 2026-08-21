@@ -274,16 +274,19 @@ const hasRelevantData = area => area.encounters.length || area.items.length || a
 for (const area of maps.values()) {
   delete area.key; delete area.label; delete area.tileset; delete area.width; delete area.height; delete area.mapIndex; delete area.connections;
 }
-const areas = [...maps.values()].filter(area => outdoorIds.has(area.id) || hasRelevantData(area));
-const itemCounts = areas.flatMap(area => area.items).reduce((counts, item) => counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1), new Map());
+const relevantAreas = [...maps.values()].filter(area => outdoorIds.has(area.id) || hasRelevantData(area));
+// Link-cable rooms have no path from the single-player world graph.
+const excludedAreaIds = new Set(['MAP_COLOSSEUM', 'MAP_TRADE_CENTER']);
+const draftAreas = [...maps.values()].filter(area => !excludedAreaIds.has(area.id));
+const itemCounts = relevantAreas.flatMap(area => area.items).reduce((counts, item) => counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1), new Map());
 const expectedItemCounts = { Visible: 108, Hidden: 53, Event: 44 };
 for (const [kind, expected] of Object.entries(expectedItemCounts)) if (itemCounts.get(kind) !== expected)
   throw new Error(`${kind} item audit failed: expected ${expected}, generated ${itemCounts.get(kind) ?? 0}`);
-if (areas.reduce((sum, area) => sum + area.specialPokemon.length, 0) !== 39) throw new Error('Special Pokémon audit failed: expected 39 distinct acquisitions');
+if (relevantAreas.reduce((sum, area) => sum + area.specialPokemon.length, 0) !== 39) throw new Error('Special Pokémon audit failed: expected 39 distinct acquisitions');
 
 const species = [...read('constants/pokedex_constants.asm').matchAll(/^\s*const\s+DEX_([A-Z0-9_]+)/gm)].map(m => m[1]).slice(0, 151);
 const obtainable = { Yellow: new Set() };
-for (const area of areas) for (const version of ['Yellow']) {
+for (const area of relevantAreas) for (const version of ['Yellow']) {
   for (const e of area.encounters) if (e.version === 'Both' || e.version === version) obtainable[version].add(e.speciesId);
   for (const p of area.specialPokemon) if (p.version === 'Both' || p.version === version) obtainable[version].add(p.speciesId);
 }
@@ -345,6 +348,6 @@ for (const entry of dex) {
   pokemonSprites[entry.speciesId] = await assets.pokemonSprite(file, target => copySpriteWithTransparentBackground(file, target));
 }
 const pokemonFallback = await registerQuestionMarkSprites(assets, sharp);
-return { source: 'pret/pokeyellow', generated: new Date().toISOString().slice(0, 10), areas: [...maps.values()], worlds, pokedex: dex, pokemonSprites, pokemonFallback };
+return { source: 'pret/pokeyellow', generated: new Date().toISOString().slice(0, 10), areas: draftAreas, worlds, pokedex: dex, pokemonSprites, pokemonFallback };
 } });
 console.log(formatPackageReport(report));

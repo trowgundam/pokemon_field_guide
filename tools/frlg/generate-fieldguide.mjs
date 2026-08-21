@@ -167,7 +167,7 @@ const excludedMaps = /(?:PROTOTYPE|UNUSED)|^MAP_(?:BATTLE_COLOSSEUM_[24]P|RECORD
 const hasRelevantData = a => a.encounters.length || a.items.length || a.specialPokemon.length;
 const areaAliases = { MAP_SAFFRON_CITY_CONNECTION: 'MAP_SAFFRON_CITY' };
 const { worlds, mapAssets } = await renderFrlgMaps(source, assets, areaAliases);
-const rawAreas = [...areas.values()].filter(a => !excludedMaps.test(a.id));
+const rawAreas = [...areas.values()].filter(a => !excludedMaps.test(a.id) && !(a.id in areaAliases));
 for (const a of rawAreas) {
   a.entrances = a.entrances.map(entrance => excludedMaps.test(entrance.targetId) ? { ...entrance, targetId: null } : entrance);
   a.mapImage = a.mapLayout ? mapAssets.get(a.mapLayout) : null;
