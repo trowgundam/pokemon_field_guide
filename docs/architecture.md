@@ -14,11 +14,11 @@ flowchart LR
     L --> D[fieldguide.json]
     L --> P[pokedex.json]
     L --> W[worlds.json]
-    L --> R[GameRulesRegistry]
+    L --> M[package-manifest.json]
     D --> G[Game package]
     P --> G
     W --> G
-    R --> G
+    M --> G
     G --> U[Shared atlas UI]
     C --> M[Local guide state module]
     U -->|changes| M
@@ -26,23 +26,21 @@ flowchart LR
     M <--> S[Browser local storage]
 ```
 
-At startup, `Home.razor` loads the catalog and opens a `LocalGuideSession`. The session validates and migrates the Local guide state before it publishes an immutable snapshot. `Home.razor` then loads the active Game package from that snapshot. `GamePackageLoader` fetches the guide, Pokédex, and world documents concurrently. The loader resolves the package's `IGameRules` adapter and returns an assembled `GamePackage`.
+At startup, `Home.razor` loads the catalog and opens a `LocalGuideSession`. The session validates and migrates the Local guide state before it publishes an immutable snapshot. `Home.razor` then loads the active Game package from that snapshot. `GamePackageLoader` fetches the guide, Pokédex, world, and manifest documents concurrently and returns an assembled `GamePackage`.
 
 The Game package owns normalized area lookup, version-aware queries, entrance traversal, marker clustering, ordered groups, asset resolution, and Pokédex interpretation. The Local guide state module owns preferences, Checklist profiles, profile migrations, portable backups, reset rules, and browser persistence. `Home.razor` owns temporary interaction state, file selection, downloads, and messages. The page renders versions, regions, Pokédex modes, labels, paths, defaults, and colors from `GameDefinition`.
 
 ## Source layout
 
 ```text
+PokemonFieldGuide.Shared/
+└── Contracts/                  Authoritative C# JSON contracts and serialization settings
 PokemonFieldGuide/
-├── Models/
-│   ├── FieldGuideData.cs       Generated guide-data contracts
-│   └── GamePackage.cs          Catalog and package metadata contracts
 ├── Pages/
 │   └── Home.razor              Shared atlas, checklist, interiors, and Pokédex UI
 ├── Services/
 │   ├── GamePackageLoader.cs    Catalog and package loading
 │   ├── GamePackage.cs          Read-only package queries and indexes
-│   ├── GameRules.cs            Rules interface, registry, and providers
 │   └── LocalGuideState.cs      Local state, profile rules, backups, and storage adapters
 └── wwwroot/
     ├── games/
@@ -54,6 +52,8 @@ PokemonFieldGuide/
     ├── css/app.css
     └── index.html
 tools/
+├── PokemonFieldGuide.SchemaGenerator/  JSON Schema generation and drift check
+├── package-schema/             Generated-document schema validation
 ├── README.md                   Tooling ownership conventions
 ├── package-finalization/       Shared package transforms, checks, and replacement
 ├── package-finalization.test.mjs
@@ -83,7 +83,6 @@ Build-time tooling follows the same ownership boundary. Scripts under `tools/<ga
 The catalog is deserialized into `GameCatalog` and `GameDefinition`. A definition owns:
 
 - identity and display text;
-- its rules-provider ID;
 - data and asset paths;
 - versions and their accent colors;
 - visible region tabs and their world IDs;
@@ -92,17 +91,13 @@ The catalog is deserialized into `GameCatalog` and `GameDefinition`. A definitio
 
 Paths are URLs relative to `wwwroot` and must not start with `/`. This makes them compatible with both root hosting and a GitHub Pages repository base path.
 
-## Rules boundary
+## Package variability
 
-`IGameRules` is an internal seam in the Game package implementation. It contains behavior that cannot be expressed by current package metadata:
+The package manifest is the runtime authority for area aliases and Pokémon sprite filenames. Package finalization writes manifest format v2 and validates the same document that `GamePackageLoader` reads. Every sprite is a file owned by its Game package. Runtime code contains no embedded image data.
 
-- normalizing map IDs used by world placements and area data;
-- naming and ordering encounter groups;
-- ordering special-Pokémon and item groups;
-- mapping species and item names to sprite filenames;
-- supplying an embedded Pokémon icon when no file exists.
+Each `Encounter` retains its source `Method` and has a normalized `EncounterType`. A Game adapter must classify every source method. Package generation fails when a method is not classified. C# owns encounter-group labels and ordering through an exhaustive mapping from `EncounterType`.
 
-The Game package interface hides `IGameRules` from the shared page. The page must not test game IDs, game titles, or title-specific map constants. Add metadata when the behavior is declarative. Add or extend a rules adapter when it is procedural.
+`GamePackage` hides manifest lookup, grouping, ordering, and asset resolution from the shared page. The page must not test game IDs, game titles, or title-specific map constants.
 
 ## Map and interior behavior
 

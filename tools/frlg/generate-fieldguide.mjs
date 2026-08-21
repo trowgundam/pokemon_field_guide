@@ -47,6 +47,15 @@ function regionFor(id) {
   return 'Kanto';
 }
 const methods = { land_mons: 'Grass / cave', water_mons: 'Surf', rock_smash_mons: 'Rock Smash' };
+const encounterType = method => {
+  if (method.startsWith('Roaming')) return 'Roaming';
+  const type = {
+    'Grass / cave': 'Random', Surf: 'Surfing', 'Old Rod': 'OldRod',
+    'Good Rod': 'GoodRod', 'Super Rod': 'SuperRod', 'Rock Smash': 'RockSmash'
+  }[method];
+  if (!type) throw new Error(`FRLG encounter method '${method}' is not classified.`);
+  return type;
+};
 for (const group of wild.wild_encounter_groups) {
   const rates = Object.fromEntries(group.fields.map(f => [f.type, f.encounter_rates]));
   for (const set of group.encounters ?? []) {
@@ -64,7 +73,7 @@ for (const group of wild.wild_encounter_groups) {
           method = Object.entries(fishingGroups).find(([, slots]) => slots.includes(index))?.[0] ?? 'fishing';
           method = title(method);
         }
-        a.encounters.push({ species: title(mon.species), speciesId: mon.species, minLevel: mon.min_level, maxLevel: mon.max_level, chance: rates[key]?.[index] ?? 0, method, version });
+        a.encounters.push({ species: title(mon.species), speciesId: mon.species, minLevel: mon.min_level, maxLevel: mon.max_level, chance: rates[key]?.[index] ?? 0, method, type: encounterType(method), version });
       });
     }
   }
@@ -77,7 +86,7 @@ const roamers = [
   ['SPECIES_SUICUNE','Roaming · Charmander starter'],
   ['SPECIES_RAIKOU','Roaming · Squirtle starter']
 ];
-for(const mapId of roamerRoutes)for(const [speciesId,method] of roamers)area(mapId).encounters.push({species:title(speciesId),speciesId,minLevel:50,maxLevel:50,chance:25,method,version:'Both'});
+for(const mapId of roamerRoutes)for(const [speciesId,method] of roamers)area(mapId).encounters.push({species:title(speciesId),speciesId,minLevel:50,maxLevel:50,chance:25,method,type:encounterType(method),version:'Both'});
 
 for (const dir of fs.readdirSync(mapRoot)) {
   const jsonPath = path.join(mapRoot, dir, 'map.json');
@@ -190,6 +199,10 @@ for (const entry of pokedex.filter(entry => entry.speciesId !== 'SPECIES_UNOWN')
   const sourceIcon = path.join(source, 'graphics/pokemon', name, 'icon.png');
   pokemonSprites[entry.speciesId] = await assets.pokemonSprite(file, target => fs.promises.copyFile(sourceIcon, target));
 }
+// FRLG has no standalone Unown menu-sprite file. Use form A as the package's
+// deterministic canonical form rather than relying on source enumeration order.
+pokemonSprites.SPECIES_UNOWN = await assets.pokemonSprite('unown.png', target =>
+  fs.promises.copyFile(path.join(import.meta.dirname, 'assets/unown.png'), target));
 const itemSpriteFiles = new Set(data.flatMap(a => a.items.map(item => item.icon)).filter(file => file !== 'question_mark.png'));
 for (const file of itemSpriteFiles) {
   const sourceIcon = path.join(source, 'graphics/items/icons', file);
@@ -199,8 +212,7 @@ const pokemonFallback = await registerQuestionMarkSprites(assets, sharp);
 return {
   source: 'pret/pokefirered', generated: new Date().toISOString().slice(0, 10),
   areas: rawAreas, worlds, pokedex, pokemonSprites,
-  embeddedPokemon: ['SPECIES_UNOWN'], pokemonFallback, areaAliases,
-  independentEncounterMethodPrefixes: ['Roaming']
+  pokemonFallback, areaAliases
 };
 } });
 console.log(formatPackageReport(report));

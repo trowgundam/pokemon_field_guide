@@ -16,7 +16,7 @@ await generatePackage({
 });
 ```
 
-The build callback performs source-specific extraction, rendering, and audits. It returns draft areas, worlds, Pokédex entries, Pokémon sprite associations, and embedded-icon declarations in memory. Renderers write PNGs through the managed asset workspace. They never receive the installed package path.
+The build callback performs source-specific extraction, rendering, and audits. It returns draft areas, worlds, Pokédex entries, and Pokémon sprite associations in memory. Renderers write PNGs through the managed asset workspace. They never receive the installed package path.
 
 A world placement can use a cropped version of its area map. In that case, set `markerOffsetX` and `markerOffsetY` to the crop origin in map coordinates. Package finalization checks the crop bounds and every visible marker.
 
@@ -71,7 +71,9 @@ Package finalization owns every package invariant:
 - final JSON serialization;
 - staged checking and whole-package replacement.
 
-The generated `data/package-manifest.json` contains build-only facts that runtime JSON does not need. These facts include Pokémon sprite associations, embedded icons, area aliases needed by installed legacy output, and encounter methods that represent independent chances instead of a 100 percent table.
+The generated `data/package-manifest.json` contains runtime package facts that span the generated documents. Manifest format v2 records Pokémon sprite associations and area aliases. Package finalization validates the manifest before installation, and `GamePackageLoader` reads it with the other Game package documents.
+
+The authoritative C# contracts in `PokemonFieldGuide.Shared` generate the JSON Schemas in `schemas/`. Package finalization validates staged documents against those schemas before it runs cross-document, graph, and asset checks. Run `just generate-schemas` after changing a serialized C# contract. `just check` fails when a committed schema is stale.
 
 ## Failure behavior
 
@@ -92,7 +94,7 @@ The selected design uses one build callback and a managed asset workspace. This 
 ## Tradeoffs accepted
 
 - We accept temporary local paths inside opaque asset references so Sharp can compose staged images.
-- We accept a build-only manifest so the read-only checker can verify exact Pokémon sprite use without game-ID branches.
+- We load one manifest at build time and runtime so sprite and area-alias facts have one authority.
 - We accept a portable backup-and-rename transaction instead of a platform-specific directory exchange.
 - We rebuild the complete package so stale generated files cannot survive.
 

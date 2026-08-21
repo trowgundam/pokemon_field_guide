@@ -1,0 +1,1 @@
+global using PokemonFieldGuide.Shared.Contracts;

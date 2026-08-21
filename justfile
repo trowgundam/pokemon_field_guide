@@ -1,5 +1,6 @@
 project := "PokemonFieldGuide/PokemonFieldGuide.csproj"
 test_project := "PokemonFieldGuide.Tests/PokemonFieldGuide.Tests.csproj"
+schema_project := "tools/PokemonFieldGuide.SchemaGenerator/PokemonFieldGuide.SchemaGenerator.csproj"
 release_dir := "release"
 
 # List available project commands.
@@ -10,6 +11,11 @@ default:
 restore:
     dotnet restore {{project}} --locked-mode
     dotnet restore {{test_project}} --locked-mode
+    dotnet restore {{schema_project}} --locked-mode
+
+# Generate JSON Schemas from the authoritative C# contracts.
+generate-schemas:
+    dotnet run --project {{schema_project}}
 
 # Build the application.
 build: restore
@@ -28,19 +34,25 @@ publish: restore
     dotnet publish {{project}} -c Release -o {{release_dir}} --no-restore
 
 # Install the pinned FRLG generator dependencies.
-install-frlg-tools:
+install-frlg-tools: install-schema-tools
     npm ci --prefix tools/frlg
 
 # Install the pinned Red/Blue generator dependencies.
-install-rb-tools:
+install-rb-tools: install-schema-tools
     npm ci --prefix tools/rb
 
 # Install the pinned Yellow generator dependencies.
-install-yellow-tools:
+install-yellow-tools: install-schema-tools
     npm ci --prefix tools/yellow
 
+# Install the pinned JSON Schema validator.
+install-schema-tools:
+    npm ci --prefix tools/package-schema
+
 # Check generator syntax and compile the application.
-check:
+check: install-schema-tools
+    dotnet run --project {{schema_project}} -- --check
+    node --test tools/package-schema/validate.test.mjs
     node --test tools/package-finalization.test.mjs
     node --check tools/frlg/generate-fieldguide.mjs
     node --check tools/frlg/render-maps.mjs

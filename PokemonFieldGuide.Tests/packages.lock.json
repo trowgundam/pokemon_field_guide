@@ -335,8 +335,12 @@
         "type": "Project",
         "dependencies": {
           "Microsoft.AspNetCore.Components.WebAssembly": "[10.0.11, )",
-          "Microsoft.DotNet.HotReload.WebAssembly.Browser": "[10.0.111, )"
+          "Microsoft.DotNet.HotReload.WebAssembly.Browser": "[10.0.111, )",
+          "PokemonFieldGuide.Shared": "[1.0.0, )"
         }
+      },
+      "pokemonfieldguide.shared": {
+        "type": "Project"
       }
     }
   }

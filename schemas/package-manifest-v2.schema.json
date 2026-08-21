@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pokemon-field-guide.local/schemas/package-manifest-v2.schema.json",
+  "type": "object",
+  "properties": {
+    "formatVersion": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 2,
+      "const": 2
+    },
+    "pokemonSprites": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "areaAliases": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "formatVersion",
+    "pokemonSprites",
+    "areaAliases"
+  ],
+  "additionalProperties": false
+}

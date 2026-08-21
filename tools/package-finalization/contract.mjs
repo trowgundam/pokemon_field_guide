@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { validateJson } from '../package-schema/validate.mjs';
 import { isAsset, isPackageFileName } from './assets.mjs';
 
 const integerFields = {
@@ -131,7 +132,7 @@ const contractTarget = (gameId, sourceArea, entrance, areasById, finalIds) => {
 const combineEncounters = encounters => {
   const combined = new Map();
   for (const encounter of encounters) {
-    const key = [encounter.speciesId, encounter.method, encounter.version, encounter.minLevel, encounter.maxLevel].join('|');
+    const key = [encounter.speciesId, encounter.method, encounter.type, encounter.version, encounter.minLevel, encounter.maxLevel].join('|');
     if (combined.has(key)) combined.get(key).chance += encounter.chance;
     else combined.set(key, { ...encounter });
   }
@@ -199,9 +200,7 @@ export function finalizeDraft(game, draft) {
     if (sprite) {
       if (!isAsset(sprite, 'pokemon')) throw new Error(`${game.id}: invalid Pokémon sprite reference for ${entry.speciesId}.`);
       pokemonSprites[entry.speciesId] = sprite.fileName;
-    } else if (!(draft.embeddedPokemon ?? []).includes(entry.speciesId)) {
-      throw new Error(`${game.id}: no Pokémon sprite or embedded icon is registered for ${entry.speciesId}.`);
-    }
+    } else throw new Error(`${game.id}: no Pokémon sprite is registered for ${entry.speciesId}.`);
   }
   if (!isAsset(draft.pokemonFallback, 'pokemon') || draft.pokemonFallback.fileName !== 'question_mark.png')
     throw new Error(`${game.id}: Pokémon fallback question_mark.png is required.`);
@@ -211,11 +210,9 @@ export function finalizeDraft(game, draft) {
     pokedex: draft.pokedex.map(entry => ({ ...entry })),
     worlds,
     manifest: {
-      formatVersion: 1,
+      formatVersion: 2,
       pokemonSprites,
-      embeddedPokemon: [...(draft.embeddedPokemon ?? [])].sort(),
-      areaAliases: { ...(draft.areaAliases ?? {}) },
-      independentEncounterMethodPrefixes: [...(draft.independentEncounterMethodPrefixes ?? [])].sort()
+      areaAliases: { ...(draft.areaAliases ?? {}) }
     }
   };
 }
@@ -229,7 +226,11 @@ export async function checkPackage(game, packageRoot) {
   const worldsFile = path.join(packageRoot, relativeInsidePackage(game, game.worldsPath));
   const manifestFile = path.join(path.dirname(dataFile), 'package-manifest.json');
   const [fieldGuide, pokedex, worlds, manifest] = await Promise.all([json(dataFile), json(pokedexFile), json(worldsFile), json(manifestFile)]);
-  if (manifest.formatVersion !== 1) throw new Error(`${game.id}: unsupported package manifest version ${manifest.formatVersion}.`);
+  validateJson('fieldguide.schema.json', fieldGuide, `${game.id} fieldguide.json`);
+  validateJson('pokedex.schema.json', pokedex, `${game.id} pokedex.json`);
+  validateJson('worlds.schema.json', worlds, `${game.id} worlds.json`);
+  validateJson('package-manifest-v2.schema.json', manifest, `${game.id} package-manifest.json`);
+  if (manifest.formatVersion !== 2) throw new Error(`${game.id}: unsupported package manifest version ${manifest.formatVersion}.`);
   if (!Array.isArray(fieldGuide.areas)) throw new Error(`${game.id}: field guide areas must be an array.`);
   if (!Array.isArray(pokedex)) throw new Error(`${game.id}: Pokédex must be an array.`);
   if (!Array.isArray(worlds) || worlds.length === 0) throw new Error(`${game.id}: at least one world is required.`);
@@ -255,12 +256,11 @@ export async function checkPackage(game, packageRoot) {
     for (const encounter of area.encounters ?? [])
       if (typeof encounter.chance !== 'number' || !Number.isFinite(encounter.chance) || encounter.chance <= 0 || encounter.chance > 100)
         throw new Error(`${game.id}: invalid encounter chance '${encounter.chance}' in ${area.id}.`);
-    const prefixes = manifest.independentEncounterMethodPrefixes ?? [];
-    const methods = new Set((area.encounters ?? []).map(encounter => encounter.method).filter(method => !prefixes.some(prefix => method.startsWith(prefix))));
-    for (const method of methods) for (const version of versions) {
-      const rows = area.encounters.filter(encounter => encounter.method === method && (encounter.version === 'Both' || encounter.version === version));
+    const types = new Set((area.encounters ?? []).map(encounter => encounter.type).filter(type => type !== 'Roaming'));
+    for (const type of types) for (const version of versions) {
+      const rows = area.encounters.filter(encounter => encounter.type === type && (encounter.version === 'Both' || encounter.version === version));
       if (rows.length && Math.abs(rows.reduce((sum, encounter) => sum + encounter.chance, 0) - 100) > 1e-8)
-        throw new Error(`${game.id}: ${area.id} ${method} encounter chances do not total 100 for ${version}.`);
+        throw new Error(`${game.id}: ${area.id} ${type} encounter chances do not total 100 for ${version}.`);
     }
   }
   for (const area of areaById.values()) for (const entrance of area.entrances ?? [])
@@ -353,8 +353,8 @@ export async function checkPackage(game, packageRoot) {
     if (!entry.speciesId || dexSpecies.has(entry.speciesId)) throw new Error(`${game.id}: duplicate or empty Pokédex species ID '${entry.speciesId}'.`);
     dexSpecies.add(entry.speciesId);
     for (const version of versions) if (!(version in (entry.availability ?? {}))) throw new Error(`${game.id}: ${entry.speciesId} lacks availability for ${version}.`);
-    if (!(entry.speciesId in declaredPokemonSprites) && !(manifest.embeddedPokemon ?? []).includes(entry.speciesId))
-      throw new Error(`${game.id}: ${entry.speciesId} lacks a Pokémon sprite or embedded icon declaration.`);
+    if (!(entry.speciesId in declaredPokemonSprites))
+      throw new Error(`${game.id}: ${entry.speciesId} lacks a Pokémon sprite declaration.`);
   }
 
   const expectedMaps = new Set([

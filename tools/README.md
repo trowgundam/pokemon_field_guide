@@ -12,4 +12,6 @@ Each toolchain must declare its minimum compatible runtime, use exact direct pac
 
 `tools/package-finalization/` contains the game-neutral package contract proven across FRLG, Red/Blue, and Yellow. Keep source parsing, palette rules, rendering decisions, checklist ID construction, and exact source audits in the game adapter.
 
+`tools/PokemonFieldGuide.SchemaGenerator/` generates the committed schemas from `PokemonFieldGuide.Shared.Contracts`. `tools/package-schema/` validates JSON with pinned Ajv during package generation and `just check`. JavaScript adapters may map source-specific values to the stable strings defined by a generated schema; schema validation must reject mappings that drift from the C# contract.
+
 See [Adding a game](../docs/adding-a-game.md) for the package workflow and [Development](../docs/development.md) for current commands.

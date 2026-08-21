@@ -1,6 +1,6 @@
 using System.Text.Json;
+
 using Microsoft.JSInterop;
-using PokemonFieldGuide.Models;
 
 namespace PokemonFieldGuide.Services;
 
@@ -57,7 +57,11 @@ internal interface IChecklistProfileRules
 {
     string PackageId { get; }
 
-    ChecklistProfileData Restore(string versionId, int storedVersion, int targetVersion, JsonElement source)
+    ChecklistProfileData Restore(
+        string versionId,
+        int storedVersion,
+        int targetVersion,
+        ChecklistProfileDocument source)
     {
         if (storedVersion > targetVersion)
         {
@@ -417,7 +421,9 @@ internal sealed class LocalGuideSession(
                         return new PortableBackupPreviewResult.Rejected($"The {version.Name} checklist profile is missing its data version.");
                     }
 
-                    var profile = rules.Restore(version.Id, storedVersion, version.ProgressVersion, profileProperty.Value);
+                    var source = profileProperty.Value.Deserialize<ChecklistProfileDocument>(LocalGuideStateData.JsonOptions)
+                        ?? throw new InvalidOperationException("The checklist profile is empty.");
+                    var profile = rules.Restore(version.Id, storedVersion, version.ProgressVersion, source);
                     var id = new ChecklistProfileId(definition.Id, version.Id);
                     imported[id] = profile;
                     var existingHasData = state.Profiles.GetValueOrDefault(id.Key)?.HasData == true;
@@ -549,19 +555,6 @@ internal abstract record PortableBackupPreviewResult
     public sealed record Rejected(string Message) : PortableBackupPreviewResult;
 }
 
-internal sealed class PortableBackupV2
-{
-    public string Format { get; init; } = "pokemon-field-guide-backup";
-    public int FormatVersion { get; init; } = 2;
-    public Dictionary<string, PortableBackupGameV2> Games { get; init; } = [];
-}
-
-internal sealed class PortableBackupGameV2
-{
-    public Dictionary<string, JsonElement> Profiles { get; init; } = [];
-    public Dictionary<string, int> ProfileVersions { get; init; } = [];
-}
-
 internal abstract record LocalGuideChangeResult
 {
     public sealed record Applied(LocalGuideSnapshot State, LocalGuideSession Session) : LocalGuideChangeResult;
@@ -616,7 +609,7 @@ internal sealed class ChecklistProfileView(ChecklistProfileData profile)
 
 internal sealed class ChecklistProfileData
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = PokemonFieldGuideJson.Options;
 
     public HashSet<string> Caught { get; init; } = [];
     public HashSet<string> Collected { get; init; } = [];
@@ -630,17 +623,16 @@ internal sealed class ChecklistProfileData
         CompletedSpecial = new(CompletedSpecial)
     };
 
-    public JsonElement Serialize() => JsonSerializer.SerializeToElement(new ProfileV2
+    public ChecklistProfileDocument Serialize() => ChecklistProfileDocument.FromVersion2(new ChecklistProfileV2
     {
         Caught = Caught,
         Collected = Collected,
         CompletedSpecial = [.. CompletedSpecial.Select(pair => new CompletedSpecialV2(pair.Key, pair.Value))]
-    }, JsonOptions);
+    });
 
-    public static ChecklistProfileData FromV1(JsonElement source)
+    public static ChecklistProfileData FromV1(ChecklistProfileDocument source)
     {
-        var profile = source.Deserialize<ProfileV1>(JsonOptions)
-            ?? throw new InvalidOperationException("The checklist profile is empty.");
+        var profile = source.RequireVersion1();
         return new ChecklistProfileData
         {
             Caught = profile.Caught ?? [],
@@ -649,10 +641,9 @@ internal sealed class ChecklistProfileData
         };
     }
 
-    public static ChecklistProfileData FromV2(JsonElement source)
+    public static ChecklistProfileData FromV2(ChecklistProfileDocument source)
     {
-        var profile = source.Deserialize<ProfileV2>(JsonOptions)
-            ?? throw new InvalidOperationException("The checklist profile is empty.");
+        var profile = source.RequireVersion2();
         var completed = new Dictionary<string, string?>();
         foreach (var acquisition in profile.CompletedSpecial ?? [])
         {
@@ -670,27 +661,12 @@ internal sealed class ChecklistProfileData
         };
     }
 
-    private sealed class ProfileV1
-    {
-        public HashSet<string>? Caught { get; init; }
-        public HashSet<string>? Collected { get; init; }
-        public HashSet<string>? CompletedSpecial { get; init; }
-    }
-
-    private sealed class ProfileV2
-    {
-        public HashSet<string>? Caught { get; init; }
-        public HashSet<string>? Collected { get; init; }
-        public List<CompletedSpecialV2>? CompletedSpecial { get; init; }
-    }
-
-    private sealed record CompletedSpecialV2(string Id, string? SpeciesId);
 }
 
 internal sealed class LocalGuideStateData
 {
     private const int FormatVersion = 1;
-    internal static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    internal static readonly JsonSerializerOptions JsonOptions = PokemonFieldGuideJson.Options;
 
     public string GameId { get; set; } = "";
     public string Version { get; set; } = "";
@@ -701,7 +677,7 @@ internal sealed class LocalGuideStateData
     public Dictionary<string, string> SelectedVersions { get; set; } = [];
     public Dictionary<string, string> SelectedDexModes { get; set; } = [];
     public Dictionary<string, ChecklistProfileData> Profiles { get; set; } = [];
-    public Dictionary<string, JsonElement> UnknownProfiles { get; set; } = [];
+    public Dictionary<string, ChecklistProfileDocument> UnknownProfiles { get; set; } = [];
     public Dictionary<string, int> ProfileVersions { get; set; } = [];
 
     public static LocalGuideStateData CreateDefault(GameCatalog catalog)
@@ -727,7 +703,7 @@ internal sealed class LocalGuideStateData
         GameCatalog catalog,
         IReadOnlyDictionary<string, IChecklistProfileRules> rulesByPackage)
     {
-        var envelope = JsonSerializer.Deserialize<StoredEnvelope>(raw, JsonOptions)
+        var envelope = JsonSerializer.Deserialize<LocalGuideStateEnvelopeV1>(raw, JsonOptions)
             ?? throw new InvalidOperationException("The local guide state is empty.");
         if (envelope.FormatVersion != FormatVersion)
         {
@@ -822,7 +798,7 @@ internal sealed class LocalGuideStateData
             profiles[key] = profile.Serialize();
         }
 
-        return JsonSerializer.Serialize(new StoredEnvelope
+        return JsonSerializer.Serialize(new LocalGuideStateEnvelopeV1
         {
             FormatVersion = FormatVersion,
             GameId = GameId,
@@ -886,20 +862,6 @@ internal sealed class LocalGuideStateData
         return changed;
     }
 
-    private sealed class StoredEnvelope
-    {
-        public int FormatVersion { get; init; }
-        public string? GameId { get; init; }
-        public string? Version { get; init; }
-        public string? Theme { get; init; }
-        public bool AnimationsEnabled { get; init; } = true;
-        public string? DexMode { get; init; }
-        public string? Accent { get; init; }
-        public Dictionary<string, string>? SelectedVersions { get; init; }
-        public Dictionary<string, string>? SelectedDexModes { get; init; }
-        public Dictionary<string, JsonElement>? Profiles { get; init; }
-        public Dictionary<string, int>? ProfileVersions { get; init; }
-    }
 }
 
 internal sealed record RestoredLocalGuideState(LocalGuideStateData State, bool Changed);

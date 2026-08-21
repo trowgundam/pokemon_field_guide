@@ -2,10 +2,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createAssetWorkspace } from './assets.mjs';
 import { checkPackage, finalizeDraft, packageRelativePaths, parseCatalog } from './contract.mjs';
+import { validateJson } from '../package-schema/validate.mjs';
 
 const defaultWebRoot = path.resolve('PokemonFieldGuide/wwwroot');
 
-const loadCatalog = async webRoot => parseCatalog(JSON.parse(await fs.readFile(path.join(webRoot, 'games/catalog.json'), 'utf8')));
+const loadCatalog = async webRoot => {
+  const catalog = JSON.parse(await fs.readFile(path.join(webRoot, 'games/catalog.json'), 'utf8'));
+  validateJson('catalog.schema.json', catalog, 'games/catalog.json');
+  return parseCatalog(catalog);
+};
 
 const writeJson = async (root, relative, value) => {
   const target = path.join(root, relative);
