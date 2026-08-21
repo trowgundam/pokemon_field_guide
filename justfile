@@ -35,6 +35,7 @@ install-yellow-tools:
 
 # Check generator syntax and compile the application.
 check:
+    node --test tools/package-finalization.test.mjs
     node --check tools/frlg/generate-fieldguide.mjs
     node --check tools/frlg/render-maps.mjs
     node --check tools/rb/generate-fieldguide.mjs
@@ -43,18 +44,9 @@ check:
     dotnet restore {{project}} --locked-mode
     dotnet build {{project}} --no-restore
 
-# Regenerate FRLG guide and Pokédex data from a pokefirered checkout.
-generate-frlg-data source: install-frlg-tools
-    node tools/frlg/generate-fieldguide.mjs "{{source}}"
-
-# Regenerate FRLG maps and world placement data from a pokefirered checkout.
-generate-frlg-maps source: install-frlg-tools
-    node tools/frlg/render-maps.mjs "{{source}}"
-
-# Regenerate all FRLG data and maps from a pokefirered checkout.
+# Regenerate the complete FRLG package from a pokefirered checkout.
 generate-frlg source: install-frlg-tools
     node tools/frlg/generate-fieldguide.mjs "{{source}}"
-    node tools/frlg/render-maps.mjs "{{source}}"
 
 # Regenerate the complete Red/Blue package from a pokered checkout.
 generate-rb source: install-rb-tools

@@ -29,7 +29,7 @@ Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `p
 
 Always build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
 
-`just check` also validates every registered package's configured paths, integer fields, unique area/checklist/Pokédex IDs, entrance and world references, version values, per-version availability coverage, complete encounter-table probabilities, and exact map/sprite asset usage. Packages that set `validateWorldReachability` additionally require every area with guide data to be connected to a world placement.
+`just check` runs the package-finalization tests and validates every registered package. The checks cover configured paths, integer fields, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, and exact map and sprite use. Packages that set `validateWorldReachability` also require every area with guide data to connect to a world placement.
 
 ## Generated files
 
@@ -43,18 +43,18 @@ Checklist IDs are persistent data. Changing item or special-Pokémon IDs can inv
 just generate-frlg /path/to/pokefirered
 ```
 
-`generate-fieldguide.mjs` writes the FRLG guide and Pokédex into `PokemonFieldGuide/wwwroot/games/frlg/data/`. It intentionally:
+`generate-fieldguide.mjs` is the sole FRLG generation command. It extracts the guide and Pokédex, calls the internal map renderer, copies source sprites, and hands one complete draft to package finalization. It intentionally:
 
 - includes starter-dependent roaming beasts;
 - extracts event-script static encounters;
 - excludes prototype, unused, and multiplayer/link-room maps;
-- contracts empty transition rooms and removes entrances to excluded maps;
-- retains reachable interiors and event-island content;
-- removes map, item-icon, and Pokémon-sprite outputs that the final package does not reference.
+- excludes source entrances that target excluded maps;
+- retains interior transition records in the draft so package finalization can contract them;
+- sources every map, item icon, Pokémon sprite, and fallback needed to build an empty package directory.
 
-`render-maps.mjs` writes native-scale individual maps and connected world canvases into `PokemonFieldGuide/wwwroot/games/frlg/maps/`, plus `worlds.json` in the package data directory. FRLG reserves palettes 0–6 for primary tilesets and 7–12 for secondary tilesets; preserve that renderer behavior.
+`render-maps.mjs` is internal to the FRLG adapter. It returns native-scale individual maps, connected world canvases, and world placement data through the managed asset workspace. FRLG reserves palettes 0 through 6 for primary tilesets and 7 through 12 for secondary tilesets. Preserve that renderer behavior.
 
-Use Pokémon menu sprites and bag item icons where available. The FRLG rules module embeds Unown A because the checked-in source assets do not provide the expected standalone file. Both sprite directories require `question_mark.png`.
+Use Pokémon menu sprites and bag item icons where available. The FRLG rules module embeds Unown A because the source assets do not provide the expected standalone file. Package finalization requires both sprite directories to contain `question_mark.png`.
 
 ## Regenerating Red/Blue
 

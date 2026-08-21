@@ -3,6 +3,7 @@
 This directory is the canonical technical documentation for the project.
 
 - [Architecture](architecture.md) — runtime boundaries, data flow, persistence, and extension points
+- [Package finalization](package-finalization.md): shared generation seam, package invariants, and atomic replacement
 - [Adding a game](adding-a-game.md) — end-to-end instructions for creating and registering a game package
 - [Development](development.md) — local commands, generated-data practices, testing, and FRLG regeneration
 - [Deployment](deployment.md) — GitHub Pages publishing and base-path behavior

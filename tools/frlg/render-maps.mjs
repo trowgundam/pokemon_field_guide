@@ -3,13 +3,12 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 const sharp = createRequire(import.meta.url)('sharp');
 
-const root = process.argv[2] ?? '/tmp/pokefirered-fieldguide';
-const out = process.argv[3] ?? 'PokemonFieldGuide/wwwroot/games/frlg/maps';
-const worldsOutput = process.argv[4] ?? 'PokemonFieldGuide/wwwroot/games/frlg/data/worlds.json';
-const mapWebPath = 'games/frlg/maps';
+export async function renderFrlgMaps(root, assets, areaAliases = {}) {
 const layouts = JSON.parse(fs.readFileSync(path.join(root, 'data/layouts/layouts.json'))).layouts;
 const mapFiles = fs.readdirSync(path.join(root, 'data/maps')).map(d => path.join(root, 'data/maps', d, 'map.json')).filter(fs.existsSync);
 const maps = mapFiles.map(f => JSON.parse(fs.readFileSync(f)));
+const layoutsById = new Map(layouts.map(layout => [layout.id, layout]));
+const mapsById = new Map(maps.map(map => [map.id, map]));
 const graphics = fs.readFileSync(path.join(root, 'src/data/tilesets/graphics.h'), 'utf8') + fs.readFileSync(path.join(root, 'src/graphics.c'), 'utf8');
 const tilePaths = new Map([...graphics.matchAll(/gTilesetTiles_([A-Za-z0-9_]+)\[\].*?"([^"]+\/tiles)\.4bpp/g)].map(m => [`gTileset_${m[1]}`, m[2]]));
 const headerSource = fs.readFileSync(path.join(root, 'src/data/tilesets/headers.h'), 'utf8');
@@ -46,9 +45,25 @@ function drawTile(target, targetWidth, dx, dy, tile, tiles, colors, transparent)
     target[at] = color[0]; target[at + 1] = color[1]; target[at + 2] = color[2]; target[at + 3] = 255;
   }
 }
-fs.mkdirSync(out, { recursive: true });
 let count = 0;
 const rendered = [];
+const mapAssets = new Map();
+const layoutBlocks = layout => {
+  const bytes = fs.readFileSync(path.join(root, layout.blockdata_filepath));
+  return Array.from({ length: layout.height }, (_, y) => Array.from({ length: layout.width }, (_, x) => bytes.readUInt16LE((y * layout.width + x) * 2)));
+};
+const cropOffset = (areaLayout, placementLayout) => {
+  const areaBlocks = layoutBlocks(areaLayout), placementBlocks = layoutBlocks(placementLayout), matches = [];
+  for (let y = 0; y <= areaLayout.height - placementLayout.height; y++) for (let x = 0; x <= areaLayout.width - placementLayout.width; x++) {
+    let equal = true;
+    for (let row = 0; equal && row < placementLayout.height; row++) for (let column = 0; column < placementLayout.width; column++)
+      if (areaBlocks[y + row][x + column] !== placementBlocks[row][column]) { equal = false; break; }
+    if (equal) matches.push({ x, y });
+  }
+  if (matches.length !== 1)
+    throw new Error(`${placementLayout.id} must occur exactly once inside ${areaLayout.id}; found ${matches.length} matches.`);
+  return matches[0];
+};
 for (const layout of layouts) {
   const layoutMaps = maps.filter(m => m.layout === layout.id);
   const outdoorMaps = layoutMaps.filter(m => ['MAP_TYPE_TOWN','MAP_TYPE_ROUTE','MAP_TYPE_OCEAN_ROUTE'].includes(m.map_type));
@@ -70,8 +85,17 @@ for (const layout of layouts) {
       drawTile(image, width, bx * 16 + (q % 2) * 8, by * 16 + Math.floor(q / 2) * 8, adjusted, actualSet, colors, layer === 1);
     }
   }
-  await sharp(image, { raw: { width, height, channels: 4 } }).png({ compressionLevel: 9, palette: true }).toFile(path.join(out, `${layout.id}.png`));
-  for (const map of outdoorMaps) rendered.push({ id: map.id, layout: layout.id, width: layout.width, height: layout.height, connections: map.connections ?? [] });
+  mapAssets.set(layout.id, await assets.map(`${layout.id}.png`, target => sharp(image, { raw: { width, height, channels: 4 } }).png({ compressionLevel: 9, palette: true }).toFile(target)));
+  for (const map of outdoorMaps) {
+    const areaId = areaAliases[map.id] ?? map.id;
+    let markerOffset;
+    if (areaId !== map.id) {
+      const areaMap = mapsById.get(areaId);
+      if (!areaMap) throw new Error(`${map.id} aliases missing area ${areaId}.`);
+      markerOffset = cropOffset(layoutsById.get(areaMap.layout), layout);
+    }
+    rendered.push({ id: map.id, areaId, layout: layout.id, width: layout.width, height: layout.height, connections: map.connections ?? [], markerOffset });
+  }
   count++;
 }
 
@@ -98,9 +122,12 @@ async function makeWorld(name, positions) {
   const minX = Math.min(...entries.map(e => e.x)), minY = Math.min(...entries.map(e => e.y));
   for (const e of entries) { e.x -= minX; e.y -= minY; }
   const width = Math.max(...entries.map(e => e.x + e.width)) * 16, height = Math.max(...entries.map(e => e.y + e.height)) * 16;
-  const composite = entries.map(e => ({ input: path.join(out, `${e.layout}.png`), left: e.x * 16, top: e.y * 16 }));
-  await sharp({ create: { width, height, channels: 4, background: { r: 120, g: 184, b: 211, alpha: 1 } } }).composite(composite).png({ compressionLevel: 9, palette: true }).toFile(path.join(out, `WORLD_${name.toUpperCase()}.png`));
-  return { id: name, image: `${mapWebPath}/WORLD_${name.toUpperCase()}.png`, width, height, maps: entries.map(e => ({ id: e.id, x: e.x * 16, y: e.y * 16, width: e.width * 16, height: e.height * 16 })) };
+  const composite = entries.map(e => ({ input: mapAssets.get(e.layout).localPath, left: e.x * 16, top: e.y * 16 }));
+  const image = await assets.map(`WORLD_${name.toUpperCase()}.png`, target => sharp({ create: { width, height, channels: 4, background: { r: 120, g: 184, b: 211, alpha: 1 } } }).composite(composite).png({ compressionLevel: 9, palette: true }).toFile(target));
+  return { id: name, image, width, height, maps: entries.map(e => ({
+    id: e.areaId, x: e.x * 16, y: e.y * 16, width: e.width * 16, height: e.height * 16,
+    ...(e.markerOffset ? { markerOffsetX: e.markerOffset.x, markerOffsetY: e.markerOffset.y } : {})
+  })) };
 }
 const kantoIds = new Set(rendered.filter(m => !/(ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN)_ISLAND|MT_EMBER|KINDLE|CAPE_BRINK|BOND_BRIDGE|BERRY_FOREST|ICEFALL|LOST_CAVE|MEMORIAL|WATER_PATH|RUIN_VALLEY|PATTERN_BUSH|ALTERING_CAVE|OUTCAST|GREEN_PATH|TANOBY|TRAINER_TOWER|BIRTH_ISLAND|NAVEL_ROCK/.test(m.id)).map(m => m.id));
 const kanto = connectedPositions('MAP_PALLET_TOWN', kantoIds);
@@ -113,15 +140,6 @@ while ([...seviiIds].some(id => !sevii.has(id))) {
   componentX += maxX - minX + 12;
 }
 const worlds = [await makeWorld('kanto', kanto), await makeWorld('sevii', sevii)];
-fs.mkdirSync(path.dirname(worldsOutput), { recursive: true });
-fs.writeFileSync(worldsOutput, JSON.stringify(worlds));
-const fieldGuidePath = path.join(path.dirname(worldsOutput), 'fieldguide.json');
-if (!fs.existsSync(fieldGuidePath)) throw new Error(`Generate FRLG field-guide data before rendering maps: ${fieldGuidePath}`);
-const guide = JSON.parse(fs.readFileSync(fieldGuidePath));
-const referencedMapFiles = new Set([
-  ...worlds.map(world => path.basename(world.image)),
-  ...guide.areas.map(area => path.basename(area.mapImage))
-]);
-for (const file of fs.readdirSync(out).filter(file => file.endsWith('.png')))
-  if (!referencedMapFiles.has(file)) fs.rmSync(path.join(out, file));
 console.log(`Rendered ${count} game layouts and ${worlds.length} connected world canvases.`);
+return { worlds, mapAssets };
+}

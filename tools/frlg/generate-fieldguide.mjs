@@ -1,12 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import sharp from 'sharp';
+import { generatePackage } from '../package-finalization/index.mjs';
+import { renderFrlgMaps } from './render-maps.mjs';
 
-const source = process.argv[2] ?? '/tmp/pokefirered-fieldguide';
-const output = process.argv[3] ?? 'PokemonFieldGuide/wwwroot/games/frlg/data/fieldguide.json';
-const packageRoot = path.dirname(path.dirname(output));
-const pokemonOut = path.join(packageRoot, 'sprites/pokemon');
-const itemsOut = path.join(packageRoot, 'sprites/items');
-const mapWebPath = 'games/frlg/maps';
+const source = path.resolve(process.argv[2] ?? '/tmp/pokefirered-fieldguide');
+await generatePackage({ gameId: 'frlg', build: async ({ assets }) => {
 const title = value => value
   .replace(/^MAP_/, '').replace(/^SPECIES_/, '').replace(/^ITEM_/, '')
   .toLowerCase().split('_').map(x => x ? x[0].toUpperCase() + x.slice(1) : x).join(' ')
@@ -90,7 +89,7 @@ for (const dir of fs.readdirSync(mapRoot)) {
   a.isOutdoor = ['MAP_TYPE_TOWN', 'MAP_TYPE_ROUTE', 'MAP_TYPE_OCEAN_ROUTE'].includes(map.map_type);
   const layout = layoutById.get(map.layout);
   if (layout) {
-    a.mapImage = `${mapWebPath}/${map.layout}.png`; a.mapWidth = layout.width * 16; a.mapHeight = layout.height * 16;
+    a.mapLayout = map.layout; a.mapWidth = layout.width * 16; a.mapHeight = layout.height * 16;
     a.entrances = (map.warp_events ?? []).map((w, i) => ({ id: `${id}:warp:${i}`, x: w.x, y: w.y, targetId: w.dest_map === 'MAP_DYNAMIC' ? '' : w.dest_map, name: w.dest_map === 'MAP_DYNAMIC' ? 'Passage' : title(w.dest_map) }));
   }
   const scriptItem = label => {
@@ -148,54 +147,26 @@ addSpecial('MAP_CELADON_CITY_GAME_CORNER_PRIZE_ROOM','SPECIES_SCYTHER',25,'Gift'
 addSpecial('MAP_CELADON_CITY_GAME_CORNER_PRIZE_ROOM','SPECIES_PINSIR',18,'Gift','LeafGreen');
 for(const item of ['ITEM_LUXURY_BALL','ITEM_BIG_PEARL','ITEM_PEARL','ITEM_STARDUST','ITEM_STAR_PIECE','ITEM_NUGGET','ITEM_RARE_CANDY']) addEventItem('MAP_FIVE_ISLAND_RESORT_GORGEOUS_HOUSE',item);
 
-// Collapse duplicate slot rows while retaining their combined encounter chance.
+// Item and special-Pokémon deduplication is source-specific. Package finalization
+// combines equivalent encounter rows for every game package.
 for (const a of areas.values()) {
-  const combined = new Map();
-  for (const e of a.encounters) {
-    const key = [e.speciesId, e.method, e.version, e.minLevel, e.maxLevel].join('|');
-    if (combined.has(key)) combined.get(key).chance += e.chance;
-    else combined.set(key, { ...e });
-  }
-  a.encounters = [...combined.values()].sort((x, y) => x.method.localeCompare(y.method) || y.chance - x.chance);
   a.items = [...new Map(a.items.map(i => [[i.kind,i.name,i.x,i.y].join('|'),i])).values()];
   a.specialPokemon = [...new Map(a.specialPokemon.map(p => [[p.kind,p.speciesId,p.version].join('|'),p])).values()];
 }
 const excludedMaps = /(?:PROTOTYPE|UNUSED)|^MAP_(?:BATTLE_COLOSSEUM_[24]P|RECORD_CORNER|TRADE_CENTER|UNION_ROOM)$/;
 const hasRelevantData = a => a.encounters.length || a.items.length || a.specialPokemon.length;
-const outdoorIds = new Set([...areas.values()].filter(a => a.isOutdoor && !excludedMaps.test(a.id)).map(a => a.id));
-const resolveContractedTarget = (sourceId, targetId) => {
-  const queue = targetId ? [targetId] : [], visited = new Set([sourceId]);
-  while (queue.length) {
-    const id = queue.shift(); if (visited.has(id)) continue; visited.add(id);
-    const target = areas.get(id); if (!target || excludedMaps.test(id)) continue;
-    if (outdoorIds.has(id) || hasRelevantData(target)) return target;
-    for (const exit of target.entrances) if (exit.targetId && !visited.has(exit.targetId)) queue.push(exit.targetId);
-  }
-  return null;
-};
-for (const a of areas.values()) {
-  a.entrances = a.entrances.map(entrance => {
-    const target = resolveContractedTarget(a.id, entrance.targetId);
-    return target ? { ...entrance, targetId: target.id, name: target.name } : null;
-  }).filter(Boolean);
+const areaAliases = { MAP_SAFFRON_CITY_CONNECTION: 'MAP_SAFFRON_CITY' };
+const { worlds, mapAssets } = await renderFrlgMaps(source, assets, areaAliases);
+const rawAreas = [...areas.values()].filter(a => !excludedMaps.test(a.id));
+for (const a of rawAreas) {
+  a.entrances = a.entrances.map(entrance => excludedMaps.test(entrance.targetId) ? { ...entrance, targetId: null } : entrance);
+  a.mapImage = a.mapLayout ? mapAssets.get(a.mapLayout) : null;
+  delete a.mapLayout;
   delete a.isOutdoor;
 }
-const data = [...areas.values()].filter(a => !excludedMaps.test(a.id) && (outdoorIds.has(a.id) || hasRelevantData(a)))
+const outdoorIds = new Set(worlds.flatMap(world => world.maps.map(placement => placement.id)));
+const data = rawAreas.filter(a => outdoorIds.has(a.id) || hasRelevantData(a))
   .sort((a, b) => a.region.localeCompare(b.region) || a.name.localeCompare(b.name));
-const includedMapIds = new Set(data.map(a => a.id));
-for (const a of data) for (const entrance of a.entrances)
-  if (!includedMapIds.has(entrance.targetId)) throw new Error(`${a.id} targets omitted area ${entrance.targetId}`);
-const adjacency = new Map(data.map(a => [a.id, new Set()]));
-for (const a of data) for (const entrance of a.entrances) {
-  adjacency.get(a.id).add(entrance.targetId);
-  adjacency.get(entrance.targetId).add(a.id);
-}
-const reachable = new Set(outdoorIds), reachQueue = [...reachable];
-while (reachQueue.length) for (const target of adjacency.get(reachQueue.shift()) ?? []) if (!reachable.has(target)) { reachable.add(target); reachQueue.push(target); }
-const unreachableRelevant = data.filter(a => hasRelevantData(a) && !reachable.has(a.id));
-if (unreachableRelevant.length) throw new Error(`Relevant areas are unreachable from an outdoor map: ${unreachableRelevant.map(a => a.id).join(', ')}`);
-fs.mkdirSync(path.dirname(output), { recursive: true });
-fs.writeFileSync(output, JSON.stringify({ source: 'pret/pokefirered', generated: new Date().toISOString().slice(0, 10), areas: data }));
 const dexHeader = fs.readFileSync(path.join(source, 'include/constants/pokedex.h'), 'utf8');
 const dexBlock = dexHeader.slice(dexHeader.indexOf('NATIONAL_DEX_NONE'), dexHeader.indexOf('#define NATIONAL_DEX_COUNT'));
 const dexSpecies = [...dexBlock.matchAll(/\bNATIONAL_DEX_([A-Z0-9_]+),?/g)].map(m=>m[1]).filter(x=>x!=='NONE').slice(0,386);
@@ -211,10 +182,26 @@ for(const version of ['FireRed','LeafGreen']){
   obtainable[version]=set;
 }
 const pokedex=dexSpecies.map((id,index)=>{const speciesId=`SPECIES_${id}`;const availability={};for(const version of ['FireRed','LeafGreen'])availability[version]=obtainable[version].has(speciesId)?'Obtainable':eventSpecies.has(speciesId)?'Event distribution':'Trade / transfer required';return {number:index+1,regionalNumber:index<151?index+1:null,name:title(speciesId).replace('Ho Oh','Ho-Oh'),speciesId,availability};});
-fs.writeFileSync(path.join(path.dirname(output),'pokedex.json'),JSON.stringify(pokedex));
-const referencedPokemonFiles = new Set(['question_mark.png', ...pokedex.filter(entry => entry.speciesId !== 'SPECIES_UNOWN').map(entry => entry.speciesId.replace('SPECIES_', '').toLowerCase() + '.png')]);
-const referencedItemFiles = new Set(['question_mark.png', ...data.flatMap(a => a.items.map(item => item.icon))]);
-for (const [directory, referenced] of [[pokemonOut, referencedPokemonFiles], [itemsOut, referencedItemFiles]])
-  for (const file of fs.readdirSync(directory).filter(file => file.endsWith('.png')))
-    if (!referenced.has(file)) fs.rmSync(path.join(directory, file));
+const pokemonSprites = {};
+for (const entry of pokedex.filter(entry => entry.speciesId !== 'SPECIES_UNOWN')) {
+  const name = entry.speciesId.replace('SPECIES_', '').toLowerCase();
+  const file = `${name}.png`;
+  const sourceIcon = path.join(source, 'graphics/pokemon', name, 'icon.png');
+  pokemonSprites[entry.speciesId] = await assets.pokemonSprite(file, target => fs.promises.copyFile(sourceIcon, target));
+}
+const itemSpriteFiles = new Set(data.flatMap(a => a.items.map(item => item.icon)).filter(file => file !== 'question_mark.png'));
+for (const file of itemSpriteFiles) {
+  const sourceIcon = path.join(source, 'graphics/items/icons', file);
+  await assets.itemSprite(file, target => fs.promises.copyFile(sourceIcon, target));
+}
+const fallback = await sharp({ create: { width: 32, height: 32, channels: 4, background: '#ffffff00' } }).composite([{ input: Buffer.from('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#eee" stroke="#333" stroke-width="2"/><text x="16" y="23" text-anchor="middle" font-size="22">?</text></svg>') }]).png().toBuffer();
+const pokemonFallback = await assets.pokemonSprite('question_mark.png', target => fs.promises.writeFile(target, fallback));
+await assets.itemSprite('question_mark.png', target => fs.promises.writeFile(target, fallback));
 console.log(`Generated ${data.length} areas, ${data.reduce((n,a)=>n+a.encounters.length,0)} encounter rows, ${data.reduce((n,a)=>n+a.items.length,0)} items, and ${data.reduce((n,a)=>n+a.specialPokemon.length,0)} special Pokémon.`);
+return {
+  source: 'pret/pokefirered', generated: new Date().toISOString().slice(0, 10),
+  areas: rawAreas, worlds, pokedex, pokemonSprites,
+  embeddedPokemon: ['SPECIES_UNOWN'], pokemonFallback, areaAliases,
+  independentEncounterMethodPrefixes: ['Roaming']
+};
+} });
