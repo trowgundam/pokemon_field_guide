@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace PokemonFieldGuide.Models;
 
 public sealed class FieldGuideData
@@ -63,30 +61,6 @@ public sealed class SpecialPokemon
     public string Kind { get; set; } = "";
     public string Version { get; set; } = "Both";
     public string? RequestedSpecies { get; set; }
-}
-
-public sealed class SavedProgress
-{
-    public const int CurrentFormatVersion = 1;
-
-    public int FormatVersion { get; set; }
-    public string GameId { get; set; } = "frlg";
-    public string Version { get; set; } = "FireRed";
-    public string Theme { get; set; } = "Dark";
-    public bool AnimationsEnabled { get; set; } = true;
-    public string DexMode { get; set; } = "Normal";
-    public string Accent { get; set; } = "#ef4b43";
-    public Dictionary<string, string> SelectedVersions { get; set; } = [];
-    public Dictionary<string, string> SelectedDexModes { get; set; } = [];
-    public Dictionary<string, VersionProgress> Profiles { get; set; } = [];
-    public Dictionary<string, int> ProfileVersions { get; set; } = [];
-}
-
-public sealed class VersionProgress
-{
-    public HashSet<string> Caught { get; set; } = [];
-    public HashSet<string> Collected { get; set; } = [];
-    public HashSet<string> CompletedSpecial { get; set; } = [];
 }
 
 public sealed class PokedexEntry

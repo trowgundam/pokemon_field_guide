@@ -1,6 +1,7 @@
 @page "/"
 @inject IJSRuntime JS
 @inject GamePackageLoader PackageLoader
+@inject LocalGuideStateModule StateModule
 
 <PageTitle>@(game?.PageTitle ?? "Pokémon Field Guide")</PageTitle>
 
@@ -14,9 +15,9 @@
             <button class="menu-scrim" aria-label="Close menu" @onclick="()=>menuOpen=false"></button>
             <section class="header-menu" aria-label="Application menu">
                 <button class="menu-row mobile-dex" @onclick="OpenPokedex"><span>▦</span> Pokédex</button>
-                <label>GAME<select value="@(game is null?null:$"{game.Id}|{progress.Version}")" @onchange="ChangePlayableGame">@foreach(var package in catalog?.Games??[]){@foreach(var version in package.Versions){<option value="@($"{package.Id}|{version.Id}")">Pokémon @version.Name</option>}}</select></label>
-                <button class="menu-row" @onclick="ToggleTheme"><span>@(progress.Theme=="Dark"?"☀":"◐")</span> @(progress.Theme=="Dark"?"Use light mode":"Use dark mode")</button>
-                <button class="menu-row" @onclick="ToggleAnimations"><span>@(progress.AnimationsEnabled?"⏸":"▶")</span> @(progress.AnimationsEnabled?"Disable sprite animations":"Enable sprite animations")</button>
+                <label>GAME<select value="@(game is null?null:$"{game.Id}|{State.ActiveVersionId}")" @onchange="ChangePlayableGame">@foreach(var package in catalog?.Games??[]){@foreach(var version in package.Versions){<option value="@($"{package.Id}|{version.Id}")">Pokémon @version.Name</option>}}</select></label>
+                <button class="menu-row" @onclick="ToggleTheme"><span>@(State.Theme=="Dark"?"☀":"◐")</span> @(State.Theme=="Dark"?"Use light mode":"Use dark mode")</button>
+                <button class="menu-row" @onclick="ToggleAnimations"><span>@(State.AnimationsEnabled?"⏸":"▶")</span> @(State.AnimationsEnabled?"Disable sprite animations":"Enable sprite animations")</button>
                 <div class="menu-separator"></div>
                 <button class="menu-row" @onclick="OpenExport"><span>⇩</span> Export save data</button>
                 <button class="menu-row" @onclick="OpenImport"><span>⇧</span> Import save data</button>
@@ -33,7 +34,12 @@ else if (gamePackage is null)
     <main class="loading-card load-error" role="alert">
         <strong>The field guide could not be loaded.</strong>
         <span>@loadError</span>
-        <button @onclick="RetryLoad">Try again</button>
+        @if(recovery is not null)
+        {
+            <span>Download the stored text before deleting it if you want to inspect or repair it later.</span>
+            <div><button @onclick="DownloadRecovery">Download recovery copy</button><button class="danger" @onclick="DeleteLocalData">Delete local data</button></div>
+        }
+        else { <button @onclick="RetryLoad">Try again</button> }
     </main>
 }
 else
@@ -70,7 +76,7 @@ else
                                 <button class="area-hotspot @(area==mapArea?"selected":"")" aria-label="@area.Name" style="left:@(placement.X)px;top:@(placement.Y)px;width:@(placement.Width)px;height:@(placement.Height)px" @onclick="()=>SelectArea(area)"></button>
                                 @foreach (var item in area.Items.Where(item => item.X >= 0 && item.Y >= 0))
                                 {
-                                    <button aria-label="@item.Name — @item.Kind item" style="left:@(placement.X+(item.X-placement.MarkerOffsetX)*16+8)px;top:@(placement.Y+(item.Y-placement.MarkerOffsetY)*16+8)px" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.Collected.Contains(item.Id)?"done":"")" @onclick="()=>InspectItem(area,item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@area.Name · @item.Name</label></button>
+                                    <button aria-label="@item.Name — @item.Kind item" style="left:@(placement.X+(item.X-placement.MarkerOffsetX)*16+8)px;top:@(placement.Y+(item.Y-placement.MarkerOffsetY)*16+8)px" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.IsCollected(item.Id)?"done":"")" @onclick="()=>InspectItem(area,item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@area.Name · @item.Name</label></button>
                                 }
                                 @foreach (var entrance in RelevantEntrancesFor(area))
                                 {
@@ -90,23 +96,23 @@ else
                     <span class="eyebrow">@(detailArea==mapArea?"MAP DETAILS":"INSIDE LOCATION")</span><h2>@detailArea.Name</h2>
                     @if (inspectedItem is not null)
                     {
-                        <div class="focused-find"><span class="item-gem">◆</span><div><strong>@inspectedItem.Name</strong><small>@inspectedItem.Kind item · X @inspectedItem.X, Y @inspectedItem.Y</small></div><label><input type="checkbox" checked="@CurrentProgress.Collected.Contains(inspectedItem.Id)" @onchange="()=>ToggleItem(inspectedItem.Id)" /> Collected</label></div>
+                        <div class="focused-find"><span class="item-gem">◆</span><div><strong>@inspectedItem.Name</strong><small>@inspectedItem.Kind item · X @inspectedItem.X, Y @inspectedItem.Y</small></div><label><input type="checkbox" checked="@CurrentProgress.IsCollected(inspectedItem.Id)" @onchange="()=>ToggleItem(inspectedItem.Id)" /> Collected</label></div>
                     }
                     @if (EncounterGroups.Any())
                     {
                         @foreach(var encounterGroup in EncounterGroups)
                         {
                             <h3>@encounterGroup.Name <small>@encounterGroup.Encounters.Select(x=>x.SpeciesId).Distinct().Count() species</small></h3>
-                            <div class="drawer-grid">@foreach(var mon in encounterGroup.Encounters.GroupBy(x=>x.SpeciesId).OrderBy(x=>x.First().Species)){var first=mon.First();<button class="mini-find @(CurrentProgress.Caught.Contains(mon.Key)?"done":"")" @onclick="()=>ToggleCaught(mon.Key)"><i>✓</i><img alt="" src="@PokemonIcon(first.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@first.Species</strong><small>@string.Join(" · ",mon.Select(x=>x.Method).Distinct()) · @LevelText(mon) · @ChanceText(mon)</small></span></button>}</div>
+                            <div class="drawer-grid">@foreach(var mon in encounterGroup.Encounters.GroupBy(x=>x.SpeciesId).OrderBy(x=>x.First().Species)){var first=mon.First();<button class="mini-find @(CurrentProgress.IsCaught(mon.Key)?"done":"")" @onclick="()=>ToggleCaught(mon.Key)"><i>✓</i><img alt="" src="@PokemonIcon(first.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@first.Species</strong><small>@string.Join(" · ",mon.Select(x=>x.Method).Distinct()) · @LevelText(mon) · @ChanceText(mon)</small></span></button>}</div>
                         }
                     }
                     @if (SpecialPokemonGroups.Any())
                     {
-                        @foreach(var group in SpecialPokemonGroups) { <h3>@(group.Kind=="Trade"?"In-game trades":group.Kind+" Pokémon")</h3><div class="drawer-grid">@foreach(var mon in group.Pokemon.OrderBy(x=>x.Species)){<button class="mini-find @(CurrentProgress.CompletedSpecial.Contains(mon.Id)?"done":"")" @onclick="()=>ToggleSpecial(mon)"><i>★</i><img alt="" src="@PokemonIcon(mon.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@mon.Species</strong><small>@(mon.Kind=="Trade"?$"For {mon.RequestedSpecies}":$"Lv. {mon.Level}")</small></span></button>}</div> }
+                        @foreach(var group in SpecialPokemonGroups) { <h3>@(group.Kind=="Trade"?"In-game trades":group.Kind+" Pokémon")</h3><div class="drawer-grid">@foreach(var mon in group.Pokemon.OrderBy(x=>x.Species)){<button class="mini-find @(CurrentProgress.IsSpecialCompleted(mon.Id)?"done":"")" @onclick="()=>ToggleSpecial(mon)"><i>★</i><img alt="" src="@PokemonIcon(mon.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@mon.Species</strong><small>@(mon.Kind=="Trade"?$"For {mon.RequestedSpecies}":$"Lv. {mon.Level}")</small></span></button>}</div> }
                     }
                     @if (detailArea.Items.Any())
                     {
-                        @foreach(var group in ItemGroupsFor(detailArea)){<h3>@group.Kind items <small>@group.Items.Count</small></h3><div class="drawer-items">@foreach(var item in group.Items.OrderBy(x=>x.Name)){<label class="@(CurrentProgress.Collected.Contains(item.Id)?"done":"")"><input type="checkbox" checked="@CurrentProgress.Collected.Contains(item.Id)" @onchange="()=>ToggleItem(item.Id)"/><img alt="" src="@ItemIcon(item)" onerror="@ItemFallbackScript"/><span><strong>@item.Name</strong><small>@(item.X<0?"Received from an event":$"X {item.X}, Y {item.Y}")</small></span></label>}</div>}
+                        @foreach(var group in ItemGroupsFor(detailArea)){<h3>@group.Kind items <small>@group.Items.Count</small></h3><div class="drawer-items">@foreach(var item in group.Items.OrderBy(x=>x.Name)){<label class="@(CurrentProgress.IsCollected(item.Id)?"done":"")"><input type="checkbox" checked="@CurrentProgress.IsCollected(item.Id)" @onchange="()=>ToggleItem(item.Id)"/><img alt="" src="@ItemIcon(item)" onerror="@ItemFallbackScript"/><span><strong>@item.Name</strong><small>@(item.X<0?"Received from an event":$"X {item.X}, Y {item.Y}")</small></span></label>}</div>}
                     }
                 }
             </aside>
@@ -114,18 +120,20 @@ else
     </main>
 }
 
+@if(!string.IsNullOrEmpty(stateError)){<div class="state-error" role="alert"><span>@stateError</span><button aria-label="Dismiss error" @onclick="DismissStateError">×</button></div>}
+
 @if(interiorOpen && interiorArea is not null)
 {
     <div class="interior-backdrop">
         <section class="interior-modal" role="dialog" aria-modal="true" aria-labelledby="interior-title">
             <header><div><span class="eyebrow">INTERIOR MAP</span><h2 id="interior-title">@InteriorTitle</h2></div>@if(InteriorFloors.Count>1){<select aria-label="Interior floor" @onchange="ChangeInterior">@foreach(var floor in InteriorFloors){<option value="@floor.Id" selected="@(floor==interiorArea)">@floor.Name</option>}</select>}<button aria-label="Close interior map" @onclick="()=>interiorOpen=false">×</button></header>
             <div class="interior-body">
-                <div class="interior-map"><div class="interior-map-controls"><button aria-label="Zoom interior out" @onclick="()=>ZoomInterior(.8)">−</button><button aria-label="Fit interior map" @onclick="FitInterior">⌖</button><button aria-label="Zoom interior in" @onclick="()=>ZoomInterior(1.25)">+</button></div><div class="interior-canvas" style="width:@(interiorArea.MapWidth)px;height:@(interiorArea.MapHeight)px"><img alt="@InteriorTitle map" src="@interiorArea.MapImage" draggable="false"/>@foreach(var item in interiorArea.Items.Where(x=>x.X>=0)){<button aria-label="@item.Name" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.Collected.Contains(item.Id)?"done":"")" style="left:@(item.X*16+8)px;top:@(item.Y*16+8)px" @onclick="()=>InspectInteriorItem(item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@item.Name@(item.Quantity>1?$" ×{item.Quantity}":"")</label></button>}@foreach(var warp in RelevantEntrancesFor(interiorArea).Where(x=>InteriorFloors.Any(f=>f.Id==x.TargetId))){<button aria-label="Go to @warp.Name" class="map-marker entrance-marker" style="left:@(warp.X*16+8)px;top:@(warp.Y*16+8)px" @onclick="()=>NavigateInterior(warp.TargetId)"><span>⌂</span><label>@warp.Name</label></button>}</div></div>
+                <div class="interior-map"><div class="interior-map-controls"><button aria-label="Zoom interior out" @onclick="()=>ZoomInterior(.8)">−</button><button aria-label="Fit interior map" @onclick="FitInterior">⌖</button><button aria-label="Zoom interior in" @onclick="()=>ZoomInterior(1.25)">+</button></div><div class="interior-canvas" style="width:@(interiorArea.MapWidth)px;height:@(interiorArea.MapHeight)px"><img alt="@InteriorTitle map" src="@interiorArea.MapImage" draggable="false"/>@foreach(var item in interiorArea.Items.Where(x=>x.X>=0)){<button aria-label="@item.Name" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.IsCollected(item.Id)?"done":"")" style="left:@(item.X*16+8)px;top:@(item.Y*16+8)px" @onclick="()=>InspectInteriorItem(item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@item.Name@(item.Quantity>1?$" ×{item.Quantity}":"")</label></button>}@foreach(var warp in RelevantEntrancesFor(interiorArea).Where(x=>InteriorFloors.Any(f=>f.Id==x.TargetId))){<button aria-label="Go to @warp.Name" class="map-marker entrance-marker" style="left:@(warp.X*16+8)px;top:@(warp.Y*16+8)px" @onclick="()=>NavigateInterior(warp.TargetId)"><span>⌂</span><label>@warp.Name</label></button>}</div></div>
                 <div class="interior-guide">
-                    @if(inspectedItem is not null){<div class="focused-find"><img alt="" src="@ItemIcon(inspectedItem)" onerror="@ItemFallbackScript"/><div><strong>@inspectedItem.Name</strong><small>@inspectedItem.Kind item</small></div><label><input type="checkbox" checked="@CurrentProgress.Collected.Contains(inspectedItem.Id)" @onchange="()=>ToggleItem(inspectedItem.Id)"/> Collected</label></div>}
-                    @foreach(var encounterGroup in EncounterGroupsFor(interiorArea)){<h3>@encounterGroup.Name</h3><div class="drawer-grid">@foreach(var mon in encounterGroup.Encounters.GroupBy(x=>x.SpeciesId).OrderBy(x=>x.First().Species)){var first=mon.First();<button class="mini-find @(CurrentProgress.Caught.Contains(mon.Key)?"done":"")" @onclick="()=>ToggleCaught(mon.Key)"><i>✓</i><img alt="" src="@PokemonIcon(first.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@first.Species</strong><small>@LevelText(mon) · @ChanceText(mon)</small></span></button>}</div>}
-                    @foreach(var group in SpecialPokemonGroupsFor(interiorArea)){<h3>@(group.Kind=="Trade"?"In-game trades":group.Kind+" Pokémon")</h3><div class="drawer-grid">@foreach(var mon in group.Pokemon.OrderBy(x=>x.Species)){<button class="mini-find @(CurrentProgress.CompletedSpecial.Contains(mon.Id)?"done":"")" @onclick="()=>ToggleSpecial(mon)"><i>★</i><img alt="" src="@PokemonIcon(mon.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@mon.Species</strong><small>@(mon.Kind=="Trade"?$"For {mon.RequestedSpecies}":$"Lv. {mon.Level}")</small></span></button>}</div>}
-                    @foreach(var group in ItemGroupsFor(interiorArea)){<h3>@group.Kind items</h3>@foreach(var item in group.Items.OrderBy(x=>x.Name)){<label class="interior-check @(CurrentProgress.Collected.Contains(item.Id)?"done":"")"><input type="checkbox" checked="@CurrentProgress.Collected.Contains(item.Id)" @onchange="()=>ToggleItem(item.Id)"/><img alt="" src="@ItemIcon(item)" onerror="@ItemFallbackScript"/><span>@item.Name</span></label>}}
+                    @if(inspectedItem is not null){<div class="focused-find"><img alt="" src="@ItemIcon(inspectedItem)" onerror="@ItemFallbackScript"/><div><strong>@inspectedItem.Name</strong><small>@inspectedItem.Kind item</small></div><label><input type="checkbox" checked="@CurrentProgress.IsCollected(inspectedItem.Id)" @onchange="()=>ToggleItem(inspectedItem.Id)"/> Collected</label></div>}
+                    @foreach(var encounterGroup in EncounterGroupsFor(interiorArea)){<h3>@encounterGroup.Name</h3><div class="drawer-grid">@foreach(var mon in encounterGroup.Encounters.GroupBy(x=>x.SpeciesId).OrderBy(x=>x.First().Species)){var first=mon.First();<button class="mini-find @(CurrentProgress.IsCaught(mon.Key)?"done":"")" @onclick="()=>ToggleCaught(mon.Key)"><i>✓</i><img alt="" src="@PokemonIcon(first.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@first.Species</strong><small>@LevelText(mon) · @ChanceText(mon)</small></span></button>}</div>}
+                    @foreach(var group in SpecialPokemonGroupsFor(interiorArea)){<h3>@(group.Kind=="Trade"?"In-game trades":group.Kind+" Pokémon")</h3><div class="drawer-grid">@foreach(var mon in group.Pokemon.OrderBy(x=>x.Species)){<button class="mini-find @(CurrentProgress.IsSpecialCompleted(mon.Id)?"done":"")" @onclick="()=>ToggleSpecial(mon)"><i>★</i><img alt="" src="@PokemonIcon(mon.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@mon.Species</strong><small>@(mon.Kind=="Trade"?$"For {mon.RequestedSpecies}":$"Lv. {mon.Level}")</small></span></button>}</div>}
+                    @foreach(var group in ItemGroupsFor(interiorArea)){<h3>@group.Kind items</h3>@foreach(var item in group.Items.OrderBy(x=>x.Name)){<label class="interior-check @(CurrentProgress.IsCollected(item.Id)?"done":"")"><input type="checkbox" checked="@CurrentProgress.IsCollected(item.Id)" @onchange="()=>ToggleItem(item.Id)"/><img alt="" src="@ItemIcon(item)" onerror="@ItemFallbackScript"/><span>@item.Name</span></label>}}
                 </div>
             </div>
         </section>
@@ -134,87 +142,96 @@ else
 
 @if(pokedexOpen)
 {
-    <div class="pokedex-backdrop" @onclick="()=>pokedexOpen=false"><section class="pokedex-modal" role="dialog" aria-modal="true" aria-labelledby="pokedex-title" @onclick:stopPropagation><header><div><span class="eyebrow">@(progress.DexMode.ToUpperInvariant()) POKÉDEX</span><h2 id="pokedex-title">@DexCaughtCount / @VisiblePokedex.Count caught</h2></div><div class="dex-mode" aria-label="Pokédex type">@foreach(var mode in game!.DexModes){<button class="@(progress.DexMode==mode.Id?"active":"")" @onclick="()=>ChangeDexMode(mode.Id)">@mode.Name</button>}</div><input aria-label="Search Pokédex" placeholder="Search name or number…" @bind="pokedexQuery" @bind:event="oninput"/><button class="dex-close" aria-label="Close Pokédex" @onclick="()=>pokedexOpen=false">×</button></header><div class="pokedex-grid">@foreach(var result in FilteredPokedex){var mon=result.Entry;var caught=CurrentProgress.Caught.Contains(mon.SpeciesId);<button class="dex-entry @(caught?"caught":"") @(result.Availability=="Obtainable"?"":"unavailable")" @onclick="()=>ToggleCaught(mon.SpeciesId)"><span class="dex-number">#@result.Number.ToString("D3")</span><img alt="" src="@PokemonIcon(mon.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@mon.Name</strong><small>@(caught?"Caught":result.Availability)</small></span><i>✓</i></button>}</div></section></div>
+    <div class="pokedex-backdrop" @onclick="()=>pokedexOpen=false"><section class="pokedex-modal" role="dialog" aria-modal="true" aria-labelledby="pokedex-title" @onclick:stopPropagation><header><div><span class="eyebrow">@(State.ActiveDexModeId.ToUpperInvariant()) POKÉDEX</span><h2 id="pokedex-title">@DexCaughtCount / @VisiblePokedex.Count caught</h2></div><div class="dex-mode" aria-label="Pokédex type">@foreach(var mode in game!.DexModes){<button class="@(State.ActiveDexModeId==mode.Id?"active":"")" @onclick="()=>ChangeDexMode(mode.Id)">@mode.Name</button>}</div><input aria-label="Search Pokédex" placeholder="Search name or number…" @bind="pokedexQuery" @bind:event="oninput"/><button class="dex-close" aria-label="Close Pokédex" @onclick="()=>pokedexOpen=false">×</button></header><div class="pokedex-grid">@foreach(var result in FilteredPokedex){var mon=result.Entry;var caught=CurrentProgress.IsCaught(mon.SpeciesId);<button class="dex-entry @(caught?"caught":"") @(result.Availability=="Obtainable"?"":"unavailable")" @onclick="()=>ToggleCaught(mon.SpeciesId)"><span class="dex-number">#@result.Number.ToString("D3")</span><img alt="" src="@PokemonIcon(mon.SpeciesId)" onerror="@PokemonFallbackScript"/><span><strong>@mon.Name</strong><small>@(caught?"Caught":result.Availability)</small></span><i>✓</i></button>}</div></section></div>
 }
 
 @if(backupOpen)
 {
     <div class="modal-backdrop" @onclick="CloseBackup">
         <section class="backup-modal" role="dialog" aria-modal="true" aria-labelledby="backup-title" @onclick:stopPropagation>
-            <header><div><span class="eyebrow">SAVE DATA · FORMAT V1</span><h2 id="backup-title">@(backupMode=="export"?"Export backup":"Import backup")</h2></div><button aria-label="Close backup" @onclick="CloseBackup">×</button></header>
+            <header><div><span class="eyebrow">CHECKLIST BACKUP</span><h2 id="backup-title">@(backupMode=="export"?"Export backup":"Import backup")</h2></div><button aria-label="Close backup" @onclick="CloseBackup">×</button></header>
             @if(backupMode=="export")
             {
                 <p>Choose which games to include. Paired versions keep independent progress while sharing their guide package and assets.</p>
                 <div class="backup-games">
                     @foreach(var choice in ExportChoices)
                     {
-                        <label><input type="checkbox" checked="@exportProfileKeys.Contains(choice.ProfileKey)" @onchange="e=>ToggleExportProfile(choice.ProfileKey,e)"/><span><strong>@choice.VersionName</strong><small>@choice.PackageName</small></span></label>
+                        <label><input type="checkbox" checked="@exportProfileIds.Contains(choice.ProfileId)" @onchange="e=>ToggleProfile(exportProfileIds,choice.ProfileId,e)"/><span><strong>@choice.VersionName</strong><small>@choice.PackageName</small></span></label>
                     }
                 </div>
                 @if(!string.IsNullOrEmpty(backupMessage)){<p class="backup-message success">@backupMessage</p>}
-                <footer><button @onclick="CloseBackup">Cancel</button><button class="primary" disabled="@(exportProfileKeys.Count==0)" @onclick="ExportBackup">Download backup</button></footer>
+                <footer><button @onclick="CloseBackup">Cancel</button><button class="primary" disabled="@(exportProfileIds.Count==0)" @onclick="ExportBackup">Download backup</button></footer>
             }
             else
             {
-                <p>Select a Pokémon Field Guide backup file. Included game profiles will replace their matching local profiles; unlisted games and your theme are preserved.</p>
-                <label class="file-picker"><span>Choose backup file</span><InputFile accept="application/json,.json" OnChange="ImportBackup" /></label>
+                <p>Imported checklist profiles replace matching local progress. Profiles that you do not select and all preferences stay unchanged.</p>
+                @if(importPreview is null)
+                {
+                    <label class="file-picker"><span>Choose backup file</span><InputFile accept="application/json,.json" OnChange="PreviewImport" /></label>
+                }
+                else
+                {
+                    <div class="backup-games">
+                        @foreach(var choice in importPreview.Profiles)
+                        {
+                            <label><input type="checkbox" checked="@importProfileIds.Contains(choice.ProfileId)" @onchange="e=>ToggleProfile(importProfileIds,choice.ProfileId,e)"/><span><strong>@choice.VersionName</strong><small>@choice.PackageName · @(choice.Effect==PortableBackupImportEffect.Clear?"Clears local progress":choice.Effect==PortableBackupImportEffect.Replace?"Replaces local progress":"Adds progress")</small></span></label>
+                        }
+                    </div>
+                }
                 @if(!string.IsNullOrEmpty(backupMessage)){<p class="backup-message @(backupError?"error":"success")">@backupMessage</p>}
-                <footer><button @onclick="CloseBackup">Close</button></footer>
+                <footer><button @onclick="CloseBackup">Cancel</button>@if(importPreview is not null){<button class="primary" disabled="@(importProfileIds.Count==0)" @onclick="ImportBackup">Import selected</button>}</footer>
             }
         </section>
     </div>
 }
 
-@if(confirmReset){<div class="modal-backdrop" @onclick="()=>confirmReset=false"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title" @onclick:stopPropagation><span class="warning">!</span><h2 id="reset-title">Reset all progress?</h2><p>This clears every caught Pokémon and collected item on this device.</p><div><button @onclick="()=>confirmReset=false">Cancel</button><button class="danger" @onclick="Reset">Reset everything</button></div></div></div>}
+@if(confirmReset){<div class="modal-backdrop" @onclick="()=>confirmReset=false"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title" @onclick:stopPropagation><span class="warning">!</span><h2 id="reset-title">Reset checklist progress?</h2><p>Select the games to clear. Preferences remain unchanged.</p><div class="backup-games">@foreach(var choice in localState!.ResetChoices){<label><input type="checkbox" checked="@resetProfileIds.Contains(choice.ProfileId)" @onchange="e=>ToggleProfile(resetProfileIds,choice.ProfileId,e)"/><span><strong>@choice.VersionName</strong><small>@choice.PackageName</small></span></label>}</div><div><button @onclick="()=>confirmReset=false">Cancel</button><button class="danger" disabled="@(resetProfileIds.Count==0)" @onclick="Reset">Reset selected</button></div></div></div>}
 
 @code {
-    GameCatalog? catalog; GamePackage? gamePackage; GameDefinition? game; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; SavedProgress progress=NewProgress(); string query="",pokedexQuery="",backupMode="export",backupMessage=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<string> exportProfileKeys=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
-    string ProfileKey=>ProfileKeyFor(game!.Id,progress.Version);
-    VersionProgress CurrentProgress { get { progress.Profiles??=[];progress.ProfileVersions??=[];if(!progress.Profiles.TryGetValue(ProfileKey,out var profile)){profile=new();progress.Profiles[ProfileKey]=profile;progress.ProfileVersions[ProfileKey]=ActiveVersion.ProgressVersion;}return profile;} }
-    GameVersionDefinition ActiveVersion=>game!.Versions.First(version=>version.Id==progress.Version);
+    GameCatalog? catalog; GamePackage? gamePackage; GameDefinition? game; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; LocalGuideSession? localState; LocalGuideRecovery? recovery; PortableBackupPreview? importPreview; string query="",pokedexQuery="",backupMode="export",backupMessage="",stateError=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<ChecklistProfileId> exportProfileIds=[],importProfileIds=[],resetProfileIds=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
+    LocalGuideSnapshot State=>localState?.Current??LocalGuideSnapshot.Empty;
+    ChecklistProfileView CurrentProgress=>State.Checklist;
+    GameVersionDefinition ActiveVersion=>game!.Versions.First(version=>version.Id==State.ActiveVersionId);
     string PokemonFallback=>gamePackage!.PokemonFallback;
     string ItemFallback=>gamePackage!.ItemFallback;
     string PokemonFallbackScript=>$"this.src='{PokemonFallback}'";
     string ItemFallbackScript=>$"this.src='{ItemFallback}'";
-    IReadOnlyList<PokedexResult> VisiblePokedex=>gamePackage!.SearchPokedex(progress.DexMode,progress.Version,"");
-    IReadOnlyList<PokedexResult> FilteredPokedex=>gamePackage!.SearchPokedex(progress.DexMode,progress.Version,pokedexQuery);
-    int DexCaughtCount=>VisiblePokedex.Count(result=>CurrentProgress.Caught.Contains(result.Entry.SpeciesId));
-    IReadOnlyList<GuideArea> OutdoorAreas=>string.IsNullOrWhiteSpace(query)?gamePackage!.AreasForWorld(currentWorld!.Id):gamePackage!.SearchAreas(query,progress.Version);
-    IReadOnlyList<EncounterGroup> EncounterGroups=>detailArea is null?[]:gamePackage!.EncounterGroups(detailArea,progress.Version);
-    IReadOnlyList<SpecialPokemonGroup> SpecialPokemonGroups=>detailArea is null?[]:gamePackage!.SpecialPokemonGroups(detailArea,progress.Version);
+    IReadOnlyList<PokedexResult> VisiblePokedex=>gamePackage!.SearchPokedex(State.ActiveDexModeId,State.ActiveVersionId,"");
+    IReadOnlyList<PokedexResult> FilteredPokedex=>gamePackage!.SearchPokedex(State.ActiveDexModeId,State.ActiveVersionId,pokedexQuery);
+    int DexCaughtCount=>VisiblePokedex.Count(result=>CurrentProgress.IsCaught(result.Entry.SpeciesId));
+    IReadOnlyList<GuideArea> OutdoorAreas=>string.IsNullOrWhiteSpace(query)?gamePackage!.AreasForWorld(currentWorld!.Id):gamePackage!.SearchAreas(query,State.ActiveVersionId);
+    IReadOnlyList<EncounterGroup> EncounterGroups=>detailArea is null?[]:gamePackage!.EncounterGroups(detailArea,State.ActiveVersionId);
+    IReadOnlyList<SpecialPokemonGroup> SpecialPokemonGroups=>detailArea is null?[]:gamePackage!.SpecialPokemonGroups(detailArea,State.ActiveVersionId);
     IReadOnlyList<GuideArea> InteriorFloors=>interiorArea is null?[]:gamePackage!.InteriorFloors(interiorArea.Id);
     string InteriorTitle=>interiorArea!.Name;
     protected override Task OnInitializedAsync()=>InitializeAsync();
     async Task InitializeAsync()
     {
-        loadError=null;
+        loadError=null;recovery=null;gamePackage=null;
         try
         {
             catalog=await PackageLoader.LoadCatalogAsync();
-            progress=await JS.InvokeAsync<SavedProgress?>("fieldGuide.load")??NewProgress();
-            game=catalog.Games.FirstOrDefault(choice=>choice.Id==progress.GameId)??catalog.Games.First(choice=>choice.Id==catalog.DefaultGameId);
-            progress.GameId=game.Id;
+            var opened=await StateModule.OpenAsync(catalog);
+            if(opened is LocalGuideOpenResult.RecoveryRequired needsRecovery){recovery=needsRecovery.Recovery;loadError=needsRecovery.Recovery.Message;return;}
+            if(opened is LocalGuideOpenResult.StorageFailed storageFailure){loadError=storageFailure.Message;return;}
+            localState=((LocalGuideOpenResult.Ready)opened).Session;
+            game=catalog.Games.First(choice=>choice.Id==State.ActivePackageId);
             await LoadGameAsync(game);
-            if(MigrateProgress())await Save();
         }
         catch(Exception ex)
         {
             gamePackage=null;
-            loadError=ex switch
-            {
-                HttpRequestException=>"The game data could not be downloaded. Check your connection and try again.",
-                InvalidOperationException=>ex.Message,
-                _=>"The installed game package is invalid or unavailable. Reload the page or try again shortly."
-            };
+            loadError=PackageLoadError(ex);
         }
     }
     Task RetryLoad()=>InitializeAsync();
-    protected override async Task OnAfterRenderAsync(bool first){if(game is not null){await ApplyAppearance();await JS.InvokeVoidAsync("fieldGuide.applySpriteAnimations",progress.AnimationsEnabled);}if(currentWorld?.Id!=initializedMap){initializedMap=currentWorld?.Id;await JS.InvokeVoidAsync("fieldMap.init",mapViewport);}if(interiorOpen&&interiorArea?.Id!=initializedInterior){initializedInterior=interiorArea?.Id;await JS.InvokeVoidAsync("fieldMap.initInterior");}if(!interiorOpen)initializedInterior=null;}
-    async Task LoadGameAsync(GameDefinition definition){gamePackage=await PackageLoader.LoadAsync(definition);game=gamePackage.Definition;progress.SelectedVersions??=[];progress.SelectedDexModes??=[];if(progress.SelectedVersions.TryGetValue(game.Id,out var savedVersion)&&game.Versions.Any(version=>version.Id==savedVersion))progress.Version=savedVersion;else if(!game.Versions.Any(version=>version.Id==progress.Version))progress.Version=game.Versions[0].Id;if(progress.SelectedDexModes.TryGetValue(game.Id,out var savedDexMode)&&game.DexModes.Any(mode=>mode.Id==savedDexMode))progress.DexMode=savedDexMode;else if(!game.DexModes.Any(mode=>mode.Id==progress.DexMode))progress.DexMode=game.DexModes[0].Id;progress.SelectedVersions[game.Id]=progress.Version;progress.SelectedDexModes[game.Id]=progress.DexMode;progress.Accent=ActiveVersion.Accent;currentWorld=gamePackage.DefaultWorld;currentRegion=game.Regions.First(region=>region.WorldId==currentWorld.Id);mapArea=gamePackage.DefaultArea;detailArea=mapArea;interiorArea=null;interiorOpen=false;initializedMap=null;}
+    protected override async Task OnAfterRenderAsync(bool first){if(game is not null){await ApplyAppearance();await JS.InvokeVoidAsync("fieldGuide.applySpriteAnimations",State.AnimationsEnabled);}if(currentWorld?.Id!=initializedMap){initializedMap=currentWorld?.Id;await JS.InvokeVoidAsync("fieldMap.init",mapViewport);}if(interiorOpen&&interiorArea?.Id!=initializedInterior){initializedInterior=interiorArea?.Id;await JS.InvokeVoidAsync("fieldMap.initInterior");}if(!interiorOpen)initializedInterior=null;}
+    async Task LoadGameAsync(GameDefinition definition)=>UseGamePackage(await PackageLoader.LoadAsync(definition));
+    void UseGamePackage(GamePackage loadedPackage){gamePackage=loadedPackage;game=gamePackage.Definition;currentWorld=gamePackage.DefaultWorld;currentRegion=game.Regions.First(region=>region.WorldId==currentWorld.Id);mapArea=gamePackage.DefaultArea;detailArea=mapArea;interiorArea=null;interiorOpen=false;initializedMap=null;}
     GuideArea? AreaFor(string id)=>gamePackage!.Area(id);
-    IReadOnlyList<EncounterGroup> EncounterGroupsFor(GuideArea area)=>gamePackage!.EncounterGroups(area,progress.Version);
+    IReadOnlyList<EncounterGroup> EncounterGroupsFor(GuideArea area)=>gamePackage!.EncounterGroups(area,State.ActiveVersionId);
     IReadOnlyList<ItemGroup> ItemGroupsFor(GuideArea area)=>gamePackage!.ItemGroups(area);
-    IReadOnlyList<SpecialPokemonGroup> SpecialPokemonGroupsFor(GuideArea area)=>gamePackage!.SpecialPokemonGroups(area,progress.Version);
+    IReadOnlyList<SpecialPokemonGroup> SpecialPokemonGroupsFor(GuideArea area)=>gamePackage!.SpecialPokemonGroups(area,State.ActiveVersionId);
     IReadOnlyList<DisplayEntrance> RelevantEntrancesFor(GuideArea area)=>gamePackage!.RelevantEntrances(area);
     bool IsOutdoor(string id)=>gamePackage!.IsOutdoor(id);
     void SearchChanged(ChangeEventArgs e){query=e.Value?.ToString()??"";searchOpen=true;}
@@ -226,131 +243,79 @@ else
     void InspectInteriorItem(GuideItem item)=>inspectedItem=item; void NavigateInterior(string targetId){interiorArea=gamePackage!.Area(targetId)??interiorArea;inspectedItem=null;} void ChangeInterior(ChangeEventArgs e){interiorArea=gamePackage!.Area((string?)e.Value??"")??interiorArea;inspectedItem=null;}
     async Task Zoom(double z)=>await JS.InvokeVoidAsync("fieldMap.zoom",mapViewport,z); async Task ResetView()=>await JS.InvokeVoidAsync("fieldMap.reset",mapViewport);
     async Task ZoomInterior(double z)=>await JS.InvokeVoidAsync("fieldMap.zoomInterior",z); async Task FitInterior()=>await JS.InvokeVoidAsync("fieldMap.fitInterior");
-    bool MigrateProgress()
+    async Task<bool> Apply(Task<LocalGuideChangeResult> pending)
     {
-        progress.Profiles??=[];progress.ProfileVersions??=[];var changed=false;
-        if(progress.FormatVersion!=SavedProgress.CurrentFormatVersion)throw new InvalidOperationException($"Local save format v{progress.FormatVersion} is not supported by this guide.");
-        foreach(var definition in catalog!.Games)foreach(var version in definition.Versions)
-        {
-            var key=ProfileKeyFor(definition.Id,version.Id);if(!progress.Profiles.TryGetValue(key,out var profile))continue;
-            if(!progress.ProfileVersions.TryGetValue(key,out var storedVersion))throw new InvalidOperationException($"The {version.Name} local save profile is missing its data version.");
-            progress.Profiles[key]=MigrateProfile(definition.Id,version.Id,storedVersion,version.ProgressVersion,profile);
-            if(storedVersion!=version.ProgressVersion){progress.ProfileVersions[key]=version.ProgressVersion;changed=true;}
-        }
-        return changed;
+        var result=await pending;
+        if(result is LocalGuideChangeResult.Applied){stateError="";return true;}
+        stateError=result switch{LocalGuideChangeResult.Rejected rejected=>rejected.Message,LocalGuideChangeResult.StorageFailed failed=>failed.Message,_=>"The local guide state could not be changed."};
+        return false;
     }
-    async Task Save()=>await JS.InvokeVoidAsync("fieldGuide.save",progress); async Task ToggleItem(string id){if(!CurrentProgress.Collected.Add(id))CurrentProgress.Collected.Remove(id);await Save();} async Task ToggleCaught(string id){if(!CurrentProgress.Caught.Add(id))CurrentProgress.Caught.Remove(id);await Save();} async Task ToggleSpecial(SpecialPokemon m){if(!CurrentProgress.CompletedSpecial.Add(m.Id))CurrentProgress.CompletedSpecial.Remove(m.Id);CurrentProgress.Caught.Add(m.SpeciesId);await Save();}
-    async Task ChangeGame(ChangeEventArgs e){var selected=catalog!.Games.FirstOrDefault(choice=>choice.Id==(string?)e.Value);if(selected is null)return;progress.GameId=selected.Id;await LoadGameAsync(selected);await Save();await ApplyAppearance();}
-    async Task ChangeVersion(ChangeEventArgs e){var selected=(string?)e.Value;if(selected is null||!game!.Versions.Any(version=>version.Id==selected))return;progress.Version=selected;progress.SelectedVersions[game.Id]=selected;progress.Accent=ActiveVersion.Accent;await Save();await ApplyAppearance();}
+    void DismissStateError()=>stateError="";
+    async Task ToggleItem(string id)=>await Apply(localState!.ToggleCollectedAsync(id));
+    async Task ToggleCaught(string id)=>await Apply(localState!.ToggleCaughtAsync(id));
+    async Task ToggleSpecial(SpecialPokemon mon)=>await Apply(localState!.ToggleSpecialAsync(mon.Id,mon.SpeciesId));
     async Task ChangePlayableGame(ChangeEventArgs e)
     {
         var parts=((string?)e.Value)?.Split('|',2);if(parts?.Length!=2)return;
         var definition=catalog!.Games.FirstOrDefault(choice=>choice.Id==parts[0]);if(definition is null||!definition.Versions.Any(version=>version.Id==parts[1]))return;
-        if(game?.Id!=definition.Id){progress.GameId=definition.Id;await LoadGameAsync(definition);}
-        progress.Version=parts[1];progress.SelectedVersions[definition.Id]=parts[1];progress.Accent=ActiveVersion.Accent;await Save();await ApplyAppearance();
+        GamePackage? loadedPackage=null;
+        if(game?.Id!=definition.Id)
+        {
+            try{loadedPackage=await PackageLoader.LoadAsync(definition);}
+            catch(Exception ex){stateError=PackageLoadError(ex);return;}
+        }
+        if(!await Apply(localState!.SelectPlayableGameAsync(parts[0],parts[1])))return;
+        if(loadedPackage is not null)UseGamePackage(loadedPackage);
+        await ApplyAppearance();
     }
-    async Task ChangeDexMode(string mode){progress.DexMode=mode;progress.SelectedDexModes[game!.Id]=mode;pokedexQuery="";await Save();}
-    async Task ToggleTheme(){progress.Theme=progress.Theme=="Dark"?"Light":"Dark";await Save();await ApplyAppearance();}
-    async Task ToggleAnimations(){progress.AnimationsEnabled=!progress.AnimationsEnabled;await Save();await JS.InvokeVoidAsync("fieldGuide.applySpriteAnimations",progress.AnimationsEnabled);}
+    async Task ChangeDexMode(string mode){if(await Apply(localState!.SetDexModeAsync(mode)))pokedexQuery="";}
+    async Task ToggleTheme(){if(await Apply(localState!.SetThemeAsync(State.Theme=="Dark"?"Light":"Dark")))await ApplyAppearance();}
+    async Task ToggleAnimations(){if(await Apply(localState!.SetAnimationsAsync(!State.AnimationsEnabled)))await JS.InvokeVoidAsync("fieldGuide.applySpriteAnimations",State.AnimationsEnabled);}
     void OpenPokedex(){menuOpen=false;pokedexOpen=true;}
-    void OpenReset(){menuOpen=false;confirmReset=true;}
-    IEnumerable<ExportProfileChoice> ExportChoices=>catalog!.Games.SelectMany(package=>package.Versions.Select(version=>new ExportProfileChoice(ProfileKeyFor(package.Id,version.Id),package.Name,version.Name)));
-    void OpenExport(){menuOpen=false;backupMode="export";backupMessage="";backupError=false;exportProfileKeys=[..ExportChoices.Select(x=>x.ProfileKey)];backupOpen=true;}
-    void OpenImport(){menuOpen=false;backupMode="import";backupMessage="";backupError=false;backupOpen=true;}
-    void CloseBackup(){backupOpen=false;backupMessage="";}
-    void ToggleExportProfile(string profileKey,ChangeEventArgs e){if(e.Value is true)exportProfileKeys.Add(profileKey);else exportProfileKeys.Remove(profileKey);}
+    IEnumerable<ProfileChoice> ExportChoices=>catalog!.Games.SelectMany(package=>package.Versions.Select(version=>new ProfileChoice(new(package.Id,version.Id),package.Name,version.Name)));
+    void OpenReset(){menuOpen=false;resetProfileIds=[];var active=new ChecklistProfileId(State.ActivePackageId,State.ActiveVersionId);if(localState!.ResetChoices.Any(choice=>choice.ProfileId==active))resetProfileIds.Add(active);confirmReset=true;}
+    void OpenExport(){menuOpen=false;backupMode="export";backupMessage="";backupError=false;exportProfileIds=[..ExportChoices.Select(choice=>choice.ProfileId)];backupOpen=true;}
+    void OpenImport(){menuOpen=false;backupMode="import";backupMessage="";backupError=false;importPreview=null;importProfileIds=[];backupOpen=true;}
+    void CloseBackup(){backupOpen=false;backupMessage="";importPreview=null;}
+    static void ToggleProfile(HashSet<ChecklistProfileId> selected,ChecklistProfileId profileId,ChangeEventArgs e){if(e.Value is true)selected.Add(profileId);else selected.Remove(profileId);}
     async Task ExportBackup()
     {
-        var backup=new SaveBackup();
-        foreach(var definition in catalog!.Games)
-        {
-            var versions=definition.Versions.Where(version=>exportProfileKeys.Contains(ProfileKeyFor(definition.Id,version.Id))).ToList();
-            if(versions.Count==0)continue;
-            var preferredVersion=progress.SelectedVersions.GetValueOrDefault(definition.Id,versions[0].Id);
-            var selectedVersion=versions.Any(version=>version.Id==preferredVersion)?preferredVersion:versions[0].Id;
-            var selectedDexMode=progress.SelectedDexModes.GetValueOrDefault(definition.Id,definition.DexModes[0].Id);
-            var gameBackup=new GameSaveBackup{SelectedVersion=selectedVersion,SelectedDexMode=selectedDexMode};
-            foreach(var version in versions)
-            {
-                gameBackup.Profiles[version.Id]=progress.Profiles.TryGetValue(ProfileKeyFor(definition.Id,version.Id),out var profile)?CloneProfile(profile):new();
-                gameBackup.ProfileVersions[version.Id]=version.ProgressVersion;
-            }
-            backup.Games[definition.Id]=gameBackup;
-        }
-        await JS.InvokeVoidAsync("fieldGuide.download",$"pokemon-field-guide-v1-{DateTime.UtcNow:yyyy-MM-dd}.json",backup);
+        var backup=localState!.CreatePortableBackup(exportProfileIds);
+        await JS.InvokeVoidAsync("fieldGuide.downloadText",backup.SuggestedFileName,"application/json",backup.Contents);
         backupMessage="Backup downloaded.";
     }
-    async Task ImportBackup(InputFileChangeEventArgs e)
+    async Task PreviewImport(InputFileChangeEventArgs e)
     {
         backupMessage="";backupError=false;
         try
         {
             await using var stream=e.File.OpenReadStream(2*1024*1024);
-            var backup=await System.Text.Json.JsonSerializer.DeserializeAsync<SaveBackup>(stream,new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
-            if(backup is null||backup.Format!=SaveBackup.CurrentFormat)throw new InvalidOperationException("This is not a Pokémon Field Guide backup.");
-            if(backup.FormatVersion!=SaveBackup.CurrentVersion)throw new InvalidOperationException($"Backup format v{backup.FormatVersion} is not supported by this version of the guide.");
-            var imported=ImportV0(backup);
-            if(imported.PackageIds.Count==0)throw new InvalidOperationException("The backup does not contain any games installed in this guide.");
-            if(imported.PackageIds.Contains(game!.Id)){await LoadGameAsync(game);await ApplyAppearance();}
-            await Save();
-            backupMessage=$"Imported {string.Join(", ",imported.VersionNames)}.";
+            using var reader=new StreamReader(stream);
+            var preview=localState!.PreviewPortableBackup(await reader.ReadToEndAsync());
+            if(preview is PortableBackupPreviewResult.Rejected rejected){backupError=true;backupMessage=rejected.Message;return;}
+            importPreview=((PortableBackupPreviewResult.Ready)preview).Preview;
+            importProfileIds=[..importPreview.Profiles.Select(profile=>profile.ProfileId)];
         }
-        catch(Exception ex) when(ex is System.Text.Json.JsonException or IOException or InvalidOperationException)
+        catch(Exception ex) when(ex is IOException or InvalidOperationException)
         {
             backupError=true;backupMessage=ex.Message;
         }
     }
-    ImportedBackup ImportV0(SaveBackup backup)
+    async Task ImportBackup()
     {
-        var staged=new List<(GameDefinition Definition,GameSaveBackup Backup,Dictionary<string,VersionProgress> Profiles)>();
-        foreach(var (gameId,savedGame) in backup.Games??[])
-        {
-            var definition=catalog!.Games.FirstOrDefault(x=>x.Id==gameId);if(definition is null||savedGame is null)continue;
-            var profiles=new Dictionary<string,VersionProgress>();
-            foreach(var version in definition.Versions)if(savedGame.Profiles?.TryGetValue(version.Id,out var profile)==true&&profile is not null)
-            {
-                if(savedGame.ProfileVersions?.TryGetValue(version.Id,out var storedVersion)!=true)throw new InvalidOperationException($"The {version.Name} profile is missing its data version.");
-                profiles[version.Id]=MigrateProfile(definition.Id,version.Id,storedVersion,version.ProgressVersion,profile);
-            }
-            if(profiles.Count==0)throw new InvalidOperationException($"The {definition.ShortName} backup does not contain a recognized game-version profile.");
-            staged.Add((definition,savedGame,profiles));
-        }
-        var importedPackages=new HashSet<string>();var importedVersions=new List<string>();progress.Profiles??=[];progress.ProfileVersions??=[];progress.SelectedVersions??=[];progress.SelectedDexModes??=[];
-        foreach(var (definition,savedGame,profiles) in staged)
-        {
-            var gameId=definition.Id;
-            foreach(var (versionId,profile) in profiles){var key=ProfileKeyFor(gameId,versionId);progress.Profiles[key]=profile;progress.ProfileVersions[key]=definition.Versions.First(version=>version.Id==versionId).ProgressVersion;}
-            if(profiles.ContainsKey(savedGame.SelectedVersion))progress.SelectedVersions[gameId]=savedGame.SelectedVersion;
-            if(definition.DexModes.Any(x=>x.Id==savedGame.SelectedDexMode))progress.SelectedDexModes[gameId]=savedGame.SelectedDexMode;
-            importedPackages.Add(gameId);
-            importedVersions.AddRange(definition.Versions.Where(version=>profiles.ContainsKey(version.Id)).Select(version=>version.Name));
-        }
-        return new(importedPackages,importedVersions);
+        if(importPreview is null)return;
+        if(await Apply(localState!.ImportPortableBackupAsync(importPreview,importProfileIds))){backupMessage=$"Imported {importProfileIds.Count} checklist profile{(importProfileIds.Count==1?"":"s")}.";importPreview=null;importProfileIds=[];}
+        else{backupError=true;backupMessage=stateError;}
     }
-    static VersionProgress CloneProfile(VersionProgress source)=>new(){Caught=[..source.Caught??[]],Collected=[..source.Collected??[]],CompletedSpecial=[..source.CompletedSpecial??[]]};
-    static VersionProgress MigrateProfile(string gameId,string versionId,int storedVersion,int targetVersion,VersionProgress source)
-    {
-        if(storedVersion>targetVersion)throw new InvalidOperationException($"The {versionId} save data is v{storedVersion}, but this guide supports through v{targetVersion}.");
-        var migrated=CloneProfile(source);
-        while(storedVersion<targetVersion)
-        {
-            migrated=(gameId,storedVersion) switch
-            {
-                _=>throw new InvalidOperationException($"No migration exists for {versionId} save data from v{storedVersion} to v{storedVersion+1}.")
-            };
-            storedVersion++;
-        }
-        return migrated;
-    }
-    int AreaPercent(GuideArea area){var checklist=gamePackage!.AreaChecklist(area,progress.Version);var total=checklist.SpeciesIds.Count+checklist.ItemIds.Count;return total==0?0:(int)Math.Round(100d*(checklist.SpeciesIds.Count(CurrentProgress.Caught.Contains)+checklist.ItemIds.Count(CurrentProgress.Collected.Contains))/total);}
+    int AreaPercent(GuideArea area){var checklist=gamePackage!.AreaChecklist(area,State.ActiveVersionId);var total=checklist.SpeciesIds.Count+checklist.ItemIds.Count;return total==0?0:(int)Math.Round(100d*(checklist.SpeciesIds.Count(CurrentProgress.IsCaught)+checklist.ItemIds.Count(CurrentProgress.IsCollected))/total);}
     static string LevelText(IEnumerable<Encounter> e){var min=e.Min(x=>x.MinLevel);var max=e.Max(x=>x.MaxLevel);return min==max?$"Lv. {min}":$"Lv. {min}–{max}";}
     static string ChanceText(IEnumerable<Encounter> e)=>$"{e.Sum(x=>x.Chance).ToString("0.0",System.Globalization.CultureInfo.InvariantCulture)}%";
-    async Task Reset(){progress.FormatVersion=SavedProgress.CurrentFormatVersion;progress.Profiles=[];progress.ProfileVersions=[];confirmReset=false;await Save();}
-    async Task ApplyAppearance(){progress.Accent=ActiveVersion.Accent;await JS.InvokeVoidAsync("fieldGuide.applyAppearance",progress.Theme,game!.Id,progress.Version,ActiveVersion.Accent,ActiveVersion.AccentSoft);}
-    static string ProfileKeyFor(string gameId,string version)=>$"{gameId}:{version}";
-    static SavedProgress NewProgress()=>new(){FormatVersion=SavedProgress.CurrentFormatVersion};
-    sealed record ExportProfileChoice(string ProfileKey,string PackageName,string VersionName);
-    sealed record ImportedBackup(HashSet<string> PackageIds,List<string> VersionNames);
+    async Task Reset(){if(await Apply(localState!.ResetProfilesAsync(resetProfileIds)))confirmReset=false;}
+    async Task DownloadRecovery()=>await JS.InvokeVoidAsync("fieldGuide.downloadText",$"pokemon-field-guide-recovery-{DateTime.UtcNow:yyyy-MM-dd}.txt","text/plain",recovery!.RawText);
+    async Task DeleteLocalData(){var result=await recovery!.DeleteAndStartFreshAsync();if(result is LocalGuideChangeResult.Applied applied){localState=applied.Session;recovery=null;loadError=null;game=catalog!.Games.First(choice=>choice.Id==State.ActivePackageId);await LoadGameAsync(game);}else stateError=((LocalGuideChangeResult.StorageFailed)result).Message;}
+    static string PackageLoadError(Exception ex)=>ex switch{HttpRequestException=>"The game data could not be downloaded. Check your connection and try again.",InvalidOperationException=>ex.Message,_=>"The installed game package is invalid or unavailable. Reload the page or try again shortly."};
+    async Task ApplyAppearance()=>await JS.InvokeVoidAsync("fieldGuide.applyAppearance",State.Theme,game!.Id,State.ActiveVersionId,ActiveVersion.Accent,ActiveVersion.AccentSoft);
+    sealed record ProfileChoice(ChecklistProfileId ProfileId,string PackageName,string VersionName);
     string PokemonIcon(string id)=>gamePackage!.PokemonIcon(id);
     string ItemIcon(GuideItem item)=>gamePackage!.ItemIcon(item);
 }

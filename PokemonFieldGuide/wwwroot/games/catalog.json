@@ -18,8 +18,8 @@
       "defaultWorldId": "rb-kanto",
       "validateWorldReachability": true,
       "versions": [
-        { "id": "Red", "name": "Red", "progressVersion": 1, "accent": "#e84848", "accentSoft": "#572626" },
-        { "id": "Blue", "name": "Blue", "progressVersion": 1, "accent": "#4f6de0", "accentSoft": "#27345c" }
+        { "id": "Red", "name": "Red", "progressVersion": 2, "accent": "#e84848", "accentSoft": "#572626" },
+        { "id": "Blue", "name": "Blue", "progressVersion": 2, "accent": "#4f6de0", "accentSoft": "#27345c" }
       ],
       "regions": [
         { "id": "Kanto", "name": "Kanto", "worldId": "rb-kanto" }
@@ -45,7 +45,7 @@
       "defaultWorldId": "yellow-kanto",
       "validateWorldReachability": true,
       "versions": [
-        { "id": "Yellow", "name": "Yellow", "progressVersion": 1, "accent": "#e6bd27", "accentSoft": "#594b20" }
+        { "id": "Yellow", "name": "Yellow", "progressVersion": 2, "accent": "#e6bd27", "accentSoft": "#594b20" }
       ],
       "regions": [
         { "id": "Kanto", "name": "Kanto", "worldId": "yellow-kanto" }
@@ -71,8 +71,8 @@
       "defaultWorldId": "kanto",
       "validateWorldReachability": true,
       "versions": [
-        { "id": "FireRed", "name": "FireRed", "progressVersion": 1, "accent": "#ef4b43", "accentSoft": "#5a2928" },
-        { "id": "LeafGreen", "name": "LeafGreen", "progressVersion": 1, "accent": "#55e06f", "accentSoft": "#214b2d" }
+        { "id": "FireRed", "name": "FireRed", "progressVersion": 2, "accent": "#ef4b43", "accentSoft": "#5a2928" },
+        { "id": "LeafGreen", "name": "LeafGreen", "progressVersion": 2, "accent": "#55e06f", "accentSoft": "#214b2d" }
       ],
       "regions": [
         { "id": "Kanto", "name": "Kanto", "worldId": "kanto" },
