@@ -7,8 +7,9 @@
     <title>Pokemon Field Guide</title>
     <base href="/" />
     <script>
+        window.fieldGuideStorageKey = 'frlg-field-guide-v1';
         try {
-            const saved = JSON.parse(localStorage.getItem('frlg-field-guide-v1'));
+            const saved = JSON.parse(localStorage.getItem(window.fieldGuideStorageKey));
             document.documentElement.dataset.theme = (saved?.theme || 'Dark').toLowerCase();
             document.documentElement.dataset.game = saved?.gameId || 'frlg';
             document.documentElement.dataset.version = (saved?.version || 'FireRed').toLowerCase();
@@ -33,10 +34,13 @@
     <script type="importmap"></script>
     <script>
         window.fieldGuide = {
-            load: () => { try { return JSON.parse(localStorage.getItem('frlg-field-guide-v1')); } catch { return null; } },
-            save: value => localStorage.setItem('frlg-field-guide-v1', JSON.stringify(value)),
-            download: (filename, value) => {
-                const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
+            storage: {
+                read: () => localStorage.getItem(window.fieldGuideStorageKey),
+                write: value => localStorage.setItem(window.fieldGuideStorageKey, value),
+                delete: () => localStorage.removeItem(window.fieldGuideStorageKey)
+            },
+            downloadText: (filename, contentType, contents) => {
+                const url = URL.createObjectURL(new Blob([contents], { type: contentType }));
                 const link = document.createElement('a');
                 link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
                 setTimeout(() => URL.revokeObjectURL(url), 0);
