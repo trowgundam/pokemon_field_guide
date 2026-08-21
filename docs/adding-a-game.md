@@ -8,7 +8,7 @@ Create one package for versions that share map topology, assets, data shape, Pok
 
 If paired games differ only in some records, keep one copy of shared maps and sprites and identify version-specific encounter or special-Pokémon records with the exact version ID. Split them into separate packages only when their topology, assets, source tooling, or runtime rules differ enough that a shared package would require pervasive exceptions.
 
-Set every catalog version's `progressVersion` to `1` when it is introduced. This is the schema version of that individual game's checklist profile, not the package or application version. Do not rename an ID or increment `progressVersion` after release without adding and testing a sequential saved-progress migration. See [Save backups](save-backups.md).
+Set every catalog version's `progressVersion` to `1` when it is introduced. This is the schema version of that individual game's Checklist profile, not the package or application version. Do not rename an ID or increment `progressVersion` after release without adding and testing a sequential Checklist profile migration. See [Checklist backup format](save-backups.md).
 
 ## 2. Create the package directories
 
@@ -255,9 +255,10 @@ Register the provider in `Program.cs`:
 
 ```csharp
 builder.Services.AddSingleton<IGameRulesProvider, ExampleRulesProvider>();
+builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("example"));
 ```
 
-The provider ID and the catalog's `rules` value must match. Do not add game-ID checks to `Home.razor`.
+The rules provider ID and the catalog's `rules` value must match. The Checklist profile registration gives the Local guide state module a package-owned migration seam. Do not add game-ID checks to `Home.razor`.
 
 ## 8. Register the package
 

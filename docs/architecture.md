@@ -20,27 +20,30 @@ flowchart LR
     W --> G
     R --> G
     G --> U[Shared atlas UI]
-    U <--> S[Browser local storage]
+    C --> M[Local guide state module]
+    U -->|changes| M
+    M -->|immutable snapshot| U
+    M <--> S[Browser local storage]
 ```
 
-At startup, `Home.razor` loads saved preferences and the catalog. It selects `SavedProgress.GameId`, falling back to `GameCatalog.DefaultGameId`. `GamePackageLoader` fetches the guide, Pokédex, and world documents concurrently. The loader resolves the package's `IGameRules` adapter and returns an assembled `GamePackage`.
+At startup, `Home.razor` loads the catalog and opens a `LocalGuideSession`. The session validates and migrates the Local guide state before it publishes an immutable snapshot. `Home.razor` then loads the active Game package from that snapshot. `GamePackageLoader` fetches the guide, Pokédex, and world documents concurrently. The loader resolves the package's `IGameRules` adapter and returns an assembled `GamePackage`.
 
-The Game package owns normalized area lookup, version-aware queries, entrance traversal, marker clustering, ordered groups, asset resolution, and Pokédex interpretation. `Home.razor` owns the selected version, saved progress, interaction state, and browser calls. The page renders versions, regions, Pokédex modes, labels, paths, defaults, and colors from `GameDefinition`.
+The Game package owns normalized area lookup, version-aware queries, entrance traversal, marker clustering, ordered groups, asset resolution, and Pokédex interpretation. The Local guide state module owns preferences, Checklist profiles, profile migrations, portable backups, reset rules, and browser persistence. `Home.razor` owns temporary interaction state, file selection, downloads, and messages. The page renders versions, regions, Pokédex modes, labels, paths, defaults, and colors from `GameDefinition`.
 
 ## Source layout
 
 ```text
 PokemonFieldGuide/
 ├── Models/
-│   ├── FieldGuideData.cs       Generated-data and saved-progress contracts
-│   ├── GamePackage.cs          Catalog and package metadata contracts
-│   └── SaveBackup.cs           Portable save interchange contract
+│   ├── FieldGuideData.cs       Generated guide-data contracts
+│   └── GamePackage.cs          Catalog and package metadata contracts
 ├── Pages/
 │   └── Home.razor              Shared atlas, checklist, interiors, and Pokédex UI
 ├── Services/
 │   ├── GamePackageLoader.cs    Catalog and package loading
 │   ├── GamePackage.cs          Read-only package queries and indexes
-│   └── GameRules.cs            Rules interface, registry, and providers
+│   ├── GameRules.cs            Rules interface, registry, and providers
+│   └── LocalGuideState.cs      Local state, profile rules, backups, and storage adapters
 └── wwwroot/
     ├── games/
     │   ├── catalog.json
@@ -109,23 +112,27 @@ Interior reachability is graph-based. An outdoor marker opens the nearest interi
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
 
-An area checklist contains each version-available Pokémon species once, across both encounters and special acquisitions, plus every item in the area. The page compares the checklist with saved progress to calculate the displayed percentage.
+An area checklist contains each version-available Pokémon species once, across both encounters and special acquisitions, plus every item in the area. The page compares the checklist with the active Checklist profile to calculate the displayed percentage.
 
-## Saved progress
+## Local guide state
 
 The storage key remains `frlg-field-guide-v1` for compatibility. Despite its historical name, it stores all packages.
 
-Checklist profiles are keyed as `<game-id>:<version-id>`, preventing collisions between packages with similarly named versions. Selected versions and Pokédex modes are remembered per package; theme and sprite-animation preferences are global. Resetting progress clears profiles and their schema-version records while retaining preferences.
+Checklist profiles are keyed as `<game-id>:<version-id>`, preventing collisions between packages with similarly named versions. Selected versions and Pokédex modes are remembered per package. Theme and sprite-animation preferences are global.
 
-The local-storage envelope is formally format v1 through `SavedProgress.FormatVersion`. Each profile also has an independent schema version in `SavedProgress.ProfileVersions`, keyed by the same composite key, whose current target is declared by the catalog version's `progressVersion`. This lets one game evolve without forcing unrelated profiles or shared assets to change version. Version 1 is the first released contract; unversioned development data is intentionally unsupported. Changing the storage key, envelope, profile shape, or checklist IDs requires an explicit migration plan.
+The browser-local envelope remains format v1. Each profile has an independent schema version keyed by the same composite key. The catalog version's `progressVersion` declares the target. This lets one game evolve without forcing unrelated profiles or shared assets to change version. Unversioned data is unsupported.
 
-Portable backups are a separate, public interchange contract, finalized at `SaveBackup.FormatVersion` v1. Users select individual games (version profiles), which remain grouped by package ID in the serialized document to avoid duplicating package metadata. Every exported profile carries its game-specific schema version. Import migrates older released profile schemas forward, replaces only recognized profiles present in the file, and preserves sibling-version, other-package, and global preference data. See [Save backups](save-backups.md) for the complete contract and mandatory versioning rules.
+`LocalGuideSession` exposes an immutable snapshot and intent-named changes. It queues changes within one browser tab. Every change builds a proposed document, writes it through the browser storage adapter, and publishes the snapshot only after the write succeeds. A failed write leaves the page and browser storage on the prior state.
+
+Normal reset lists only non-empty Checklist profiles and clears the profiles selected by the user. Preferences remain unchanged. If the Local guide state cannot be read, the recovery result retains the exact stored text for download. Recovery deletion removes the complete local document and starts from defaults.
+
+Portable backup v2 contains only selected Checklist profiles and their profile versions. Backup import accepts v1 and v2, previews recognized profiles, and applies only the profiles confirmed by the user. See [Checklist backup format](save-backups.md) for the serialized contracts and migration rules.
 
 ## Browser integration
 
 `wwwroot/index.html` owns functions that must exist before Blazor starts:
 
-- local-storage load/save;
+- raw local-storage read, write, and delete;
 - early theme/accent application to prevent a startup flash;
 - menu-sprite frame animation, with Pokédex animation limited by `IntersectionObserver` to sprites inside the visible viewport;
 - pointer-based map pan and zoom;
