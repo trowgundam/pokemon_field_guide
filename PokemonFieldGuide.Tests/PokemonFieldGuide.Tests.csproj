@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../PokemonFieldGuide.Shared/PokemonFieldGuide.Shared.csproj" />
     <ProjectReference Include="../PokemonFieldGuide/PokemonFieldGuide.csproj" />
   </ItemGroup>
 

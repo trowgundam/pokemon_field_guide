@@ -1,0 +1,8 @@
+{
+  "name": "pokemon-field-guide-package-schema",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "ajv": "8.20.0"
+  }
+}

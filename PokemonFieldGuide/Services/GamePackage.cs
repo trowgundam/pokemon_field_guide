@@ -1,11 +1,10 @@
 using System.Text.RegularExpressions;
-using PokemonFieldGuide.Models;
 
 namespace PokemonFieldGuide.Services;
 
 public sealed class GamePackage
 {
-    private readonly IGameRules rules;
+    private readonly PackageManifest manifest;
     private readonly IReadOnlyList<GuideArea> areas;
     private readonly IReadOnlyList<PokedexEntry> pokedex;
     private readonly IReadOnlyList<GuideWorld> worlds;
@@ -18,7 +17,7 @@ public sealed class GamePackage
         FieldGuideData fieldGuide,
         List<PokedexEntry> pokedex,
         List<GuideWorld> worlds,
-        IGameRules rules)
+        PackageManifest manifest)
     {
         Definition = definition;
         if (definition.Versions.Any(version => version.ProgressVersion < 1))
@@ -29,7 +28,11 @@ public sealed class GamePackage
         areas = fieldGuide.Areas.AsReadOnly();
         this.pokedex = pokedex.AsReadOnly();
         this.worlds = worlds.AsReadOnly();
-        this.rules = rules;
+        if (manifest.FormatVersion != 2)
+        {
+            throw new InvalidOperationException($"The {definition.Name} package manifest format v{manifest.FormatVersion} is not supported.");
+        }
+        this.manifest = manifest;
         areasById = areas.ToDictionary(area => area.Id);
         worldsById = worlds.ToDictionary(world => world.Id);
         outdoorAreaIds =
@@ -164,22 +167,22 @@ public sealed class GamePackage
 
     public IReadOnlyList<EncounterGroup> EncounterGroups(GuideArea area, string versionId) =>
         EncountersFor(area, versionId)
-            .GroupBy(rules.EncounterGroupName)
-            .OrderBy(group => rules.EncounterGroupOrder(group.Key))
-            .Select(group => new EncounterGroup(group.Key, group.ToList()))
+            .GroupBy(encounter => encounter.Type)
+            .OrderBy(group => group.Key.Presentation().Order)
+            .Select(group => new EncounterGroup(group.Key.Presentation().DisplayName, group.ToList()))
             .ToList();
 
     public IReadOnlyList<ItemGroup> ItemGroups(GuideArea area) =>
         area.Items
             .GroupBy(item => item.Kind)
-            .OrderBy(group => rules.ItemGroupOrder(group.Key))
+            .OrderBy(group => ItemGroupOrder(group.Key))
             .Select(group => new ItemGroup(group.Key, group.ToList()))
             .ToList();
 
     public IReadOnlyList<SpecialPokemonGroup> SpecialPokemonGroups(GuideArea area, string versionId) =>
         SpecialPokemonFor(area, versionId)
             .GroupBy(mon => mon.Kind)
-            .OrderBy(group => rules.SpecialGroupOrder(group.Key))
+            .OrderBy(group => SpecialGroupOrder(group.Key))
             .Select(group => new SpecialPokemonGroup(group.Key, group.ToList()))
             .ToList();
 
@@ -207,9 +210,9 @@ public sealed class GamePackage
             .ToList();
     }
 
-    public string PokemonIcon(string speciesId) =>
-        rules.EmbeddedPokemonIcon(speciesId)
-        ?? $"{Definition.PokemonSpritePath}/{rules.PokemonSpriteName(speciesId)}";
+    public string PokemonIcon(string speciesId) => manifest.PokemonSprites.TryGetValue(speciesId, out var fileName)
+        ? $"{Definition.PokemonSpritePath}/{fileName}"
+        : PokemonFallback;
 
     public string ItemIcon(GuideItem item) => $"{Definition.ItemSpritePath}/{item.Icon}";
 
@@ -259,7 +262,23 @@ public sealed class GamePackage
         return null;
     }
 
-    private string NormalizeAreaId(string id) => rules.NormalizeAreaId(id);
+    private string NormalizeAreaId(string id) => manifest.AreaAliases.GetValueOrDefault(id, id);
+
+    private static int SpecialGroupOrder(string kind) => kind switch
+    {
+        "Static" => 0,
+        "Gift" => 1,
+        "Trade" => 2,
+        _ => 3
+    };
+
+    private static int ItemGroupOrder(string kind) => kind switch
+    {
+        "Visible" => 0,
+        "Hidden" => 1,
+        "Event" => 2,
+        _ => 3
+    };
 
     private static bool IsRelevant(GuideArea area) =>
         area.Items.Count + area.SpecialPokemon.Count + area.Encounters.Count > 0;
@@ -274,3 +293,20 @@ public sealed record ItemGroup(string Kind, IReadOnlyList<GuideItem> Items);
 public sealed record SpecialPokemonGroup(string Kind, IReadOnlyList<SpecialPokemon> Pokemon);
 public sealed record PokedexResult(PokedexEntry Entry, int Number, string Availability);
 public sealed record AreaChecklist(IReadOnlySet<string> SpeciesIds, IReadOnlySet<string> ItemIds);
+
+public sealed record EncounterTypePresentation(string DisplayName, int Order);
+
+public static class EncounterTypeExtensions
+{
+    public static EncounterTypePresentation Presentation(this EncounterType type) => type switch
+    {
+        EncounterType.Random => new("Random encounters", 0),
+        EncounterType.Surfing => new("Surfing", 1),
+        EncounterType.OldRod => new("Fishing · Old Rod", 2),
+        EncounterType.GoodRod => new("Fishing · Good Rod", 3),
+        EncounterType.SuperRod => new("Fishing · Super Rod", 4),
+        EncounterType.Roaming => new("Roaming encounters", 5),
+        EncounterType.RockSmash => new("Rock Smash", 6),
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "The encounter type has no presentation metadata.")
+    };
+}

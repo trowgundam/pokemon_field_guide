@@ -184,7 +184,7 @@ Create one record per connected outdoor canvas:
 ]
 ```
 
-World placement coordinates and dimensions are pixels in the connected image. Placement IDs must resolve to areas after `IGameRules.NormalizeAreaId`. The world image must align exactly with every placement because markers add the area's tile coordinates to the placement origin.
+World placement coordinates and dimensions are pixels in the connected image. Placement IDs must resolve to areas after the package manifest applies its `areaAliases`. The world image must align exactly with every placement because markers add the area's tile coordinates to the placement origin.
 
 Disconnected landmasses may either become separate worlds/region tabs or be arranged on one composite canvas, as appropriate for the game.
 
@@ -213,11 +213,13 @@ Derive availability only after all acquisition sources and evolution paths have 
 
 ## 6. Add sprites
 
-Provide Pokémon menu sprites and bag item icons using the filenames returned by the package's rules implementation. Images should retain native pixel art and transparency. Do not rely on browser smoothing.
+Provide Pokémon menu sprites and bag item icons through the managed asset workspace. Package finalization records each species-to-filename association in `package-manifest.json`. Images must retain native pixel art and transparency. Do not rely on browser smoothing.
 
 Keep only assets referenced by the final package data and catalog configuration. Generators that render a broader source set before filtering areas must remove the unused outputs before they finish. Audit the output after regeneration and treat unreferenced generated assets as a package error.
 
-If a predictable file cannot represent a species, return a data URI from `EmbeddedPokemonIcon`. If an individual asset is unavailable, allow the required `question_mark.png` fallback to render rather than emitting a broken URL.
+Every Pokémon sprite must be a Game package file. Do not embed a data URI in C# or generated JSON. If the upstream source lacks a standalone sprite, add a package-owned PNG under the matching Game adapter and register it through the managed asset workspace. If no suitable asset exists, allow the required `question_mark.png` fallback to render rather than emitting a broken URL.
+
+Choose one canonical sprite when a species has multiple forms. Use the male form when male and female sprites differ. Otherwise, use the first form in the game's authoritative form order. If the source has no stable order, declare the order in the Game adapter. Add a generation assertion for the selected form so regeneration cannot silently choose another sprite. FRLG follows this rule by always using Unown A.
 
 ### Palette selection
 
@@ -231,34 +233,36 @@ When palettes or environmental colors vary by time of day or weather, use daytim
 
 When rendering maps from tiles and blocks, validate the source format's native tile size, block ordering, palette rules, animated or dynamically loaded tiles, and output dimensions. Inspect representative towns, interiors, caves, water boundaries, doors, and map connections at original resolution. A map can have the expected outer dimensions while still clipping or omitting part of every block, so dimensions alone are not sufficient validation.
 
-## 7. Implement game rules
+## 7. Classify encounters
 
-Create an `IGameRules` implementation and provider, preferably in a game-specific source file once more packages exist:
+Every draft encounter must include its raw source method and a normalized `type`:
 
-```csharp
-internal sealed class ExampleRulesProvider : IGameRulesProvider
+```json
 {
-    public string Id => "example";
-    public IGameRules Rules { get; } = new ExampleRules();
+  "method": "Old Rod",
+  "type": "OldRod"
 }
 ```
 
-Implement every interface member:
+`EncounterType` in `PokemonFieldGuide.Shared` is authoritative. Its stable JSON names are:
 
-- `NormalizeAreaId` maps world-placement aliases to guide-area IDs.
-- `EncounterGroupName` converts raw encounter methods into headings.
-- `EncounterGroupOrder`, `SpecialGroupOrder`, and `ItemGroupOrder` return stable display order values.
-- `PokemonSpriteName` returns a filename only. The catalog supplies the directory path.
-- `EmbeddedPokemonIcon` returns null unless a species needs an inline fallback.
+- `Random`
+- `Surfing`
+- `OldRod`
+- `GoodRod`
+- `SuperRod`
+- `Roaming`
+- `RockSmash`
 
-Register the provider in `Program.cs`:
+The Game adapter must classify every source method. Package generation fails when `type` is missing or unknown. Add an `EncounterType` value and its exhaustive C# presentation mapping when a game introduces a genuinely new encounter category. Keep display labels and ordering out of generated JSON.
+
+Register only the Checklist profile migration rules in `Program.cs`:
 
 ```csharp
-builder.Services.AddSingleton<IGameRulesProvider, ExampleRulesProvider>();
 builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("example"));
 ```
 
-The rules provider ID and the catalog's `rules` value must match. The Checklist profile registration gives the Local guide state module a package-owned migration seam. Do not add game-ID checks to `Home.razor`.
+The Checklist profile registration gives the Local guide state module a package-owned migration seam. Do not add game-ID checks to `Home.razor`.
 
 ## 8. Register the package
 
@@ -267,7 +271,6 @@ Add a definition to `wwwroot/games/catalog.json` in the game's original release 
 ```json
 {
   "id": "example",
-  "rules": "example",
   "name": "Pokémon Example Red / Blue",
   "shortName": "Example",
   "pageTitle": "Pokémon Example | Pokemon Field Guide",
@@ -301,7 +304,6 @@ Catalog fields have the following contracts:
 | Field | Purpose |
 | --- | --- |
 | `id` | Stable package ID used by preferences and progress-profile keys. |
-| `rules` | ID exposed by the registered `IGameRulesProvider`. |
 | `name` | Full game-family name shown beneath the application brand. |
 | `shortName` | Compact label used by the guide selector. |
 | `pageTitle` | Browser page title while this package is active. |

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+
 using PokemonFieldGuide.Services;
 
 namespace PokemonFieldGuide;
@@ -16,10 +17,6 @@ public class Program
         builder.Services.AddScoped<GamePackageLoader>();
         builder.Services.AddScoped<ILocalGuideStorage, BrowserLocalGuideStorage>();
         builder.Services.AddScoped<LocalGuideStateModule>();
-        builder.Services.AddSingleton<IGameRulesProvider, FrlgGameRulesProvider>();
-        builder.Services.AddSingleton<IGameRulesProvider, RbGameRulesProvider>();
-        builder.Services.AddSingleton<IGameRulesProvider, YellowGameRulesProvider>();
-        builder.Services.AddSingleton<GameRulesRegistry>();
         builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("frlg"));
         builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("rb"));
         builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("yellow"));

@@ -86,6 +86,14 @@ for (const line of read('maps.asm').split(/\r?\n/)) {
 }
 
 const slotChances = [20, 20, 15, 10, 10, 10, 5, 5, 4, 1];
+const encounterType = method => {
+  const type = {
+    'Grass / cave': 'Random', Surf: 'Surfing', 'Old Rod': 'OldRod',
+    'Good Rod': 'GoodRod', 'Super Rod': 'SuperRod'
+  }[method];
+  if (!type) throw new Error(`Yellow encounter method '${method}' is not classified.`);
+  return type;
+};
 const mapByLabel = new Map([...maps.values()].map(x => [x.label, x]));
 for (const file of fs.readdirSync(path.join(source, 'data/wild/maps')).filter(x => x.endsWith('.asm'))) {
   const chunks = read(`data/wild/maps/${file}`).split(/(?=^\w+WildMons:)/m);
@@ -100,7 +108,7 @@ for (const file of fs.readdirSync(path.join(source, 'data/wild/maps')).filter(x 
     if (/def_water_wildmons\s+[1-9]/.test(line)) { method = 'Surf'; slot = 0; continue; }
     if (/end_(grass|water)_wildmons/.test(line)) { method = null; continue; }
     const mon = method && line.match(/^\s*db\s+(\d+),\s*([A-Z0-9_]+)/);
-    if (mon) area.encounters.push({ species: title(mon[2]), speciesId: `SPECIES_${mon[2]}`, minLevel: +mon[1], maxLevel: +mon[1], chance: slotChances[slot++] ?? 0, method, version: 'Both' });
+    if (mon) area.encounters.push({ species: title(mon[2]), speciesId: `SPECIES_${mon[2]}`, minLevel: +mon[1], maxLevel: +mon[1], chance: slotChances[slot++] ?? 0, method, type: encounterType(method), version: 'Both' });
   }}
 }
 
@@ -111,9 +119,9 @@ const superRodChances = [102, 76, 51, 27].map(outcomes => outcomes * 100 / 256);
 for (const match of rodText.matchAll(/^\s*db\s+([A-Z0-9_]+)((?:,\s*[A-Z0-9_]+,\s*\d+){4})\s*$/gm)) {
   const area = maps.get(`MAP_${match[1]}`); if (!area) continue;
   const values = [...match[2].matchAll(/,\s*([A-Z0-9_]+),\s*(\d+)/g)];
-  area.encounters.push({ species: 'Magikarp', speciesId: 'SPECIES_MAGIKARP', minLevel: 5, maxLevel: 5, chance: 100, method: 'Old Rod', version: 'Both' });
-  for (const species of ['GOLDEEN', 'POLIWAG']) area.encounters.push({ species: title(species), speciesId: `SPECIES_${species}`, minLevel: 10, maxLevel: 10, chance: 50, method: 'Good Rod', version: 'Both' });
-  for (const [index, mon] of values.entries()) area.encounters.push({ species: title(mon[1]), speciesId: `SPECIES_${mon[1]}`, minLevel: +mon[2], maxLevel: +mon[2], chance: superRodChances[index], method: 'Super Rod', version: 'Both' });
+  area.encounters.push({ species: 'Magikarp', speciesId: 'SPECIES_MAGIKARP', minLevel: 5, maxLevel: 5, chance: 100, method: 'Old Rod', type: encounterType('Old Rod'), version: 'Both' });
+  for (const species of ['GOLDEEN', 'POLIWAG']) area.encounters.push({ species: title(species), speciesId: `SPECIES_${species}`, minLevel: 10, maxLevel: 10, chance: 50, method: 'Good Rod', type: encounterType('Good Rod'), version: 'Both' });
+  for (const [index, mon] of values.entries()) area.encounters.push({ species: title(mon[1]), speciesId: `SPECIES_${mon[1]}`, minLevel: +mon[2], maxLevel: +mon[2], chance: superRodChances[index], method: 'Super Rod', type: encounterType('Super Rod'), version: 'Both' });
 }
 
 for (const area of maps.values()) {
@@ -337,6 +345,6 @@ for (const entry of dex) {
   pokemonSprites[entry.speciesId] = await assets.pokemonSprite(file, target => copySpriteWithTransparentBackground(file, target));
 }
 const pokemonFallback = await registerQuestionMarkSprites(assets, sharp);
-return { source: 'pret/pokeyellow', generated: new Date().toISOString().slice(0, 10), areas: [...maps.values()], worlds, pokedex: dex, pokemonSprites, embeddedPokemon: [], pokemonFallback };
+return { source: 'pret/pokeyellow', generated: new Date().toISOString().slice(0, 10), areas: [...maps.values()], worlds, pokedex: dex, pokemonSprites, pokemonFallback };
 } });
 console.log(formatPackageReport(report));

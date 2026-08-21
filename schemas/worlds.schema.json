@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pokemon-field-guide.local/schemas/worlds.schema.json",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "image": {
+        "type": "string"
+      },
+      "width": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2147483647
+      },
+      "height": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2147483647
+      },
+      "maps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "x": {
+              "type": "integer"
+            },
+            "y": {
+              "type": "integer"
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "markerOffsetX": {
+              "type": "integer"
+            },
+            "markerOffsetY": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "id",
+      "image",
+      "width",
+      "height",
+      "maps"
+    ],
+    "additionalProperties": false
+  }
+}

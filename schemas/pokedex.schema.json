@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pokemon-field-guide.local/schemas/pokedex.schema.json",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "number": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2147483647
+      },
+      "regionalNumber": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 1,
+        "maximum": 2147483647
+      },
+      "name": {
+        "type": "string"
+      },
+      "speciesId": {
+        "type": "string"
+      },
+      "availability": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "number",
+      "name",
+      "speciesId",
+      "availability"
+    ],
+    "additionalProperties": false
+  }
+}

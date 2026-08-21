@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pokemon-field-guide.local/schemas/catalog.schema.json",
+  "type": "object",
+  "properties": {
+    "defaultGameId": {
+      "type": "string"
+    },
+    "games": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shortName": {
+            "type": "string"
+          },
+          "pageTitle": {
+            "type": "string"
+          },
+          "atlasTitle": {
+            "type": "string"
+          },
+          "loadingLabel": {
+            "type": "string"
+          },
+          "dataPath": {
+            "type": "string"
+          },
+          "pokedexPath": {
+            "type": "string"
+          },
+          "worldsPath": {
+            "type": "string"
+          },
+          "pokemonSpritePath": {
+            "type": "string"
+          },
+          "itemSpritePath": {
+            "type": "string"
+          },
+          "defaultAreaId": {
+            "type": "string"
+          },
+          "defaultWorldId": {
+            "type": "string"
+          },
+          "validateWorldReachability": {
+            "type": "boolean"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "progressVersion": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "accent": {
+                  "type": "string"
+                },
+                "accentSoft": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "progressVersion",
+                "accent",
+                "accentSoft"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "worldId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "worldId"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "dexModes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "regional": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "regional"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "shortName",
+          "pageTitle",
+          "atlasTitle",
+          "loadingLabel",
+          "dataPath",
+          "pokedexPath",
+          "worldsPath",
+          "pokemonSpritePath",
+          "itemSpritePath",
+          "defaultAreaId",
+          "defaultWorldId",
+          "validateWorldReachability",
+          "versions",
+          "regions",
+          "dexModes"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "defaultGameId",
+    "games"
+  ],
+  "additionalProperties": false
+}

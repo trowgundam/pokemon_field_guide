@@ -8,6 +8,7 @@ This directory is the canonical technical documentation for the project.
 - [Development](development.md): local commands, generated-data practices, testing, and FRLG regeneration
 - [Deployment](deployment.md): GitHub Pages publishing and base-path behavior
 - [Checklist backups](save-backups.md): portable backup schema, version policy, and import semantics
+- [JSON contracts](json-contracts.md): authoritative C# contracts, generated schemas, and validation
 
 The root [README](../README.md) describes the product. [AGENT.md](../AGENT.md) contains only repository-wide working rules. Put durable implementation guidance here rather than duplicating it in either file.
 

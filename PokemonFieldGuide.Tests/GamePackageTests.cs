@@ -1,8 +1,9 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using PokemonFieldGuide.Models;
+
 using PokemonFieldGuide.Services;
+
 using Xunit;
 
 namespace PokemonFieldGuide.Tests;
@@ -108,14 +109,29 @@ public sealed class GamePackageTests
     }
 
     [Fact]
-    public async Task Assembly_rejects_an_unregistered_rules_adapter()
+    public void Every_encounter_type_has_complete_presentation()
+    {
+        var presentations = Enum.GetValues<EncounterType>()
+            .Select(type => type.Presentation())
+            .ToList();
+
+        Assert.All(presentations, presentation => Assert.False(string.IsNullOrWhiteSpace(presentation.DisplayName)));
+        Assert.Equal(presentations.Count, presentations.Select(presentation => presentation.Order).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Assembly_uses_manifest_area_aliases()
     {
         var fixture = PackageFixture.Create();
-        fixture.Definition.Rules = "missing";
+        fixture.FieldGuide.Areas.Add(Area("AREA", "Area"));
+        fixture.Worlds.Add(World("world", "PLACEMENT"));
+        fixture.Manifest.AreaAliases["PLACEMENT"] = "AREA";
+        fixture.Definition.DefaultAreaId = "PLACEMENT";
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(fixture.LoadAsync);
+        var package = await fixture.LoadAsync();
 
-        Assert.Equal("No rules module is registered for 'missing'.", error.Message);
+        Assert.Equal("AREA", package.Area("PLACEMENT")!.Id);
+        Assert.True(package.IsOutdoor("AREA"));
     }
 
     [Fact]
@@ -183,7 +199,13 @@ public sealed class GamePackageTests
         Version = version,
         MinLevel = 5,
         MaxLevel = 5,
-        Chance = 100
+        Chance = 100,
+        Type = method switch
+        {
+            "Grass / cave" => EncounterType.Random,
+            "Surf" => EncounterType.Surfing,
+            _ => throw new InvalidOperationException($"Test encounter method '{method}' is not classified.")
+        }
     };
 
     private static GuideItem Item(string name, string kind) => new()
@@ -226,7 +248,6 @@ public sealed class GamePackageTests
         public GameDefinition Definition { get; } = new()
         {
             Id = "test",
-            Rules = "rb",
             Name = "Test",
             DataPath = "games/test/data/fieldguide.json",
             PokedexPath = "games/test/data/pokedex.json",
@@ -251,6 +272,11 @@ public sealed class GamePackageTests
         public FieldGuideData FieldGuide { get; } = new();
         public List<PokedexEntry> Pokedex { get; } = [];
         public List<GuideWorld> Worlds { get; } = [];
+        public PackageManifest Manifest { get; } = new()
+        {
+            FormatVersion = 2,
+            PokemonSprites = new() { ["SPECIES_MR_MIME"] = "mr.mime.png" }
+        };
 
         public static PackageFixture Create() => new();
 
@@ -260,17 +286,17 @@ public sealed class GamePackageTests
             {
                 [Definition.DataPath] = FieldGuide,
                 [Definition.PokedexPath] = Pokedex,
-                [Definition.WorldsPath] = Worlds
+                [Definition.WorldsPath] = Worlds,
+                ["games/test/data/package-manifest.json"] = Manifest
             };
             var http = new HttpClient(new JsonHandler(responses)) { BaseAddress = new Uri("https://field-guide.test/") };
-            var registry = new GameRulesRegistry([new RbGameRulesProvider()]);
-            return await new GamePackageLoader(http, registry).LoadAsync(Definition);
+            return await new GamePackageLoader(http).LoadAsync(Definition);
         }
     }
 
     private sealed class JsonHandler(IReadOnlyDictionary<string, object> responses) : HttpMessageHandler
     {
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+        private static readonly JsonSerializerOptions JsonOptions = PokemonFieldGuideJson.Options;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {

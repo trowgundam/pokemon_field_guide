@@ -14,7 +14,8 @@ async function fixture() {
   await fs.writeFile(path.join(webRoot, 'games/catalog.json'), JSON.stringify({
     defaultGameId: 'test',
     games: [{
-      id: 'test', rules: 'test', name: 'Test', shortName: 'Test',
+      id: 'test', name: 'Test', shortName: 'Test', pageTitle: 'Test',
+      atlasTitle: 'Test', loadingLabel: 'LOADING TEST',
       dataPath: 'games/test/data/fieldguide.json',
       pokedexPath: 'games/test/data/pokedex.json',
       worldsPath: 'games/test/data/worlds.json',
@@ -22,7 +23,7 @@ async function fixture() {
       itemSpritePath: 'games/test/sprites/items',
       defaultAreaId: 'AREA_OUTDOOR', defaultWorldId: 'test-world',
       validateWorldReachability: true,
-      versions: [{ id: 'Test', name: 'Test', progressVersion: 1 }],
+      versions: [{ id: 'Test', name: 'Test', progressVersion: 1, accent: '#000000', accentSoft: '#111111' }],
       regions: [{ id: 'Test', name: 'Test', worldId: 'test-world' }],
       dexModes: [{ id: 'Regional', name: 'Regional', regional: true }]
     }]
@@ -43,14 +44,13 @@ async function validDraft(assets) {
     areas: [{
       id: 'AREA_OUTDOOR', name: 'Outdoor', region: 'Test', mapImage: areaMap,
       mapWidth: 16, mapHeight: 16,
-      encounters: [{ species: 'Test', speciesId: 'SPECIES_TEST', minLevel: 2, maxLevel: 2, chance: 100, method: 'Grass', version: 'Both' }],
+      encounters: [{ species: 'Test', speciesId: 'SPECIES_TEST', minLevel: 2, maxLevel: 2, chance: 100, method: 'Grass', type: 'Random', version: 'Both' }],
       items: [{ id: 'AREA_OUTDOOR:item:0', name: 'Item', kind: 'Visible', icon: itemFallback, x: 0, y: 0, quantity: 1 }],
       specialPokemon: [], entrances: []
     }],
     worlds: [{ id: 'test-world', image: worldMap, width: 16, height: 16, maps: [{ id: 'AREA_OUTDOOR', x: 0, y: 0, width: 16, height: 16 }] }],
     pokedex: [{ number: 1, regionalNumber: 1, name: 'Test', speciesId: 'SPECIES_TEST', availability: { Test: 'Obtainable' } }],
     pokemonSprites: { SPECIES_TEST: pokemon },
-    embeddedPokemon: [],
     pokemonFallback
   };
 }

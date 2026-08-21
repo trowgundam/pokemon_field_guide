@@ -3,7 +3,6 @@
   "games": [
     {
       "id": "rb",
-      "rules": "rb",
       "name": "Pokémon Red / Blue",
       "shortName": "R/B",
       "pageTitle": "Pokémon Red / Blue | Pokemon Field Guide",
@@ -30,7 +29,6 @@
     },
     {
       "id": "yellow",
-      "rules": "yellow",
       "name": "Pokémon Yellow",
       "shortName": "Yellow",
       "pageTitle": "Pokémon Yellow | Pokemon Field Guide",
@@ -56,7 +54,6 @@
     },
     {
       "id": "frlg",
-      "rules": "frlg",
       "name": "Pokémon FireRed / LeafGreen",
       "shortName": "FRLG",
       "pageTitle": "Pokémon FireRed / LeafGreen | Pokemon Field Guide",

@@ -1,6 +1,7 @@
 using System.Text.Json;
-using PokemonFieldGuide.Models;
+
 using PokemonFieldGuide.Services;
+
 using Xunit;
 
 namespace PokemonFieldGuide.Tests;
@@ -54,6 +55,31 @@ public sealed class LocalGuideStateTests
         Assert.True(opened.Session.Current.Checklist.IsCollected("UNKNOWN_ITEM"));
         Assert.True(opened.Session.Current.Checklist.IsSpecialCompleted("gift:pikachu"));
         Assert.Contains("\"test:Red\":2", storage.RawText);
+    }
+
+    [Fact]
+    public async Task Opening_state_preserves_an_unrecognized_profile_from_an_uninstalled_package()
+    {
+        var storage = new MemoryLocalGuideStorage("""
+            {
+              "formatVersion": 1,
+              "gameId": "test",
+              "version": "Red",
+              "profiles": {
+                "future:Gold": { "futureShape": [1, 2, 3] }
+              },
+              "profileVersions": { "future:Gold": 7 }
+            }
+            """);
+        var module = new LocalGuideStateModule(storage, TestProfileRules.All);
+
+        var opened = Assert.IsType<LocalGuideOpenResult.Ready>(await module.OpenAsync(Catalog()));
+        await opened.Session.SetThemeAsync("Light");
+
+        using var saved = JsonDocument.Parse(storage.RawText!);
+        var futureProfile = saved.RootElement.GetProperty("profiles").GetProperty("future:Gold");
+        Assert.Equal(3, futureProfile.GetProperty("futureShape").GetArrayLength());
+        Assert.Equal(7, saved.RootElement.GetProperty("profileVersions").GetProperty("future:Gold").GetInt32());
     }
 
     [Fact]

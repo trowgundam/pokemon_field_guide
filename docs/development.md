@@ -22,15 +22,18 @@ just run
 just test
 just publish
 just check
+just generate-schemas
 ```
 
 Run `just --list` to see all supported recipes. The recipes deliberately restore NuGet packages in locked mode and install Node dependencies with `npm ci`. Their underlying commands remain visible in the `justfile` for environments where `just` is unavailable.
 
-Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `packages.lock.json` pins the complete NuGet graph, the FRLG package and lock file pin npm dependencies, and the deployment workflow pins actions by commit SHA. Node itself only has a minimum compatibility requirement; it is not locked to a particular release. Dependency upgrades should be isolated, reviewed changes that update the corresponding manifests and lock files together.
+Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `packages.lock.json` pins the complete NuGet graph, each Node tool has a package lock, and the deployment workflow pins actions by commit SHA. Node itself only has a minimum compatibility requirement; it is not locked to a particular release. Dependency upgrades should be isolated, reviewed changes that update the corresponding manifests and lock files together.
 
 Always build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
 
-`just test` exercises Game package assembly and Local guide state behavior. The Local guide state tests cover migration, recovery, atomic writes, queued changes, backup v2, partial import, selective reset, and special-acquisition provenance. `just check` runs those tests, the package-finalization tests, and validation for every registered package. The package checks cover configured paths, integer fields, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, and exact map and sprite use. Packages that set `validateWorldReachability` also require every area with guide data to connect to a world placement.
+`just test` exercises Game package assembly and Local guide state behavior. The Local guide state tests cover migration, recovery, atomic writes, queued changes, backup v2, partial import, selective reset, and special-acquisition provenance. `just check` verifies schema drift, validates every generated JSON document, runs the package-finalization tests, and validates every registered package. The package checks cover configured paths, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, and exact map and sprite use. Packages that set `validateWorldReachability` also require every area with guide data to connect to a world placement.
+
+`PokemonFieldGuide.Shared.Contracts` owns runtime JSON formats. After changing one of those C# types, run `just generate-schemas` and commit the schema diff. See [JSON contracts](json-contracts.md).
 
 ## Generated files
 
@@ -55,7 +58,7 @@ just generate-frlg /path/to/pokefirered
 
 `render-maps.mjs` is internal to the FRLG adapter. It returns native-scale individual maps, connected world canvases, and world placement data through the managed asset workspace. FRLG reserves palettes 0 through 6 for primary tilesets and 7 through 12 for secondary tilesets. Preserve that renderer behavior.
 
-Use Pokémon menu sprites and bag item icons where available. The FRLG rules module embeds Unown A because the source assets do not provide the expected standalone file. Package finalization requires both sprite directories to contain `question_mark.png`.
+Use Pokémon menu sprites and bag item icons where available. The FRLG adapter installs `tools/frlg/assets/unown.png` because the source project does not provide the expected standalone file. The file contains Unown A, the deterministic canonical form for FRLG. Package finalization requires both sprite directories to contain `question_mark.png`.
 
 ## Regenerating Red/Blue
 
@@ -86,7 +89,7 @@ At minimum, verify:
 - empty transitions reach the nearest relevant interior without creating outdoor-to-outdoor gate markers;
 - all interior components are reachable, centered, pannable, and zoomable;
 - adjacent tiles for one doorway collapse while distinct entrances remain separate;
-- encounter and item groups follow the active rules module's ordering;
+- encounter and item groups follow the shared C# ordering;
 - sprites fall back without broken images;
 - themes and package/version accents remain legible;
 - sprite animation can be disabled, respects reduced-motion preferences, and only runs for visible Pokédex entries;
@@ -101,7 +104,7 @@ At minimum, verify:
 - failed browser writes do not change the displayed Local guide state;
 - whenever a released version is incremented, representative fixtures for every supported prior version migrate without changing unrelated profiles.
 
-`just check` also parses every registered generated JSON document and verifies that numeric fields required by the .NET models are integers. Keep generator output aligned with the runtime contracts; JavaScript accepting a numeric value does not imply that `System.Text.Json` can deserialize it into the declared C# type.
+`just check` validates every registered generated JSON document against schemas generated from the C# runtime contracts. Keep generator output aligned with those contracts.
 
 Use the T3 collaborative preview when available for desktop and mobile visual checks. A release publish should also be tested because trimming and service-worker asset generation occur only during publishing.
 
