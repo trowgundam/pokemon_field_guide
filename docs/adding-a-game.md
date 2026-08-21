@@ -18,6 +18,7 @@ Use this layout:
 PokemonFieldGuide/wwwroot/games/<game-id>/
 ├── data/
 │   ├── fieldguide.json
+│   ├── package-manifest.json
 │   ├── pokedex.json
 │   └── worlds.json
 ├── maps/
@@ -32,7 +33,18 @@ PokemonFieldGuide/wwwroot/games/<game-id>/
 
 Both fallback images are required. Package paths must be unique and relative to `wwwroot`.
 
-Create package-specific extraction and rendering scripts under `tools/<game-id>/` when generated assets are needed. The scripts may use any language or dependencies appropriate to that game's lawful source data, and must write only to `PokemonFieldGuide/wwwroot/games/<game-id>/`. Do not extend the FRLG scripts merely because another title uses a related engine; reuse code only where the input and output contracts are actually shared. Record commands and prerequisites in [Development](development.md), following the [tooling conventions](../tools/README.md).
+Create a game adapter under `tools/<game-id>/`. The adapter may use any language or dependencies appropriate to that game's lawful source data. It must perform source-specific audits, render assets through the managed workspace, and return draft areas, worlds, and Pokédex data to package finalization. Do not extend the FRLG adapter merely because another title uses a related engine. Record commands and prerequisites in [Development](development.md), following the [tooling conventions](../tools/README.md).
+
+Call `generatePackage` once from the public generator command:
+
+```js
+await generatePackage({
+  gameId: 'example',
+  build: ({ definition, assets }) => buildExampleDraft({ sourceRoot, definition, assets })
+});
+```
+
+The adapter must not write final JSON or mutate the installed package directory. Package finalization reads `games/catalog.json`, contracts empty entrance chains, checks the complete staged package, removes unreferenced assets, and replaces the installed package only after every check passes. See [Package finalization](package-finalization.md).
 
 ## 3. Generate `fieldguide.json`
 
@@ -146,7 +158,7 @@ Represent locally repeatable encounters as encounters and one-time choices or in
 
 Include both directions where the game supports returning. Preserve edges through empty gates, stairwells, elevators, and transition rooms because interior discovery traverses the entrance graph. Outdoor-to-outdoor gates do not need a checklist entrance marker; the runtime stops traversal when it reaches an outdoor area.
 
-Treat reachability as a generated-data invariant. Starting from every outdoor world placement, traverse entrance edges in both directions and fail generation if any area containing encounters, items, special Pokémon, or another relevant marker cannot be reached. Do not expose empty transition rooms as selectable interiors merely because they exist in the source. Contract empty chains so the original, graph-local doorway coordinates target the nearest relevant area; retain raw transition nodes only internally when they are needed to calculate that relationship. Also verify that every non-empty entrance target resolves to an included area; filtering a missing target must not be used to conceal incomplete extraction.
+Treat reachability as a generated-data invariant. Starting from every outdoor world placement, traverse entrance edges in both directions and fail generation if any area containing encounters, items, special Pokémon, or another relevant marker cannot be reached. Also follow the runtime navigation rule and confirm that every relevant interior belongs to a component opened by a world marker. Do not expose linear empty transition rooms as selectable interiors. Retain an empty junction when separate branches lead to relevant interiors, including branches of different lengths. Also verify that every non-empty entrance target resolves to an included area. Do not filter a missing target to conceal incomplete extraction.
 
 ## 4. Generate `worlds.json`
 
@@ -317,7 +329,7 @@ Before committing:
 1. Parse every JSON document and confirm every configured path exists.
 2. Confirm all world placement IDs resolve after normalization.
 3. Confirm every non-empty entrance target exists.
-4. Traverse entrances in both directions and confirm every area with encounters, items, special Pokémon, or markers is reachable from a world placement.
+4. Confirm both forms of reachability: every relevant area connects to a world placement, and every relevant interior belongs to a component opened by a world marker.
 5. Confirm all encounter, special-Pokémon, and availability versions are `Both` or registered version IDs.
 6. Confirm every obtainable Pokémon is represented by an encounter, special acquisition, or a documented locally available evolution from one; do not count player-to-player trade evolutions without an in-game exception.
 7. Confirm every acquisition channel and event source used by the title has been inspected, including sources stored outside normal map scripts.

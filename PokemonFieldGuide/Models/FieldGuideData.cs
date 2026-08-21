@@ -114,4 +114,6 @@ public sealed class WorldMapPlacement
     public int Y { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
+    public int MarkerOffsetX { get; set; }
+    public int MarkerOffsetY { get; set; }
 }

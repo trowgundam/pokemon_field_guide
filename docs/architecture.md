@@ -50,12 +50,14 @@ PokemonFieldGuide/
     └── index.html
 tools/
 ├── README.md                   Tooling ownership conventions
+├── package-finalization/       Shared package transforms, checks, and replacement
+├── package-finalization.test.mjs
 └── <game-id>/                  Package-specific extraction and rendering
 ```
 
 Game-owned files must remain below `wwwroot/games/<game-id>/`. Global static files are limited to application-wide resources such as the shell, stylesheet, PWA icons, and service worker.
 
-Build-time tooling follows the same ownership boundary. Scripts under `tools/<game-id>/` may understand that game's source project and formats, but must emit only the matching game package. Only utilities whose contracts are genuinely independent of a particular game belong in shared tooling.
+Build-time tooling follows the same ownership boundary. Scripts under `tools/<game-id>/` may understand that game's source project and formats. They return draft data and staged assets to package finalization. Package finalization applies every package invariant, writes the final documents, removes unreferenced assets, and replaces only the matching game package after all checks pass. See [Package finalization](package-finalization.md).
 
 ## Shared models
 
@@ -101,7 +103,7 @@ The shared page must not test game IDs, game titles, or title-specific map const
 
 Outdoor areas are those referenced by any loaded `GuideWorld`. `NormalizeAreaId` allows a rendered placement to resolve to a differently named guide area when source data requires it.
 
-Interior reachability is graph-based. An outdoor warp is followed through empty transition maps until the nearest interior containing encounters, items, or special Pokémon is found. Once open, connected non-outdoor areas with relevant guide data become selectable floors; empty transition maps may remain internal generator nodes but are omitted from the runtime package. Consequently, complete and correct source entrance edges are essential even for rooms that are contracted out of the final guide.
+Interior reachability is graph-based. An outdoor marker opens the nearest interior that contains encounters, items, or special Pokémon. Once open, every connected non-outdoor area with guide data becomes a selectable floor. Package finalization contracts empty transition chains but retains a junction when distinct branches lead to relevant interiors, even when the branches have different lengths. Complete and correct source entrance edges are therefore essential for rooms that are omitted from the final package.
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
 

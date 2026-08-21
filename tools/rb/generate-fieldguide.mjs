@@ -1,14 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
+import { generatePackage } from '../package-finalization/index.mjs';
 
 const source = path.resolve(process.argv[2] ?? '/tmp/pokered-fieldguide');
-const packageRoot = path.resolve(process.argv[3] ?? 'PokemonFieldGuide/wwwroot/games/rb');
-const dataRoot = path.join(packageRoot, 'data');
-const mapsOut = path.join(packageRoot, 'maps');
-const pokemonOut = path.join(packageRoot, 'sprites/pokemon');
-const itemsOut = path.join(packageRoot, 'sprites/items');
-for (const dir of [dataRoot, mapsOut, pokemonOut, itemsOut]) fs.mkdirSync(dir, { recursive: true });
+await generatePackage({ gameId: 'rb', build: async ({ assets }) => {
 
 const read = relative => fs.readFileSync(path.join(source, relative), 'utf8');
 const readMapScripts = label => [path.join(source, `scripts/${label}.asm`), path.join(source, `scripts/${label}_2.asm`)]
@@ -100,7 +96,7 @@ for (const area of maps.values()) {
       // Source maps sometimes retain deliberately unreachable warps for engine/map-layout
       // purposes. They must not become guide navigation markers or contraction roots.
       if (/\binaccessible\b/i.test(match[4] ?? '')) continue;
-      const targetId = match[3] === 'LAST_MAP' ? '' : `MAP_${match[3]}`;
+      const targetId = ['LAST_MAP', 'UNUSED_MAP_ED'].includes(match[3]) ? '' : `MAP_${match[3]}`;
       area.entrances.push({ id: `${area.id}:warp:${warpIndex++}`, x: +match[1], y: +match[2], targetId, name: targetId ? title(targetId) : 'Exit' });
     }
     for (const match of text.matchAll(/object_event\s+(\d+),\s*(\d+),\s*SPRITE_POKE_BALL,\s*STAY,\s*NONE,\s*TEXT_[A-Z0-9_]+,\s*([A-Z][A-Z0-9_]*)\s*$/gm)) {
@@ -191,8 +187,8 @@ for (const area of maps.values()) {
     }
   }
   const filename = `${area.key}.png`;
-  await sharp(canvas, { raw: { width, height, channels: 4 } }).png().toFile(path.join(mapsOut, filename));
-  area.mapImage = `games/rb/maps/${filename}`; area.mapWidth = width; area.mapHeight = height;
+  area.mapImage = await assets.map(filename, target => sharp(canvas, { raw: { width, height, channels: 4 } }).png().toFile(target));
+  area.mapWidth = width; area.mapHeight = height;
 }
 
 // Place every connected outdoor map on one exact canvas using header offsets.
@@ -214,56 +210,22 @@ const placed = [...positions].map(([id, p]) => ({ id, ...p, width: maps.get(id).
 const minX = Math.min(...placed.map(x => x.x)), minY = Math.min(...placed.map(x => x.y));
 for (const p of placed) { p.x -= minX; p.y -= minY; }
 const worldWidth = Math.max(...placed.map(x => x.x + x.width)), worldHeight = Math.max(...placed.map(x => x.y + x.height));
-await sharp({ create: { width: worldWidth, height: worldHeight, channels: 4, background: '#d8e0c0' } }).composite(
-  placed.map(p => ({ input: path.join(mapsOut, `${maps.get(p.id).key}.png`), left: p.x, top: p.y }))
-).png().toFile(path.join(mapsOut, 'WORLD_KANTO.png'));
-fs.writeFileSync(path.join(dataRoot, 'worlds.json'), JSON.stringify([{ id: 'rb-kanto', image: 'games/rb/maps/WORLD_KANTO.png', width: worldWidth, height: worldHeight, maps: placed }]));
+const worldImage = await assets.map('WORLD_KANTO.png', target => sharp({ create: { width: worldWidth, height: worldHeight, channels: 4, background: '#d8e0c0' } }).composite(
+  placed.map(p => ({ input: maps.get(p.id).mapImage.localPath, left: p.x, top: p.y }))
+).png().toFile(target));
+const worlds = [{ id: 'rb-kanto', image: worldImage, width: worldWidth, height: worldHeight, maps: placed }];
 
 const outdoorIds = new Set(placed.map(placement => placement.id));
 const hasRelevantData = area => area.encounters.length || area.items.length || area.specialPokemon.length;
-const resolveContractedTarget = (sourceId, targetId) => {
-  const queue = targetId ? [targetId] : [], visited = new Set([sourceId]);
-  while (queue.length) {
-    const id = queue.shift(); if (visited.has(id)) continue; visited.add(id);
-    const target = maps.get(id); if (!target) continue;
-    if (outdoorIds.has(id) || hasRelevantData(target)) return target;
-    for (const exit of target.entrances) if (exit.targetId && !visited.has(exit.targetId)) queue.push(exit.targetId);
-  }
-  return null;
-};
 for (const area of maps.values()) {
-  const combined = new Map();
-  for (const encounter of area.encounters) {
-    const key = [encounter.speciesId, encounter.method, encounter.version, encounter.minLevel, encounter.maxLevel].join('|');
-    if (combined.has(key)) combined.get(key).chance += encounter.chance;
-    else combined.set(key, { ...encounter });
-  }
-  area.encounters = [...combined.values()];
   delete area.key; delete area.label; delete area.tileset; delete area.width; delete area.height; delete area.connections;
-  area.entrances = area.entrances.map(entrance => {
-    const target = resolveContractedTarget(area.id, entrance.targetId);
-    return target ? { ...entrance, targetId: target.id, name: target.name } : null;
-  }).filter(Boolean);
 }
 const areas = [...maps.values()].filter(area => outdoorIds.has(area.id) || hasRelevantData(area));
-const included = new Map(areas.map(area => [area.id, area]));
-const adjacency = new Map(areas.map(area => [area.id, new Set()]));
-for (const area of areas) for (const entrance of area.entrances) if (entrance.targetId && included.has(entrance.targetId)) {
-  adjacency.get(area.id).add(entrance.targetId); adjacency.get(entrance.targetId).add(area.id);
-}
-const reachable = new Set(placed.map(placement => placement.id)), reachQueue = [...reachable];
-while (reachQueue.length) for (const target of adjacency.get(reachQueue.shift()) ?? []) if (!reachable.has(target)) { reachable.add(target); reachQueue.push(target); }
-const unreachableRelevant = areas.filter(area => (area.encounters.length || area.items.length || area.specialPokemon.length) && !reachable.has(area.id));
-if (unreachableRelevant.length) throw new Error(`Relevant areas are unreachable from Kanto: ${unreachableRelevant.map(area => area.id).join(', ')}`);
-const referencedMapFiles = new Set(['WORLD_KANTO.png', ...areas.map(area => path.basename(area.mapImage))]);
-for (const file of fs.readdirSync(mapsOut).filter(file => file.endsWith('.png')))
-  if (!referencedMapFiles.has(file)) fs.rmSync(path.join(mapsOut, file));
 const itemCounts = areas.flatMap(area => area.items).reduce((counts, item) => counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1), new Map());
 const expectedItemCounts = { Visible: 104, Hidden: 53, Event: 44 };
 for (const [kind, expected] of Object.entries(expectedItemCounts)) if (itemCounts.get(kind) !== expected)
   throw new Error(`${kind} item audit failed: expected ${expected}, generated ${itemCounts.get(kind) ?? 0}`);
 if (areas.reduce((sum, area) => sum + area.specialPokemon.length, 0) !== 46) throw new Error('Special Pokémon audit failed: expected 46 distinct acquisitions');
-fs.writeFileSync(path.join(dataRoot, 'fieldguide.json'), JSON.stringify({ source: 'pret/pokered', generated: new Date().toISOString().slice(0, 10), areas }));
 
 const species = [...read('constants/pokedex_constants.asm').matchAll(/^\s*const\s+DEX_([A-Z0-9_]+)/gm)].map(m => m[1]).slice(0, 151);
 const obtainable = { Red: new Set(), Blue: new Set() };
@@ -296,11 +258,9 @@ for (const version of ['Red', 'Blue']) {
   if (unavailable.size !== expectedUnavailable[version].size || [...unavailable].some(name => !expectedUnavailable[version].has(name)))
     throw new Error(`${version} Pokédex availability audit failed: ${[...unavailable].join(', ')}`);
 }
-fs.writeFileSync(path.join(dataRoot, 'pokedex.json'), JSON.stringify(dex));
 const spriteName = speciesId => ({ SPECIES_NIDORAN_F: 'nidoranf.png', SPECIES_NIDORAN_M: 'nidoranm.png', SPECIES_MR_MIME: 'mr.mime.png' }[speciesId]
   ?? speciesId.replace('SPECIES_', '').toLowerCase() + '.png');
-const referencedSpriteFiles = new Set(['question_mark.png', ...dex.map(entry => spriteName(entry.speciesId))]);
-async function copySpriteWithTransparentBackground(file) {
+async function copySpriteWithTransparentBackground(file, target) {
   const { data, info } = await sharp(path.join(source, 'gfx/pokemon/front_rg', file)).toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const borderCounts = new Map();
   const countBorder = (x, y) => { const shade = data[(y * info.width + x) * 4]; borderCounts.set(shade, (borderCounts.get(shade) ?? 0) + 1); };
@@ -309,11 +269,16 @@ async function copySpriteWithTransparentBackground(file) {
   const enqueue = (x, y) => { const p=y*info.width+x;if(x<0||y<0||x>=info.width||y>=info.height||seen[p]||data[p*4]!==background)return;seen[p]=1;queue.push(p); };
   for(let x=0;x<info.width;x++){enqueue(x,0);enqueue(x,info.height-1);}for(let y=0;y<info.height;y++){enqueue(0,y);enqueue(info.width-1,y);}
   for(let i=0;i<queue.length;i++){const p=queue[i],x=p%info.width,y=Math.floor(p/info.width);data[p*4+3]=0;enqueue(x-1,y);enqueue(x+1,y);enqueue(x,y-1);enqueue(x,y+1);}
-  await sharp(data,{raw:{width:info.width,height:info.height,channels:4}}).png().toFile(path.join(pokemonOut,file));
+  await sharp(data,{raw:{width:info.width,height:info.height,channels:4}}).png().toFile(target);
 }
-for (const file of fs.readdirSync(path.join(source, 'gfx/pokemon/front_rg')).filter(file => referencedSpriteFiles.has(file))) await copySpriteWithTransparentBackground(file);
+const pokemonSprites = {};
+for (const entry of dex) {
+  const file = spriteName(entry.speciesId);
+  pokemonSprites[entry.speciesId] = await assets.pokemonSprite(file, target => copySpriteWithTransparentBackground(file, target));
+}
 const fallback = await sharp({ create: { width: 32, height: 32, channels: 4, background: '#ffffff00' } }).composite([{ input: Buffer.from('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#eee" stroke="#333" stroke-width="2"/><text x="16" y="23" text-anchor="middle" font-size="22">?</text></svg>') }]).png().toBuffer();
-fs.writeFileSync(path.join(pokemonOut, 'question_mark.png'), fallback); fs.writeFileSync(path.join(itemsOut, 'question_mark.png'), fallback);
-for (const file of fs.readdirSync(pokemonOut).filter(file => file.endsWith('.png')))
-  if (!referencedSpriteFiles.has(file)) fs.rmSync(path.join(pokemonOut, file));
+const pokemonFallback = await assets.pokemonSprite('question_mark.png', target => fs.promises.writeFile(target, fallback));
+await assets.itemSprite('question_mark.png', target => fs.promises.writeFile(target, fallback));
 console.log(`Generated Red/Blue: ${areas.length} areas, ${placed.length} outdoor maps, ${areas.reduce((n,a)=>n+a.encounters.length,0)} encounters, ${areas.reduce((n,a)=>n+a.items.length,0)} items; all ${areas.filter(a=>a.encounters.length||a.items.length||a.specialPokemon.length).length} relevant areas reachable.`);
+return { source: 'pret/pokered', generated: new Date().toISOString().slice(0, 10), areas: [...maps.values()], worlds, pokedex: dex, pokemonSprites, embeddedPokemon: [], pokemonFallback };
+} });

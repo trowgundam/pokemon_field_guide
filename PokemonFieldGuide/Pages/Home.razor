@@ -71,11 +71,11 @@ else
                                 <button class="area-hotspot @(area==mapArea?"selected":"")" aria-label="@area.Name" style="left:@(placement.X)px;top:@(placement.Y)px;width:@(placement.Width)px;height:@(placement.Height)px" @onclick="()=>SelectArea(area)"></button>
                                 @foreach (var item in area.Items.Where(item => item.X >= 0 && item.Y >= 0))
                                 {
-                                    <button aria-label="@item.Name — @item.Kind item" style="left:@(placement.X+item.X*16+8)px;top:@(placement.Y+item.Y*16+8)px" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.Collected.Contains(item.Id)?"done":"")" @onclick="()=>InspectItem(area,item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@area.Name · @item.Name</label></button>
+                                    <button aria-label="@item.Name — @item.Kind item" style="left:@(placement.X+(item.X-placement.MarkerOffsetX)*16+8)px;top:@(placement.Y+(item.Y-placement.MarkerOffsetY)*16+8)px" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.Collected.Contains(item.Id)?"done":"")" @onclick="()=>InspectItem(area,item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@area.Name · @item.Name</label></button>
                                 }
                                 @foreach (var entrance in RelevantEntrancesFor(area))
                                 {
-                                    <button aria-label="Enter @entrance.Name" style="left:@(placement.X+entrance.X*16+8)px;top:@(placement.Y+entrance.Y*16+8)px" class="map-marker entrance-marker" @onclick="()=>OpenEntrance(entrance.TargetId)"><span>⌂</span><label>@area.Name · @entrance.Name</label></button>
+                                    <button aria-label="Enter @entrance.Name" style="left:@(placement.X+(entrance.X-placement.MarkerOffsetX)*16+8)px;top:@(placement.Y+(entrance.Y-placement.MarkerOffsetY)*16+8)px" class="map-marker entrance-marker" @onclick="()=>OpenEntrance(entrance.TargetId)"><span>⌂</span><label>@area.Name · @entrance.Name</label></button>
                                 }
                             }
                         }
