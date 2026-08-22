@@ -1,8 +1,10 @@
 # Repeatable resource reward pools
 
+This page preserves the source research for repeatable reward pools and records their current package representation.
+
 ## Conclusion
 
-Crystal's Battle Tower is one renewable resource with a reward pool. It should not become five overlapping map markers or five checklist items. A successful challenge awards five copies of one randomly selected vitamin. The same one-marker rule applies to conditional outcomes such as Bug-Catching Contest ranks and the Sunday happiness TMs.
+Crystal's Battle Tower is one renewable resource with a reward pool, not five overlapping map markers or five checklist items. A successful challenge awards five copies of one randomly selected vitamin. The same one-marker rule applies to conditional outcomes such as Bug-Catching Contest ranks and the Sunday happiness TMs.
 
 The Battle Tower research uses `pret/pokecrystal` commit [`7a7881d`](https://github.com/pret/pokecrystal/tree/7a7881d0d62e0ddbd82dcf10e7116807487ac651) as its primary source. The repository builds the English Crystal 1.0, 1.1, and Australian ROMs from the same source ([supported builds](https://github.com/pret/pokecrystal/blob/7a7881d0d62e0ddbd82dcf10e7116807487ac651/README.md#L3-L12)). The relevant scripts and constants have no revision conditions. The Battle Tower resource applies to Crystal, not Gold or Silver.
 
@@ -32,12 +34,12 @@ The reward script gives five copies of the selected item. If the bag cannot acce
 
 Use one marker on `BATTLE_TOWER_1F` at the receptionist's coordinate, `(7, 6)`. The completion script returns the player to `(7, 7)` and awards the item through the receptionist flow. The receptionist object is the stable map location that represents both starting and collecting the challenge reward ([return position](https://github.com/pret/pokecrystal/blob/7a7881d0d62e0ddbd82dcf10e7116807487ac651/maps/BattleTowerBattleRoom.asm#L105-L112), [receptionist object](https://github.com/pret/pokecrystal/blob/7a7881d0d62e0ddbd82dcf10e7116807487ac651/maps/BattleTower1F.asm#L795-L813)).
 
-Suggested resource data:
+Installed resource data:
 
 - Name: `Battle Tower prize`
 - Kind: `Repeatable seven-win challenge`
 - Coordinate: `(7, 6)` on `BATTLE_TOWER_1F`
-- Reward pool: the five outcomes above, each with quantity and probability
+- Reward pool: the five outcomes above, each with quantity and integer weight
 
 ## Comparison with Selphy
 
@@ -55,9 +57,9 @@ Fixed outputs do not need a one-row pool. Use the item as the resource name and 
 
 ## Package representation
 
-Keep the marker in `GuideArea.Resources` and add optional `Comment` and `Rewards` fields to `GuideMapResource`. A resource without rewards has one fixed output named by the marker. A resource with rewards represents one repeatable interaction with several possible outcomes.
+The marker remains in `GuideArea.Resources`. `GuideMapResource.Comment` and `GuideMapResource.Rewards` hold optional interaction and outcome details. A resource without rewards has one fixed output named by the marker. A resource with rewards represents one repeatable interaction with several possible outcomes.
 
-Selphy's package data would use one marker:
+Selphy's package data uses one marker:
 
 ```json
 {
@@ -78,7 +80,7 @@ Selphy's package data would use one marker:
 }
 ```
 
-The Battle Tower marker would store weights `2, 2, 1, 1, 1`. The UI divides each weight by the sum of all weights, then displays `28.57%` or `14.29%`. Package data does not store rounded percentages.
+The Battle Tower marker stores weights `2, 2, 1, 1, 1`. The UI divides each weight by the sum of all weights, then displays `28.57%` or `14.29%`. Package data does not store rounded percentages.
 
 Condition-based pools omit weights. For example:
 
@@ -101,26 +103,28 @@ Condition-based pools omit weights. For example:
 ```csharp
 public sealed class GuideMapResource
 {
-	[JsonRequired] public string Name { get; set; } = "";
-	[JsonRequired] public string Kind { get; set; } = "";
+	[JsonRequired, MinLength(1)] public string Name { get; set; } = "";
+	[JsonRequired, MinLength(1)] public string Kind { get; set; } = "";
 	[JsonRequired] public int X { get; set; }
 	[JsonRequired] public int Y { get; set; }
+	[MinLength(1)]
 	public string? Comment { get; set; }
 	public List<GuideResourceReward> Rewards { get; set; } = [];
 }
 
 public sealed class GuideResourceReward
 {
-	[JsonRequired] public string Name { get; set; } = "";
+	[JsonRequired, MinLength(1)] public string Name { get; set; } = "";
 	[JsonRequired, Range(1, int.MaxValue)] public int Quantity { get; set; }
 	[Range(1, int.MaxValue)] public int? Weight { get; set; }
+	[MinLength(1)]
 	public string? Comment { get; set; }
 }
 ```
 
 `Comment` and `Rewards` remain optional on the wire, and `Rewards` defaults to an empty list. Existing fruit trees, fixed weekly pickups, record prizes, and renewable hidden items need no reward rows because the resource name already identifies their fixed output.
 
-The package finalizer must reject blank comments, empty reward names, nonpositive quantities, and nonpositive supplied weights. A pool must not mix weighted and unweighted outcomes: every row has a weight for a random pool, or no row has a weight for a condition-based pool. Search must match resource comments, reward names, and reward comments. The resource detail view lists each reward's quantity and comment, plus a calculated percentage when the pool is weighted. Reward rows remain text-only, so this change does not add item-sprite ownership or asset-pruning rules.
+The package finalizer rejects blank comments, empty reward names, nonpositive quantities, and nonpositive supplied weights. A pool cannot mix weighted and unweighted outcomes: every row has a weight for a random pool, or no row has a weight for a condition-based pool. Search matches resource comments, reward names, and reward comments. The resource detail view lists each reward's quantity and comment, plus a calculated percentage when the pool is weighted. Reward rows remain text-only and do not add item-sprite ownership or asset-pruning rules.
 
 ## Designs considered
 

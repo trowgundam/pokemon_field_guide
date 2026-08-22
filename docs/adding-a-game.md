@@ -44,7 +44,7 @@ await generatePackage({
 });
 ```
 
-The adapter must not write final JSON or mutate the installed package directory. Package finalization reads `games/catalog.json`, verifies that every draft area is reachable from a world warp, contracts empty entrance chains, repeats the reachability check over every retained area, checks the complete staged package, removes unreferenced assets, and replaces the installed package only after every check passes. See [Package finalization](package-finalization.md).
+The adapter must not write final JSON or mutate the installed package directory. Package finalization reads `PokemonFieldGuide/wwwroot/games/catalog.json`, verifies that every draft area is reachable from a world warp, contracts empty entrance chains, repeats the reachability check over every retained area, checks the complete staged package, removes unreferenced assets, and replaces the installed package only after every check passes. See [Package finalization](package-finalization.md).
 
 ## 3. Generate `fieldguide.json`
 
@@ -81,7 +81,7 @@ Requirements:
 - `id` is unique within the package.
 - `mapWidth` and `mapHeight` are rendered pixel dimensions.
 - `mapImage` may be null only for a deliberately non-rendered record.
-- `region` should match a catalog region ID where practical.
+- `region` is searchable area metadata. It does not select a world or a region tab. Catalog `regions` own those choices, so the two IDs do not need to match.
 - Every entrance target must resolve to another included area unless an empty target intentionally represents an unusable passage.
 
 ### Encounters
@@ -293,17 +293,19 @@ Every draft encounter must include its raw source method and a normalized `type`
 
 The Game adapter must classify every source method. Package generation fails when `type` is missing or unknown. Add an `EncounterType` value and its exhaustive C# presentation mapping when a game introduces a genuinely new encounter category. Keep display labels and ordering out of generated JSON.
 
-Register only the Checklist profile migration rules in `Program.cs`:
+Register the package's Checklist profile rules in `Program.cs`:
 
 ```csharp
 builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("example"));
 ```
 
-The Checklist profile registration gives the Local guide state module a package-owned migration seam. Do not add game-ID checks to `Home.razor`.
+The registration associates the package ID with the Local guide state module. The current package-specific v2-to-v3 transformations live in `PokemonFieldGuide/Services/ChecklistProgressMigrations.cs`; `Program.cs` only wires each package into that path. Do not add game-ID checks to `Home.razor`.
+
+When a released package needs another progress version, extend the sequential switch in `IChecklistProfileRules.Restore`, add the package transformation to `ChecklistProgressMigrations`, and test both Local guide state restore and portable backup import. A new migration must preserve unrelated and unknown checklist IDs. The current implementation supports v1-to-v2 shape migration and package-specific v2-to-v3 ID migration. It does not contain a v3-to-v4 step.
 
 ## 8. Register the package
 
-Add a definition to `wwwroot/games/catalog.json` in the game's original release order:
+Add a definition to `PokemonFieldGuide/wwwroot/games/catalog.json` in the game's original release order:
 
 ```json
 {

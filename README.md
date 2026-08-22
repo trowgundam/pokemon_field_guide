@@ -7,12 +7,13 @@ An extensible, Google Maps-style completion guide for Pokémon games. Current pa
 - Connected Kanto, Johto, and Sevii Islands maps with zooming and panning
 - Navigable interior maps and floor selection
 - Visible, hidden, and event item checklists
+- Renewable resource markers for repeatable pickups and rewards
 - Random, surfing, fishing, roaming, static, gift, and in-game trade Pokémon
 - Pokédex views for each Pokédex available in a supported game
 - Version-specific availability and separate collection progress
 - Searchable locations and Pokédex
 - Persisted theme, sprite-animation, game, Pokédex mode, and checklist preferences in browser storage
-- Versioned save-data export and import with selectable game packages
+- Versioned checklist backup export and import with selectable game versions
 - Dark and light themes with game-specific accent colors
 - GitHub Pages deployment workflow
 

@@ -1,20 +1,34 @@
 # Pokemon Field Guide documentation
 
-This directory is the canonical technical documentation for the project.
+This directory is the canonical contributor documentation. It describes current behavior and common maintenance tasks. The primary readers are coding agents and maintainers, but the instructions must remain usable without agent-specific tooling.
+
+Research and decision pages preserve evidence that would be expensive to reconstruct. They describe current implementation where they overlap with the code. Plans and known defects belong in explicitly labeled pages rather than current-behavior guidance.
+
+## Common tasks
+
+- [Development](development.md): set up the repository, run checks, regenerate packages, and perform regression checks
+- [Adding a game](adding-a-game.md): create, validate, and register a game package
+- [Deployment](deployment.md): publish to GitHub Pages or another static host
+- [Checklist backups](save-backups.md): change checklist persistence, backup formats, profile versions, or migrations
+- [JSON contracts](json-contracts.md): change runtime JSON contracts and regenerate schemas
+
+## Architecture and package reference
 
 - [Architecture](architecture.md): runtime boundaries, data flow, persistence, and extension points
-- [Package finalization](package-finalization.md): shared generation seam, package invariants, and atomic replacement
-- [Generation II packages](gen2-packages.md): Gold/Silver and Crystal source adapter, rendering rules, and package boundaries
+- [Package finalization](package-finalization.md): shared generation interface, package invariants, and atomic replacement
+- [Generation II packages](gen2-packages.md): Gold/Silver and Crystal adapter boundaries and rendering rules
 - [Encounter table presentation](encounter-table-presentation.md): condition grouping and identical-table combination rules
-- [Renewable map resources](renewable-map-resources.md): non-checklist resource markers and generator guidance
-- [FireRed and LeafGreen renewable hidden items](frlg-renewable-hidden-items.md): source mechanics, eligible locations, and generator recommendation
+- [Renewable map resources](renewable-map-resources.md): non-checklist resource markers and generator rules
+
+## Source research and decisions
+
+- [FireRed and LeafGreen renewable hidden items](frlg-renewable-hidden-items.md): source mechanics, eligible locations, and current generator behavior
 - [Repeatable resource reward pools](repeatable-resource-reward-pools.md): Selphy and Crystal Battle Tower mechanics, pool odds, and contract design
-- [All-package resource audit](all-packages-resource-audit.md): qualifying resources, package targets, enabling events, and explicit exclusions
-- [Adding a game](adding-a-game.md): end-to-end instructions for creating and registering a game package
-- [Development](development.md): local commands, generated-data practices, testing, and package regeneration
-- [Deployment](deployment.md): GitHub Pages publishing and base-path behavior
-- [Checklist backups](save-backups.md): portable backup schema, version policy, and import semantics
-- [JSON contracts](json-contracts.md): authoritative C# contracts, generated schemas, and validation
+- [All-package resource audit](all-packages-resource-audit.md): current package counts, qualifying sources, enabling events, and exclusions
+
+## Known issues
+
+- [Known data issues](known-data-issues.md): confirmed defects in installed generated packages and the requirements for correcting them
 
 The root [README](../README.md) describes the product. [AGENTS.md](../AGENTS.md) contains repository-wide working rules. Put durable implementation guidance here rather than duplicating it in either file.
 

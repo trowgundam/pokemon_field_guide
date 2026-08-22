@@ -2,19 +2,20 @@
 
 ## Conclusion
 
-The five packages contain the following renewable item resources:
+The five installed packages contain the following renewable item resources:
 
-| Package | Resources | Implemented representation |
-| --- | ---: | --- |
-| Red/Blue | 0 | No qualifying sources |
-| Yellow | 0 | No qualifying sources |
-| Gold/Silver | 34 | 30 fruit trees and four recurring world or event rewards |
-| Crystal | 35 | Gold/Silver resources plus the Battle Tower prize |
-| FireRed/LeafGreen | 64 | 61 hidden pickups, Selphy, and two size judges |
+<!-- check:package-resource-counts -->
+| Package | Package ID | Resources | Current representation |
+| --- | --- | ---: | --- |
+| Red/Blue | `rb` | 0 | No qualifying sources |
+| Yellow | `yellow` | 0 | No qualifying sources |
+| Gold/Silver | `gs` | 34 | 30 fruit trees and four recurring world or event rewards |
+| Crystal | `crystal` | 35 | Gold/Silver resources plus the Battle Tower prize |
+| FireRed/LeafGreen | `frlg` | 64 | 61 hidden pickups, Selphy, and two size judges |
 
 The target counts follow one boundary: a resource is a free, location-bound item pickup or event reward that the player can obtain repeatedly. A resource has no checklist state. Shops, currency or item exchanges, crafting services, multiplayer activities, global delivery systems, repeatable Pokémon encounters, and OT-ID lotteries are outside this model.
 
-Crystal's repeatable phone gifts are a deliberate exception to the no-checklist rule. The renewable item is not the checklist goal. Registering the trainer after battle enables the event, so each eligible trainer should have one coordinate-bearing `Event` checklist entry named `Register [trainer]`. Do not list the possible gifts as checklist items or resource pools.
+Crystal's repeatable phone gifts are not resources because the renewable item is not the checklist goal. Registering the trainer after battle enables the event, so each eligible trainer has one coordinate-bearing `Event` checklist entry named `Register [trainer]`. The possible gifts are not checklist items or resource pools.
 
 This audit uses these source revisions:
 
@@ -57,16 +58,16 @@ The installed `rb` and `yellow` packages correctly contain zero resources.
 
 ## Gold/Silver
 
-### Existing fruit trees
+### Fruit trees
 
-Keep all 30 fruit-tree markers. The standard script gives the tree's fixed item and sets its picked flag. The daily reset clears all tree flags ([fruit-tree lifecycle](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/engine/events/fruit_trees.asm#L1-L69), [daily timer](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/engine/overworld/time.asm#L85-L97)).
+The package contains all 30 fruit-tree markers. The standard script gives the tree's fixed item and sets its picked flag. The daily reset clears all tree flags ([fruit-tree lifecycle](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/engine/events/fruit_trees.asm#L1-L69), [daily timer](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/engine/overworld/time.asm#L85-L97)).
 
-### Four missing resources
+### Four other resources
 
-- The Monday-night Clefairy dance clears the Mt. Moon Square Moon Stone event, making the hidden pickup renewable each week ([dance and hidden item](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/maps/MountMoonSquare.asm#L17-L76)). Move the current hidden checklist item to one fixed-output resource.
-- The Bug-Catching Contest is available once on Tuesday, Thursday, and Saturday. Rank determines Sun Stone, Everstone, Gold Berry, or Berry ([entry gate](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/maps/Route36NationalParkGate.asm#L45-L60), [award branches](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/engine/events/std_scripts.asm#L266-L369)). Replace four checklist rewards with one resource whose reward comments state the ranks.
-- The Sunday receptionist gives TM Return at happiness 150 or more and TM Frustration below 50 ([happiness branches](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/maps/GoldenrodDeptStore5F.asm#L59-L102)). The guard is a daily-reset engine flag, so this is indefinitely repeatable on later Sundays. Replace two checklist rewards with one resource.
-- The Magikarp Length Rater gives an Ether each time the player beats the saved length record ([rater script](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/maps/LakeOfRageMagikarpHouse.asm#L9-L66), [record comparison](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/engine/events/magikarp.asm#L1-L56)). Move the current Ether checklist item to a fixed-output resource with a comment explaining the increasing record requirement.
+- The Monday-night Clefairy dance clears the Mt. Moon Square Moon Stone event, making the hidden pickup renewable each week ([dance and hidden item](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/maps/MountMoonSquare.asm#L17-L76)). The generator emits one fixed-output resource instead of a hidden checklist item.
+- The Bug-Catching Contest is available once on Tuesday, Thursday, and Saturday. Rank determines Sun Stone, Everstone, Gold Berry, or Berry ([entry gate](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/maps/Route36NationalParkGate.asm#L45-L60), [award branches](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/engine/events/std_scripts.asm#L266-L369)). The generator emits one resource whose reward comments state the ranks.
+- The Sunday receptionist gives TM Return at happiness 150 or more and TM Frustration below 50 ([happiness branches](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/maps/GoldenrodDeptStore5F.asm#L59-L102)). The guard is a daily-reset engine flag, so this is indefinitely repeatable on later Sundays. The generator emits one conditional resource instead of two checklist rewards.
+- The Magikarp Length Rater gives an Ether each time the player beats the saved length record ([rater script](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/maps/LakeOfRageMagikarpHouse.asm#L9-L66), [record comparison](https://github.com/pret/pokegold/blob/656583c939d30f920a316177311a502dd222b57c/engine/events/magikarp.asm#L1-L56)). The generator emits a fixed-output resource whose comment explains the increasing record requirement.
 
 The Lucky Number Show also refreshes weekly, but it is an OT-ID lottery and is intentionally excluded. This exclusion applies to equivalent lottery systems in later games. Gold/Silver phone trainers arrange rematches and swarms but do not give repeatable items.
 
@@ -88,14 +89,14 @@ Crystal's Lucky Number Show is excluded for the same reason as Gold/Silver's OT-
 
 The FireRed/LeafGreen generator emits 64 resources for both versions:
 
-- Move the 61 source-allowlisted renewable hidden items to resources. Their exact flags, maps, coordinates, reroll tiers, and 1,500-step lifecycle are documented in [FireRed and LeafGreen renewable hidden items](frlg-renewable-hidden-items.md).
-- Replace Selphy's seven checklist reward rows with one resource at `(4, 4)`. Her weighted pool is documented in [Repeatable resource reward pools](repeatable-resource-reward-pools.md#comparison-with-selphy).
-- Move the Route 12 Net Ball to a fixed-output resource. The judge awards another Net Ball whenever a submitted Magikarp beats the saved size record ([record branches and award](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/data/maps/Route12_FishingHouse/scripts.inc#L30-L85)).
-- Move the Water Path Nest Ball to a fixed-output resource. The judge awards another Nest Ball whenever a submitted Heracross beats the saved size record ([record branches and award](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/data/maps/SixIsland_WaterPath_House1/scripts.inc#L7-L67)).
+- The generator emits the 61 source-allowlisted renewable hidden items as resources. Their exact flags, maps, coordinates, reroll tiers, and 1,500-step lifecycle are documented in [FireRed and LeafGreen renewable hidden items](frlg-renewable-hidden-items.md).
+- The generator emits Selphy's seven possible rewards as one weighted resource at `(4, 4)`. Her pool is documented in [Repeatable resource reward pools](repeatable-resource-reward-pools.md#comparison-with-selphy).
+- The Route 12 judge is one fixed-output Net Ball resource. The judge awards another Net Ball whenever a submitted Magikarp beats the saved size record ([record branches and award](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/data/maps/Route12_FishingHouse/scripts.inc#L30-L85)).
+- The Water Path judge is one fixed-output Nest Ball resource. The judge awards another Nest Ball whenever a submitted Heracross beats the saved size record ([record branches and award](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/data/maps/SixIsland_WaterPath_House1/scripts.inc#L7-L67)).
 
 Do not include Pokemon Jump or Dodrio Berry Picking. Their Berry prizes require wireless multiplayer, which is outside the guide's resource scope. Do not include Trainer Tower prizes either. A challenge dataset records `receivedPrize`, and that state is cleared only when its dataset ID changes, not after each run ([prize guard](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/src/trainer_tower.c#L791-L817), [dataset reset](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/src/trainer_tower.c#L1043-L1052)). It is not an indefinitely renewable reward for a fixed challenge.
 
-## Other exclusions and parser false positives
+## Other exclusions and known parser false positives
 
 Apply these exclusions consistently when adding later games:
 
@@ -107,17 +108,17 @@ Apply these exclusions consistently when adding later games:
 - OT-ID lotteries, including every later version of the Lucky Number or Pokémon Lotto system;
 - scheduled but permanently claimed gifts, such as weekday siblings and the S.S. Aqua Metal Coat.
 
-The generic Generation II event parser currently leaks several transactions into checklist items, including vending-machine drinks, Game Corner TMs, Moomoo Milk, RageCandyBar, and Kurt's conversion outputs. Remove those rows in a separate generator correction. They should not become resources. The S.S. Aqua Metal Coat also appears twice because two retry paths contain the same award command; keep one checklist acquisition.
+The generic Generation II event parser currently leaks transactions and duplicate award branches into checklist items. These defects and their correction requirements are tracked in [Known data issues](known-data-issues.md#generation-ii-event-extraction-includes-transactions). They must not become resources.
 
-## Implemented generator changes
+## Generator invariants
 
-The implementation includes these changes:
+The current generators enforce these rules:
 
-1. Extend the resource contract with optional resource and reward comments plus optional weighted or conditional reward outcomes.
-2. Correct Gold/Silver and Crystal event extraction, then assert target resource counts of 34 and 35.
-3. Replace Crystal phone-gift outcomes with ten coordinate-bearing phone-registration checklist events.
-4. Correct FireRed/LeafGreen hidden and event extraction, then assert 64 resource markers.
-5. Keep Red/Blue and Yellow at zero resources.
+1. The resource contract supports optional resource and reward comments plus optional weighted or conditional reward outcomes.
+2. Gold/Silver and Crystal generation asserts resource counts of 34 and 35.
+3. Crystal generation replaces phone-gift outcomes with ten coordinate-bearing phone-registration checklist events.
+4. FireRed/LeafGreen generation asserts 64 resource markers.
+5. Red/Blue and Yellow generation retains zero resources.
 
 The generators derive membership and outcomes from source flags, tables, scripts, and map objects. Manual lists have exact count and absence assertions so a source update cannot silently change package behavior.
 
