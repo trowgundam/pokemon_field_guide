@@ -10,7 +10,7 @@ Treat documentation as part of the implementation. Before you finish each change
 2. Compare that list with the relevant pages under `docs/`.
 3. Update stale pages in the same change. Add a focused page and link it from the documentation index when no page fits.
 4. Remove or rewrite documentation for plans and behavior that the change supersedes.
-5. Run `just check` after changing Razor, C#, JavaScript, CSS, generated JSON, schemas, tooling, or deployment configuration.
+5. Run `just check-docs` after a Markdown-only change. Run `just check` after changing Razor, C#, JavaScript, CSS, generated JSON, schemas, tooling, or deployment configuration. `just check` includes the documentation checks.
 
 When investigation establishes a durable project fact, record it in the relevant documentation during the same task. Documentation review is complete only when every item from step 1 is either documented or confirmed to be internal and temporary.
 
