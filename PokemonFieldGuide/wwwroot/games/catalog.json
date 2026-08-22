@@ -91,7 +91,7 @@
       "defaultAreaId": "MAP_NEW_BARK_TOWN",
       "defaultWorldId": "crystal-johto-kanto",
       "versions": [
-        { "id": "Crystal", "name": "Crystal", "progressVersion": 2, "accent": "#4ba8df", "accentSoft": "#244b63" }
+        { "id": "Crystal", "name": "Crystal", "progressVersion": 3, "accent": "#4ba8df", "accentSoft": "#244b63" }
       ],
       "regions": [
         { "id": "JohtoKanto", "name": "Johto & Kanto", "worldId": "crystal-johto-kanto" }

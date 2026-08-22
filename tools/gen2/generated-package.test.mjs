@@ -106,7 +106,7 @@ for (const game of packages) test(`${game} exposes every renewable item source a
   const areas = new Map(fieldguide.areas.map(area => [area.id, area]));
   const resources = fieldguide.areas.flatMap(area => area.resources ?? []);
 
-  assert.equal(resources.length, game === 'gs' ? 34 : 30);
+  assert.equal(resources.length, game === 'gs' ? 34 : 35);
   assert.deepEqual(areas.get('MAP_ROUTE_29').resources, [
     { name: 'Berry', kind: 'Daily fruit tree', x: 12, y: 2 }
   ]);
@@ -115,7 +115,6 @@ for (const game of packages) test(`${game} exposes every renewable item source a
   assert(areas.get('MAP_ROUTE_30').resources.some(resource => resource.name === 'PSNCureBerry'));
   assert.equal(fieldguide.areas.flatMap(area => area.items)
     .some(item => item.kind === 'Daily fruit tree'), false);
-  if (game === 'crystal') return;
   assert(areas.get('MAP_MOUNT_MOON_SQUARE').resources.some(resource =>
     resource.name === 'Moon Stone' && resource.kind === 'Weekly hidden pickup' && resource.x === 7 && resource.y === 7));
   assert.deepEqual(areas.get('MAP_ROUTE_36_NATIONAL_PARK_GATE').resources.find(resource => resource.name === 'Bug-Catching Contest prize').rewards,
