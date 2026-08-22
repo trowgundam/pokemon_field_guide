@@ -97,3 +97,10 @@ test('Ruby/Sapphire records gifts, trades, roamers, and event-island Pokémon', 
   ]) assert(specials.some(pokemon => pokemon.speciesId === expected[0]
     && pokemon.kind === expected[1] && pokemon.version === expected[2]), expected.join(' / '));
 });
+
+test('Ruby/Sapphire labels TMs with their number and move', () => {
+  const names = fieldGuide.areas.flatMap(area => area.items).map(item => item.name)
+    .filter(name => /^TM(?:\d| )/i.test(name) && name !== 'TM Case');
+  assert(names.includes('TM24 - Thunderbolt'));
+  assert(names.every(name => /^TM\d{2} - .+/.test(name)), names.find(name => !/^TM\d{2} - .+/.test(name)));
+});

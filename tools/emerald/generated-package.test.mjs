@@ -124,3 +124,10 @@ test('Emerald uses source-native item sprites and item-specific palettes', () =>
   assert(fs.existsSync(path.join(spriteRoot, hyperPotion.icon)));
   assert.notDeepEqual(fs.readFileSync(path.join(spriteRoot, potion.icon)), fs.readFileSync(path.join(spriteRoot, hyperPotion.icon)));
 });
+
+test('Emerald labels TMs with their number and move', () => {
+  const names = fieldGuide.areas.flatMap(area => area.items).map(item => item.name)
+    .filter(name => /^TM(?:\d| )/i.test(name) && name !== 'TM Case');
+  assert(names.includes('TM24 - Thunderbolt'));
+  assert(names.every(name => /^TM\d{2} - .+/.test(name)), names.find(name => !/^TM\d{2} - .+/.test(name)));
+});

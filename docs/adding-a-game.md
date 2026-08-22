@@ -123,6 +123,8 @@ Use the optional `condition` field when one method has independently normalized 
 
 Item IDs are checklist keys and must be stable. Use `Both` for an item shared by every package version, otherwise use an exact catalog version ID. Coordinate-bearing items use tile coordinates. Event items without a map tile conventionally use `-1` for both coordinates and are listed without a map marker. The rules implementation controls group ordering, but generators should use consistent kinds such as `Visible`, `Hidden`, and `Event`.
 
+When the source provides both a Technical Machine number and its move, format the item name as `TM<number> - <Move Name>`, with a two-digit number such as `TM24 - Thunderbolt`. Resolve the number and move from the source's authoritative TM ordering instead of inferring either value from a display label. Apply this rule when adding or regenerating a package; existing packages may retain their current labels until they are deliberately migrated.
+
 ### Renewable map resources
 
 Use `resources` for free, location-bound item pickups or event rewards that the same save can obtain repeatedly. They appear on the map without becoming checklist entries:
