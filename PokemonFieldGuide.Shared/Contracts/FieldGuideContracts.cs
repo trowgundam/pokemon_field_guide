@@ -31,10 +31,23 @@ public sealed class GuideArea
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed class GuideMapResource
 {
-    [JsonRequired] public string Name { get; set; } = "";
-    [JsonRequired] public string Kind { get; set; } = "";
+    [JsonRequired, MinLength(1)] public string Name { get; set; } = "";
+    [JsonRequired, MinLength(1)] public string Kind { get; set; } = "";
     [JsonRequired] public int X { get; set; }
     [JsonRequired] public int Y { get; set; }
+    [MinLength(1)]
+    public string? Comment { get; set; }
+    public List<GuideResourceReward> Rewards { get; set; } = [];
+}
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class GuideResourceReward
+{
+    [JsonRequired, MinLength(1)] public string Name { get; set; } = "";
+    [JsonRequired, Range(1, int.MaxValue)] public int Quantity { get; set; }
+    [Range(1, int.MaxValue)] public int? Weight { get; set; }
+    [MinLength(1)]
+    public string? Comment { get; set; }
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

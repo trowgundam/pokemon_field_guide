@@ -30,6 +30,15 @@ test('rejects an unknown encounter type', () => {
   assert.throws(() => validateJson('fieldguide.schema.json', invalid, 'fixture fieldguide.json'), /allowed values|enum/);
 });
 
+test('rejects invalid resource and reward scalars', () => {
+  const invalid = structuredClone(fieldGuide);
+  invalid.areas[0].resources = [{
+    name: '', kind: 'Repeatable prize', x: 0, y: 0,
+    rewards: [{ name: 'Potion', quantity: 0, weight: 0 }]
+  }];
+  assert.throws(() => validateJson('fieldguide.schema.json', invalid, 'fixture fieldguide.json'), /minLength|must NOT have fewer|minimum/);
+});
+
 test('rejects manifest v1 and removed properties', () => {
   const manifest = { formatVersion: 1, pokemonSprites: {}, areaAliases: {}, embeddedPokemon: [] };
   assert.throws(() => validateJson('package-manifest-v2.schema.json', manifest, 'fixture package-manifest.json'), /formatVersion|embeddedPokemon/);

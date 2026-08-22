@@ -157,6 +157,26 @@ test('retains a connected area whose only guide content is a renewable resource'
   assert.deepEqual(fieldGuide.areas.map(area => area.id), ['AREA_OUTDOOR', 'GROVE']);
 });
 
+test('rejects a resource pool that mixes weighted and conditional rewards', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await assert.rejects(generatePackage({
+    gameId: 'test', webRoot,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets);
+      draft.areas[0].resources = [{
+        name: 'Mixed prize', kind: 'Repeatable challenge', x: 0, y: 0,
+        rewards: [
+          { name: 'Weighted', quantity: 1, weight: 1 },
+          { name: 'Conditional', quantity: 1, comment: 'First place.' }
+        ]
+      }];
+      return draft;
+    }
+  }), /mixes weighted and conditional rewards/i);
+});
+
 test('rejects a relevant interior that no world marker can open', async t => {
   const webRoot = await fixture();
   t.after(() => fs.rm(webRoot, { recursive: true, force: true }));

@@ -54,6 +54,14 @@ var exporterOptions = new JsonSchemaExporterOptions
             ranged["minimum"] = JsonValue.Create(range.Minimum);
             ranged["maximum"] = JsonValue.Create(range.Maximum);
         }
+        var minimumLength = context.PropertyInfo?.AttributeProvider?
+            .GetCustomAttributes(typeof(MinLengthAttribute), true)
+            .OfType<MinLengthAttribute>()
+            .SingleOrDefault();
+        if (minimumLength is not null && schema is JsonObject stringSchema)
+        {
+            stringSchema["minLength"] = minimumLength.Length;
+        }
         return schema;
     }
 };

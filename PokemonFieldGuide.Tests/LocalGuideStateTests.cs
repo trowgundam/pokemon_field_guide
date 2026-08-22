@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using PokemonFieldGuide.Services;
+using PokemonFieldGuide.Shared.Contracts;
 
 using Xunit;
 
@@ -8,6 +9,87 @@ namespace PokemonFieldGuide.Tests;
 
 public sealed class LocalGuideStateTests
 {
+    [Theory]
+    [InlineData("gs", "MAP_MOUNT_MOON_SQUARE:hidden:7:7:MOON_STONE")]
+    [InlineData("gs", "MAP_RADIO_TOWER_1F:event:MASTER_BALL:1636")]
+    [InlineData("frlg", "MAP_MT_MOON_B1F:hidden:46:2")]
+    public void Version_3_migration_removes_retired_item_ids_but_preserves_unknown_progress(string packageId, string resourceId)
+    {
+        var source = ChecklistProfileDocument.FromVersion2(new ChecklistProfileV2
+        {
+            Collected = [resourceId, "UNKNOWN_ITEM"]
+        });
+
+        var migrated = ((IChecklistProfileRules)new GamePackageChecklistProfileRules(packageId))
+            .Restore("Version", 2, 3, source);
+
+        Assert.DoesNotContain(resourceId, migrated.Collected);
+        Assert.Contains("UNKNOWN_ITEM", migrated.Collected);
+    }
+
+    [Fact]
+    public void Crystal_version_3_migration_converts_completed_phone_gifts_to_registration()
+    {
+        var source = ChecklistProfileDocument.FromVersion2(new ChecklistProfileV2
+        {
+            Collected = ["MAP_ROUTE_31:event:BERRY:2866", "MAP_ROUTE_31:event:PSNCUREBERRY:2936"]
+        });
+
+        var migrated = ((IChecklistProfileRules)new GamePackageChecklistProfileRules("crystal"))
+            .Restore("Crystal", 2, 3, source);
+
+        Assert.Equal(["MAP_ROUTE_31:event:REGISTER_WADE"], migrated.Collected);
+    }
+
+    [Fact]
+    public async Task Portable_backup_import_applies_package_progress_migrations()
+    {
+        var catalog = new GameCatalog
+        {
+            DefaultGameId = "crystal",
+            Games =
+            [
+                new GameDefinition
+                {
+                    Id = "crystal", Name = "Crystal", ShortName = "Crystal",
+                    Versions = [new() { Id = "Crystal", Name = "Crystal", ProgressVersion = 3 }],
+                    DexModes = [new() { Id = "Normal", Name = "Normal" }]
+                }
+            ]
+        };
+        var module = new LocalGuideStateModule(
+            new MemoryLocalGuideStorage(),
+            [new GamePackageChecklistProfileRules("crystal")]);
+        var session = Assert.IsType<LocalGuideOpenResult.Ready>(await module.OpenAsync(catalog)).Session;
+        const string backup = """
+            {
+              "format": "pokemon-field-guide-backup",
+              "formatVersion": 2,
+              "games": {
+                "crystal": {
+                  "profileVersions": { "Crystal": 2 },
+                  "profiles": {
+                    "Crystal": {
+                      "caught": [],
+                      "collected": ["MAP_ROUTE_31:event:BERRY:2866"],
+                      "completedSpecial": []
+                    }
+                  }
+                }
+              }
+            }
+            """;
+
+        var preview = Assert.IsType<PortableBackupPreviewResult.Ready>(session.PreviewPortableBackup(backup));
+        var imported = await session.ImportPortableBackupAsync(
+            preview.Preview,
+            [new ChecklistProfileId("crystal", "Crystal")]);
+
+        Assert.IsType<LocalGuideChangeResult.Applied>(imported);
+        Assert.True(session.Current.Checklist.IsCollected("MAP_ROUTE_31:event:REGISTER_WADE"));
+        Assert.False(session.Current.Checklist.IsCollected("MAP_ROUTE_31:event:BERRY:2866"));
+    }
+
     [Fact]
     public async Task Failed_write_does_not_publish_a_checklist_change()
     {

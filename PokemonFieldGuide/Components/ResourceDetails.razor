@@ -1,0 +1,56 @@
+@using System.Globalization
+
+<div class="focused-find resource-find">
+    <span>●</span>
+    <div>
+        <strong>@Resource.Name</strong>
+        <small>@Resource.Kind@if (ShowCoordinates){<text> · X @Resource.X, Y @Resource.Y</text>}</small>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Resource.Comment) || Resource.Rewards.Count > 0)
+    {
+        <div class="resource-details">
+            @if (!string.IsNullOrWhiteSpace(Resource.Comment))
+            {
+                <p>@Resource.Comment</p>
+            }
+            @if (Resource.Rewards.Count > 0)
+            {
+                <ul>
+                    @foreach (var reward in Resource.Rewards)
+                    {
+                        <li>
+                            <strong>@reward.Name@(reward.Quantity > 1 ? $" ×{reward.Quantity}" : "")</strong>
+                            @if (RewardNote(reward) is { } note)
+                            {
+                                <small>@note</small>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public GuideMapResource Resource { get; set; } = null!;
+    [Parameter] public bool ShowCoordinates { get; set; }
+
+    private string? RewardNote(GuideResourceReward reward)
+    {
+        var notes = new List<string>();
+        if (reward.Weight is not null)
+        {
+            var total = Resource.Rewards.Sum(candidate => candidate.Weight ?? 0);
+            if (total > 0)
+            {
+                notes.Add($"{(100d * reward.Weight.Value / total).ToString("0.##", CultureInfo.InvariantCulture)}%");
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(reward.Comment))
+        {
+            notes.Add(reward.Comment);
+        }
+        return notes.Count == 0 ? null : string.Join(" · ", notes);
+    }
+}
