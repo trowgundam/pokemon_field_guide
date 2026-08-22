@@ -16,6 +16,6 @@ This directory is the canonical technical documentation for the project.
 - [Checklist backups](save-backups.md): portable backup schema, version policy, and import semantics
 - [JSON contracts](json-contracts.md): authoritative C# contracts, generated schemas, and validation
 
-The root [README](../README.md) describes the product. [AGENT.md](../AGENT.md) contains only repository-wide working rules. Put durable implementation guidance here rather than duplicating it in either file.
+The root [README](../README.md) describes the product. [AGENTS.md](../AGENTS.md) contains repository-wide working rules. Put durable implementation guidance here rather than duplicating it in either file.
 
 Documentation is part of every relevant change. Update these pages whenever architecture, package contracts, data formats, tooling, development workflows, or deployment behavior changes. Add and link a focused page when none of the existing pages fits.
