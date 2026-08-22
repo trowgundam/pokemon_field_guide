@@ -6,13 +6,7 @@
 - `just` for the supported command shortcuts
 - Node.js 20.9 or later for documentation checks, generated-data validation, and package generation
 - The locked Node dependencies installed by each package-generation recipe when regenerating a package
-- A compatible `pret/pokefirered` checkout for FRLG regeneration
-- A compatible `pret/pokered` checkout for Red/Blue regeneration
-- A compatible `pret/pokeyellow` checkout for Yellow regeneration
-- A compatible `pret/pokegold` checkout for Gold/Silver regeneration
-- A compatible `pret/pokecrystal` checkout for Crystal regeneration
-- A compatible `pret/pokeruby` checkout for Ruby/Sapphire regeneration
-- A compatible `pret/pokeemerald` checkout for Emerald regeneration
+- A clean checkout of the source revision recorded in `sources.lock` for each package that you regenerate
 
 No ROM is required or permitted in the repository.
 
@@ -56,7 +50,9 @@ Clone all seven source repositories below one directory:
 just clone-all /tmp
 ```
 
-This command creates `/tmp/pokered`, `/tmp/pokeyellow`, `/tmp/pokegold`, `/tmp/pokecrystal`, `/tmp/pokeruby`, `/tmp/pokefirered`, and `/tmp/pokeemerald`. If a target already has the expected `pret` checkout, the clone recipe keeps it unchanged. The recipe fails when a target exists with a different Git origin.
+This command creates shallow, detached clones at `/tmp/pokered`, `/tmp/pokeyellow`, `/tmp/pokegold`, `/tmp/pokecrystal`, `/tmp/pokeruby`, `/tmp/pokefirered`, and `/tmp/pokeemerald`. Each clone contains only the revision recorded in `sources.lock`. If a target exists, the clone recipe verifies its origin, `HEAD`, and clean working tree. It does not change an existing checkout.
+
+The generation recipes repeat the same source validation before they run. To update a source, change its full commit SHA in `sources.lock`, clone that revision into a fresh directory, regenerate the affected package, and commit the lock change with the generator and generated output changes. Run a generator script directly only when evaluating a source revision before updating the lock.
 
 Regenerate every package from those directory names:
 

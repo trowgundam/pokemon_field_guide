@@ -17,34 +17,10 @@ restore:
 generate-schemas:
     dotnet run --project {{schema_project}}
 
-# Clone a pret source repository unless the expected checkout already exists.
+# Clone the locked revision of a pret source repository.
 [private]
 _clone-source root repository:
-    #!/usr/bin/env sh
-    set -eu
-    clone_root="{{root}}"
-    repository="{{repository}}"
-    target="$clone_root/$repository"
-    expected_url="https://github.com/pret/$repository.git"
-    mkdir -p "$clone_root"
-    if [ -e "$target" ]; then
-        if [ ! -d "$target/.git" ]; then
-            echo "$target exists but is not a Git checkout." >&2
-            exit 1
-        fi
-        origin="$(git -C "$target" remote get-url origin 2>/dev/null || true)"
-        case "$origin" in
-            "https://github.com/pret/$repository"|"https://github.com/pret/$repository.git"|"git@github.com:pret/$repository.git")
-                echo "Using existing $target"
-                ;;
-            *)
-                echo "$target has unexpected origin '$origin'." >&2
-                exit 1
-                ;;
-        esac
-    else
-        git clone "$expected_url" "$target"
-    fi
+    tools/source-lock.sh clone sources.lock "{{repository}}" "{{root}}/{{repository}}"
 
 # Clone the FireRed/LeafGreen source repository.
 clone-frlg root:
@@ -139,6 +115,7 @@ check-docs:
 
 # Check generator syntax and compile the application.
 check: check-docs install-schema-tools
+    node --test tools/source-lock.test.mjs
     dotnet run --project {{schema_project}} -- --check
     node --test tools/package-schema/validate.test.mjs
     node --test tools/package-finalization.test.mjs
@@ -184,30 +161,37 @@ check: check-docs install-schema-tools
 
 # Regenerate the complete FRLG package from a pokefirered checkout.
 generate-frlg source: install-frlg-tools
+    tools/source-lock.sh check sources.lock pokefirered "{{source}}"
     node tools/frlg/generate-fieldguide.mjs "{{source}}"
 
 # Regenerate the complete Red/Blue package from a pokered checkout.
 generate-rb source: install-rb-tools
+    tools/source-lock.sh check sources.lock pokered "{{source}}"
     node tools/rb/generate-fieldguide.mjs "{{source}}"
 
 # Regenerate the complete Yellow package from a pokeyellow checkout.
 generate-yellow source: install-yellow-tools
+    tools/source-lock.sh check sources.lock pokeyellow "{{source}}"
     node tools/yellow/generate-fieldguide.mjs "{{source}}"
 
 # Regenerate the complete Gold/Silver package from a pokegold checkout.
 generate-gs source: install-gs-tools
+    tools/source-lock.sh check sources.lock pokegold "{{source}}"
     node tools/gs/generate-fieldguide.mjs "{{source}}"
 
 # Regenerate the complete Crystal package from a pokecrystal checkout.
 generate-crystal source: install-crystal-tools
+    tools/source-lock.sh check sources.lock pokecrystal "{{source}}"
     node tools/crystal/generate-fieldguide.mjs "{{source}}"
 
 # Regenerate the complete Ruby/Sapphire package from a pokeruby checkout.
 generate-rs source: install-rs-tools
+    tools/source-lock.sh check sources.lock pokeruby "{{source}}"
     node tools/rs/generate-fieldguide.mjs "{{source}}"
 
 # Regenerate the complete Emerald package from a pokeemerald checkout.
 generate-emerald source: install-emerald-tools
+    tools/source-lock.sh check sources.lock pokeemerald "{{source}}"
     node tools/emerald/generate-fieldguide.mjs "{{source}}"
 
 # Regenerate every package from conventionally named source checkouts.
