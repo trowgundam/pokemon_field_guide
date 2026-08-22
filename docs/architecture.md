@@ -116,6 +116,8 @@ Transport edges are deliberate jumps, not physical adjacency. They contribute to
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
 
+The atlas sidebar keeps its marker legend in a collapsed native disclosure. The browser owns its transient open state, and the legend remains available at mobile widths.
+
 An area checklist contains each version-available Pokémon species once, across both encounters and special acquisitions, plus every version-available item in the area. Renewable resources and transport requirements are informational and never enter checklist state. The page compares the checklist with the active Checklist profile to calculate the displayed percentage.
 
 ## Local guide state

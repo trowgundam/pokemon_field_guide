@@ -55,7 +55,10 @@ else
                     <button class="outdoor-row @(area==mapArea?"active":"")" @onclick="()=>SelectSearchArea(area)"><span><strong>@area.Name</strong><small>@ItemsFor(area).Count items@(area.Resources.Count>0?$" · {area.Resources.Count} resources":"") · @(IsOutdoor(area.Id)?$"{RelevantEntrancesFor(area).Count()} entrances":"interior map")</small></span><b>@AreaPercent(area)%</b></button>
                 }
             </nav>
-            <div class="legend"><span><i class="legend-pin item-pin">◆</i> Item</span><span><i class="legend-pin hidden-pin">?</i> Hidden</span><span><i class="legend-pin resource-pin">●</i> Resource</span><span><i class="legend-pin door-pin">⌂</i> Entrance</span><span><i class="legend-pin transport-pin">⇄</i> Transport</span></div>
+            <details class="legend">
+                <summary>Map legend</summary>
+                <div class="legend-items"><span><i aria-hidden="true" class="legend-pin item-pin">◆</i> Item</span><span><i aria-hidden="true" class="legend-pin hidden-pin">?</i> Hidden</span><span><i aria-hidden="true" class="legend-pin resource-pin">●</i> Resource</span><span><i aria-hidden="true" class="legend-pin door-pin">⌂</i> Entrance</span><span><i aria-hidden="true" class="legend-pin transport-pin">⇄</i> Transport</span></div>
+            </details>
         </aside>
 
         <section class="map-stage">
