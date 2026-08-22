@@ -14,16 +14,16 @@ flowchart LR
     L --> D[fieldguide.json]
     L --> P[pokedex.json]
     L --> W[worlds.json]
-    L --> M[package-manifest.json]
+    L --> PM[package-manifest.json]
     D --> G[Game package]
     P --> G
     W --> G
-    M --> G
+    PM --> G
     G --> U[Shared atlas UI]
-    C --> M[Local guide state module]
-    U -->|changes| M
-    M -->|immutable snapshot| U
-    M <--> S[Browser local storage]
+    C --> LS[Local guide state module]
+    U -->|changes| LS
+    LS -->|immutable snapshot| U
+    LS <--> S[Browser local storage]
 ```
 
 At startup, `Home.razor` loads the catalog and opens a `LocalGuideSession`. The session validates and migrates the Local guide state before it publishes an immutable snapshot. `Home.razor` then loads the active Game package from that snapshot. `GamePackageLoader` fetches the guide, Pokédex, world, and manifest documents concurrently and returns an assembled `GamePackage`.
@@ -36,9 +36,12 @@ The Game package owns normalized area lookup, version-aware queries, entrance tr
 PokemonFieldGuide.Shared/
 └── Contracts/                  Authoritative C# JSON contracts and serialization settings
 PokemonFieldGuide/
+├── Components/
+│   └── ResourceDetails.razor   Shared fixed and multi-outcome resource details
 ├── Pages/
 │   └── Home.razor              Shared atlas, checklist, interiors, and Pokédex UI
 ├── Services/
+│   ├── ChecklistProgressMigrations.cs  Released package ID migrations
 │   ├── GamePackageLoader.cs    Catalog and package loading
 │   ├── GamePackage.cs          Read-only package queries and indexes
 │   └── LocalGuideState.cs      Local state, profile rules, backups, and storage adapters

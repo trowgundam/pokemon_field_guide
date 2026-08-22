@@ -37,9 +37,9 @@ The Generation II adapter could rewrite equivalent conditions before package fin
 
 Package finalization could normalize every package. The package contract treats `condition` as an opaque string, so finalization does not own the meaning of time suffixes.
 
-## Open questions and risks
+## Future contract pressure
 
-- Do future packages need structured condition dimensions instead of display strings? The current change does not require them.
+Installed packages do not need structured condition dimensions. Revisit the opaque display string only when a package needs condition semantics that the trailing time-label parser cannot represent.
 
 ## Verification
 

@@ -25,7 +25,7 @@ The map renders each resource with a distinct marker and displays its `kind`. Se
 
 A resource deliberately has no checklist ID, icon, or version. The missing ID makes accidental persistence impossible. The package finalizer owns retention and coordinate validation, while the page owns the marker appearance. See [Repeatable resource reward pools](repeatable-resource-reward-pools.md) for weighted and condition-based outcomes.
 
-The collection is optional in the wire contract and defaults to an empty list. Existing packages therefore remain valid while their generators are migrated. Finalization emits the collection for newly generated packages.
+The collection is optional in the wire contract and defaults to an empty list. Every current generator emits `resources` for each area, including an empty list when the area has none.
 
 This is a small public type with a useful structural guarantee. It keeps the lifecycle rule in the data model instead of requiring renewable-kind checks in checklist, UI, state, and backup code. The UI must not infer a daily schedule from the collection itself.
 

@@ -1,5 +1,7 @@
 # FireRed and LeafGreen renewable hidden items
 
+This page preserves the source audit for renewable FireRed and LeafGreen items and records the current generator behavior.
+
 ## Conclusion
 
 The FireRed and LeafGreen generator emits 64 renewable map resources: 61 hidden-item events on 15 maps, Selphy's repeatable request reward, and two size-record prizes. The generator checks hidden-item flags against the source allowlist. It emits the remaining hidden events as checklist items.
@@ -58,7 +60,7 @@ Two judges give another fixed item whenever the player beats the saved record:
 - The Route 12 Fishing House judge at `(4, 4)` gives a Net Ball for each new Magikarp size record ([script](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/data/maps/Route12_FishingHouse/scripts.inc#L30-L85), [object](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/data/maps/Route12_FishingHouse/map.json#L15-L29)).
 - The Water Path House 1 judge at `(3, 4)` gives a Nest Ball for each new Heracross size record ([script](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/data/maps/SixIsland_WaterPath_House1/scripts.inc#L7-L67), [object](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/data/maps/SixIsland_WaterPath_House1/map.json#L15-L29)).
 
-The record flag shows that a baseline has been established; it does not permanently disable the award. The larger-record branch continues to give the Ball after the flag is set. Move the current Net Ball and Nest Ball checklist entries to fixed-output resources. Use the item as the marker name and explain the increasing record requirement in the resource comment.
+The record flag shows that a baseline has been established; it does not permanently disable the award. The larger-record branch continues to give the Ball after the flag is set. The generator emits the Net Ball and Nest Ball as fixed-output resources. Each resource uses the item as its marker name and explains the increasing record requirement in its comment.
 
 ## Excluded repeatable-looking rewards
 
@@ -75,9 +77,9 @@ These resources apply to both FireRed and LeafGreen. This is an inference from t
 The FRLG generator reads the unique `HIDDEN_ID(...)` flags from `src/renewable_hidden_items.c`, then branches while processing `bg_events`:
 
 - If a hidden item's flag is in the renewable set, the generator emits a `GuideMapResource` and does not emit a `GuideItem`.
-- Use the map event's item and coordinates. A kind such as `1,500-step renewable hidden item` states both the interaction and cadence without claiming that every spot appears on every refresh.
-- Keep the full set of 61 possible locations. Static package data cannot know which tier a player's save rolled.
-- Fail generation unless the source table contains 61 unique flags, all 61 resolve to exactly one hidden-item event, and all 15 table maps are represented. These checks will catch upstream table or map changes instead of silently changing the package.
+- Each resource uses the map event's item and coordinates. Its `1,500-step renewable hidden item` kind states both the interaction and cadence without claiming that every spot appears on every refresh.
+- The package keeps the full set of 61 possible locations. Static package data cannot know which tier a player's save rolled.
+- Generation fails unless the source table contains 61 unique flags, all 61 resolve to exactly one hidden-item event, and all 15 table maps are represented. These checks catch upstream table or map changes instead of silently changing the package.
 
 The generator also adds one Selphy resource and two fixed record-prize resources. Generation fails unless the completed package contains exactly 64 resources and none of the 61 renewable hidden events or nine displaced event rows remains in `GuideArea.Items`.
 
