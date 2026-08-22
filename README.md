@@ -21,4 +21,14 @@ Technical and contributor documentation begins at [docs/README.md](docs/README.m
 
 ## Attribution
 
-Game data and graphical assets originate from the [pret/pokered](https://github.com/pret/pokered), [pret/pokeyellow](https://github.com/pret/pokeyellow), [pret/pokegold](https://github.com/pret/pokegold), [pret/pokecrystal](https://github.com/pret/pokecrystal), [pret/pokeruby](https://github.com/pret/pokeruby), [pret/pokefirered](https://github.com/pret/pokefirered), and [pret/pokeemerald](https://github.com/pret/pokeemerald) decompilation projects. Pokémon and related names and imagery are trademarks and copyrights of their respective owners. This is an unofficial fan project.
+Game data and graphical assets originate from these decompilation projects:
+
+- [pret/pokered](https://github.com/pret/pokered)
+- [pret/pokeyellow](https://github.com/pret/pokeyellow)
+- [pret/pokegold](https://github.com/pret/pokegold)
+- [pret/pokecrystal](https://github.com/pret/pokecrystal)
+- [pret/pokeruby](https://github.com/pret/pokeruby)
+- [pret/pokefirered](https://github.com/pret/pokefirered)
+- [pret/pokeemerald](https://github.com/pret/pokeemerald)
+
+Pokémon and related names and imagery are trademarks and copyrights of their respective owners. This is an unofficial fan project.
