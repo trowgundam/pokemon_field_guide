@@ -36,15 +36,46 @@ function addCrystalContent(work) {
   const rewards = itemConstants.slice(itemConstants.indexOf(firstReward), itemConstants.indexOf(lastReward) + 1)
     .filter(item => item !== 'LUCKY_PUNCH');
   if (rewards.length !== 5 || quantity !== 5) throw new Error('Crystal Battle Tower reward audit failed.');
-  for (const item of rewards) maps.get('MAP_BATTLE_TOWER_1F').items.push({
-    id: `MAP_BATTLE_TOWER_1F:event:BATTLE_TOWER_REWARD:${item}`,
-    name: displayNameFromConstant(item),
-    kind: 'Event',
-    icon: 'question_mark.png',
-    x: -1,
-    y: -1,
-    quantity
+  maps.get('MAP_BATTLE_TOWER_1F').resources.push({
+    name: 'Battle Tower prize', kind: 'Repeatable seven-win challenge', x: 7, y: 6,
+    comment: 'Awarded after seven consecutive wins.',
+    rewards: rewards.map((item, index) => ({
+      name: displayNameFromConstant(item), quantity, weight: index < 2 ? 2 : 1
+    }))
   });
+
+  const registrations = [
+    ['MAP_NATIONAL_PARK', 'Beverly', 18, 29, ['Nugget']],
+    ['MAP_ROUTE_27', 'Jose', 58, 13, ['Star Piece']],
+    ['MAP_ROUTE_31', 'Wade', 21, 13, ['Berry', 'Psncureberry', 'Przcureberry', 'Bitter Berry']],
+    ['MAP_ROUTE_34', 'Gina', 10, 26, ['Leaf Stone']],
+    ['MAP_ROUTE_36', 'Alan', 31, 14, ['Fire Stone']],
+    ['MAP_ROUTE_38', 'Dana', 15, 3, ['Thunderstone']],
+    ['MAP_ROUTE_39', 'Derek', 10, 22, ['Nugget']],
+    ['MAP_ROUTE_42', 'Tully', 40, 10, ['Water Stone']],
+    ['MAP_ROUTE_43', 'Tiffany', 9, 25, ['Pink Bow']],
+    ['MAP_ROUTE_44', 'Wilton', 35, 3, ['Ultra Ball', 'Great Ball', 'Poké Ball']]
+  ];
+  for (const [mapId, trainer, x, y, giftNames] of registrations) {
+    const area = maps.get(mapId);
+    const sourceText = read(`maps/${area.label}.asm`);
+    const trainerAtLocation = new RegExp(`^\\s*object_event\\s+${x},\\s+${y},[^\\n]*${trainer}`, 'im');
+    if (!trainerAtLocation.test(sourceText)) throw new Error(`${trainer} phone registration location audit failed.`);
+    const gifts = area.items.filter(item => item.kind === 'Event' && giftNames.includes(item.name));
+    if (gifts.length !== giftNames.length)
+      throw new Error(`${trainer} phone gift audit found ${gifts.length}; expected ${giftNames.length}.`);
+    area.items = area.items.filter(item => !gifts.includes(item));
+    area.items.push({
+      id: `${mapId}:event:REGISTER_${trainer.toUpperCase()}`,
+      name: `Register ${trainer}`, kind: 'Event', icon: 'question_mark.png', x, y, quantity: 1
+    });
+  }
+
+  const resourceCount = [...maps.values()].reduce((count, area) => count + area.resources.length, 0);
+  const registrationCount = [...maps.values()].flatMap(area => area.items)
+    .filter(item => item.id.includes(':event:REGISTER_')).length;
+  if (resourceCount !== 35 || registrationCount !== registrations.length)
+    throw new Error(`Crystal resource audit found ${resourceCount} resources and ${registrationCount} registrations.`);
 
   const oddEggSpecies = [...new Set([...read('data/events/odd_eggs.asm').matchAll(/^\s*db\s+([A-Z0-9_]+)\s*\n\s*db\s+NO_ITEM/gm)]
     .map(match => match[1]))];
