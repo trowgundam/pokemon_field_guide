@@ -101,12 +101,12 @@ for (const game of packages) test(`${game} keeps Ruins of Alph Outside behind bo
   assert(targets('MAP_RUINS_OF_ALPH_OUTSIDE').includes('MAP_ROUTE_36'));
 });
 
-for (const game of packages) test(`${game} exposes all daily fruit trees as non-checklist map resources`, () => {
+for (const game of packages) test(`${game} exposes every renewable item source as a non-checklist map resource`, () => {
   const fieldguide = json(path.join(webRoot, `games/${game}/data/fieldguide.json`));
   const areas = new Map(fieldguide.areas.map(area => [area.id, area]));
   const resources = fieldguide.areas.flatMap(area => area.resources ?? []);
 
-  assert.equal(resources.length, 30);
+  assert.equal(resources.length, game === 'gs' ? 34 : 30);
   assert.deepEqual(areas.get('MAP_ROUTE_29').resources, [
     { name: 'Berry', kind: 'Daily fruit tree', x: 12, y: 2 }
   ]);
@@ -115,6 +115,32 @@ for (const game of packages) test(`${game} exposes all daily fruit trees as non-
   assert(areas.get('MAP_ROUTE_30').resources.some(resource => resource.name === 'PSNCureBerry'));
   assert.equal(fieldguide.areas.flatMap(area => area.items)
     .some(item => item.kind === 'Daily fruit tree'), false);
+  if (game === 'crystal') return;
+  assert(areas.get('MAP_MOUNT_MOON_SQUARE').resources.some(resource =>
+    resource.name === 'Moon Stone' && resource.kind === 'Weekly hidden pickup' && resource.x === 7 && resource.y === 7));
+  assert.deepEqual(areas.get('MAP_ROUTE_36_NATIONAL_PARK_GATE').resources.find(resource => resource.name === 'Bug-Catching Contest prize').rewards,
+    [
+      { name: 'Sun Stone', quantity: 1, comment: 'First place.' },
+      { name: 'Everstone', quantity: 1, comment: 'Second place.' },
+      { name: 'Gold Berry', quantity: 1, comment: 'Third place.' },
+      { name: 'Berry', quantity: 1, comment: 'Consolation prize.' }
+    ]);
+  assert.deepEqual(areas.get('MAP_GOLDENROD_DEPT_STORE_5F').resources.find(resource => resource.name === 'Sunday TM reward').rewards,
+    [
+      { name: 'TM Return', quantity: 1, comment: 'Lead Pokémon happiness is at least 150.' },
+      { name: 'TM Frustration', quantity: 1, comment: 'Lead Pokémon happiness is below 50.' }
+    ]);
+  const recordPrize = areas.get('MAP_LAKE_OF_RAGE_MAGIKARP_HOUSE').resources.find(resource => resource.kind === 'Repeatable size record');
+  assert.equal(recordPrize.name, game === 'gs' ? 'Ether' : 'Elixer');
+  assert.match(recordPrize.comment, /beat your saved Magikarp length record/i);
+  for (const [areaId, names] of [
+    ['MAP_MOUNT_MOON_SQUARE', ['Moon Stone']],
+    ['MAP_ROUTE_36_NATIONAL_PARK_GATE', ['Sun Stone', 'Everstone', 'Gold Berry', 'Berry']],
+    ['MAP_GOLDENROD_DEPT_STORE_5F', ['TM Return', 'TM Frustration']],
+    ['MAP_LAKE_OF_RAGE_MAGIKARP_HOUSE', [game === 'gs' ? 'Ether' : 'Elixer']]
+  ]) assert.equal(areas.get(areaId).items.some(item => names.includes(item.name)), false, `${areaId} retains a renewable checklist item`);
+  assert.equal(areas.get('MAP_RADIO_TOWER_1F').items.some(item => ['Master Ball', 'Exp Share'].includes(item.name)), false,
+    'Lucky Number lottery rewards remain checklist items');
 });
 
 test('Generation II battle sprites have transparent backgrounds', () => {

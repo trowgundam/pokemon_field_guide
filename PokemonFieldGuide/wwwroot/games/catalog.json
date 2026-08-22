@@ -65,8 +65,8 @@
       "defaultAreaId": "MAP_NEW_BARK_TOWN",
       "defaultWorldId": "gs-johto-kanto",
       "versions": [
-        { "id": "Gold", "name": "Gold", "progressVersion": 2, "accent": "#d3ad32", "accentSoft": "#54471f" },
-        { "id": "Silver", "name": "Silver", "progressVersion": 2, "accent": "#9daabd", "accentSoft": "#3d4654" }
+        { "id": "Gold", "name": "Gold", "progressVersion": 3, "accent": "#d3ad32", "accentSoft": "#54471f" },
+        { "id": "Silver", "name": "Silver", "progressVersion": 3, "accent": "#9daabd", "accentSoft": "#3d4654" }
       ],
       "regions": [
         { "id": "JohtoKanto", "name": "Johto & Kanto", "worldId": "gs-johto-kanto" }

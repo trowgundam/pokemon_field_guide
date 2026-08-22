@@ -5,6 +5,7 @@ import { registerQuestionMarkSprites } from '../package-finalization/assets.mjs'
 import { displayNameFromConstant, speciesId } from './display-names.mjs';
 import { blockPaths } from './map-layouts.mjs';
 import { renderMaps } from './map-rendering.mjs';
+import { addGen2RenewableResources } from './renewable-resources.mjs';
 
 const grassChances = [30, 30, 20, 10, 5, 4, 1];
 const waterChances = [60, 30, 10];
@@ -405,6 +406,7 @@ export async function prepareGen2Package({ source, sourceName, versions, assets,
   parseBugContest(read, maps);
   for (const area of maps.values()) area.encounters = mergeVersions(area.encounters, versions);
   parseMapContent(read, maps, versions);
+  addGen2RenewableResources({ read, maps });
   maps.get('MAP_NATIONAL_PARK')?.entrances.push({
     id: 'MAP_NATIONAL_PARK:bug-contest', targetId: 'MAP_NATIONAL_PARK_BUG_CONTEST', name: 'National Park Bug Contest', x: 10, y: 47
   });
