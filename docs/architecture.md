@@ -70,12 +70,14 @@ Build-time tooling follows the same ownership boundary. Scripts under `tools/<ga
 
 - wild `Encounter` rows, filtered by version;
 - visible, hidden, or event `GuideItem` rows;
-- renewable, non-checklist `GuideMapResource` rows;
+- renewable, non-checklist `GuideMapResource` rows with optional comments and reward outcomes;
 - static, gift, or trade `SpecialPokemon` rows;
 - `MapEntrance` edges to other areas;
 - an optional rendered map and its pixel dimensions.
 
 `GuideWorld` describes one connected outdoor canvas. Its `WorldMapPlacement` records use pixel coordinates and dimensions. Item, entrance, and resource coordinates use game-map tile coordinates. The current renderer places their markers at the center of a 16-pixel tile.
+
+A fixed-output resource uses the item name as its marker name. A multi-outcome resource has reward rows with a name and quantity. Random pools use positive integer weights, while conditional pools omit weights and explain each outcome in its comment. Package finalization rejects a pool that mixes the two forms.
 
 `PokedexEntry.Availability` is keyed by version ID. `RegionalNumber` is nullable so the same document supports regional and full-dex views.
 

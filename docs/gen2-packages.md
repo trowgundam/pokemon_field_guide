@@ -36,7 +36,7 @@ Manifest format v2 may include `pokemonSpritesByVersion`. The runtime looks up a
 
 Headbutt is a stable `EncounterType`, alongside the existing grass, surfing, rod, roaming, and Rock Smash categories.
 
-Renewable pickups use `GuideArea.Resources`, not checklist items. The builders join the ordered `FRUITTREE_*` constants with `data/items/fruit_trees.asm`, resolve each `SPRITE_FRUIT_TREE` object through its script, and audit that all 30 source trees were emitted. Their `Daily fruit tree` kind describes this game's cadence; the runtime resource model is not limited to trees or daily renewal.
+Renewable pickups and repeatable item rewards use `GuideArea.Resources`, not checklist items. The builders join the ordered `FRUITTREE_*` constants with `data/items/fruit_trees.asm`, resolve each `SPRITE_FRUIT_TREE` object through its script, and audit all 30 source trees. They also emit the weekly Moon Stone, the Bug-Catching Contest prize, the Sunday TM reward, and the Magikarp record prize. Crystal adds the Battle Tower prize. Crystal phone gifts become ten coordinate-bearing `Register [trainer]` checklist events because registration is the one-time enabling goal.
 
 ## Source and rendering rules
 
@@ -48,7 +48,7 @@ Generation II loads nine town-roof tiles into fixed tile slots at runtime and re
 
 Johto and Kanto share one connected world canvas. The core follows source outdoor connections from New Bark Town and Pallet Town, then joins their route components at the Victory Road approaches. Routes 22, 23, 26, and 28 keep their full rendered dimensions and occupy the east, north, south, and west sides of an otherwise empty 320 by 320 space. A rocky Victory Road connector fills that space. The route rectangles do not overlap, and every placement keeps a zero marker offset. Warp-reached parks, ports, roofs, and landmark exteriors remain interior maps when their rendered boundaries do not align with the connected outdoor canvas. Ruins of Alph Outside remains an interior for this reason.
 
-Crystal places the northwest 320 by 320 portion of Battle Tower Outside directly above Route 40 because those rendered edges align. Package finalization contracts the empty Route 40 gate, so the exterior is reached from the world and its doorway opens Battle Tower 1F. Battle Tower 1F lists the five possible quantity-five rewards: HP Up, Protein, Iron, Carbos, and Calcium. The Crystal builder supplies `johto_modern` as the tile-graphics basename for this map. The shared renderer still uses the Battle Tower tileset name for its metatiles and palette map.
+Crystal places the northwest 320 by 320 portion of Battle Tower Outside directly above Route 40 because those rendered edges align. Package finalization contracts the empty Route 40 gate, so the exterior is reached from the world and its doorway opens Battle Tower 1F. Battle Tower 1F has one resource whose weighted pool lists HP Up, Protein, Iron, Carbos, and Calcium in quantities of five. The Crystal builder supplies `johto_modern` as the tile-graphics basename for this map. The shared renderer still uses the Battle Tower tileset name for its metatiles and palette map.
 
 Gold and Silver source sprites are registered by version. Crystal front sprites are animation strips, so the adapter extracts their first native square battle frame. The adapter clears only the dominant background color connected to the image border, preserving light-colored details enclosed by the sprite. Item records use the package question-mark icon because these projects do not supply standalone bag item sprites.
 

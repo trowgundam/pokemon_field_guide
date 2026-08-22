@@ -2,7 +2,7 @@
 
 ## Problem
 
-Gold, Silver, and Crystal contain 30 fruit trees that yield a berry or Apricorn once per day. They need map markers, but they cannot behave like `GuideItem`: every guide item has checklist identity and contributes to completion. Treating a renewable pickup as an item would leak daily activity into saved progress and backups.
+Several games contain free, location-bound item sources that can be used repeatedly. Examples include daily fruit trees, weekly pickups, record-judge prizes, and repeatable challenge rewards. They need map markers, but they cannot behave like `GuideItem`: every guide item has checklist identity and contributes to completion. Treating a renewable source as an item would leak recurring activity into saved progress and backups.
 
 ## Usage
 
@@ -21,9 +21,11 @@ The map renders each resource with a distinct marker and displays its `kind`. Se
 
 ## Shape
 
-`GuideArea.Resources` is a list of `GuideMapResource`. A resource has a display name, kind, and map coordinates. The kind describes the source and renewal schedule, such as `Daily fruit tree`, `Weekly harvest`, or `Repeatable pickup`. It deliberately has no checklist ID, icon, quantity, or version. The missing ID makes accidental persistence impossible. The package finalizer owns retention and coordinate validation, while the page owns the marker appearance.
+`GuideArea.Resources` is a list of `GuideMapResource`. A resource has a display name, kind, map coordinates, and an optional comment. The kind describes the source and renewal schedule, such as `Daily fruit tree`, `Weekly pickup`, or `Repeatable size record`. The comment explains requirements that apply to the whole interaction. A fixed-output resource uses the item name as its marker name. An interaction with multiple possible outputs uses one activity name and an optional reward list.
 
-The collection is optional in the wire contract and defaults to an empty list. Existing Red/Blue, Yellow, and FireRed/LeafGreen packages therefore remain valid. Finalization emits the collection for newly generated packages.
+A resource deliberately has no checklist ID, icon, or version. The missing ID makes accidental persistence impossible. The package finalizer owns retention and coordinate validation, while the page owns the marker appearance. See [Repeatable resource reward pools](repeatable-resource-reward-pools.md) for weighted and condition-based outcomes.
+
+The collection is optional in the wire contract and defaults to an empty list. Existing packages therefore remain valid while their generators are migrated. Finalization emits the collection for newly generated packages.
 
 This is a small public type with a useful structural guarantee. It keeps the lifecycle rule in the data model instead of requiring renewable-kind checks in checklist, UI, state, and backup code. The UI must not infer a daily schedule from the collection itself.
 
@@ -44,4 +46,16 @@ The selected design uses a dedicated resource collection. The other candidate re
 
 ## Generator guidance
 
-Extract renewable resources from authoritative source tables and map objects. Audit the complete source-defined set, emit the in-game reward name, and put the cadence or interaction type in `kind`. Do not create checklist identity for a resource. If a later game introduces informational overlays that are not renewable resources, consider a broader discriminated marker model instead of stretching this collection beyond its lifecycle rule.
+Classify a source as a resource only when all of these statements are true:
+
+- It gives a free item through a location-bound pickup or event.
+- The same save can obtain the output repeatedly.
+- The interaction has no permanent completion goal that belongs in the checklist.
+
+Do not classify purchases, currency or item exchanges, crafting services, multiplayer-only prizes, global delivery mechanics, repeatable Pokémon encounters, or OT-ID lotteries as resources. A scheduled appearance alone does not prove renewability; confirm that the acquisition flag or counter resets. An activity whose reward becomes harder to repeat, such as beating a saved size record, still qualifies when the source permits another award.
+
+Some renewable mechanics have a separate one-time enabling goal. Crystal phone gifts are the current example: registering the trainer belongs in `GuideArea.Items` as a coordinate-bearing `Event` checklist entry, while the later gift pool is not represented. Model the enabling action, not every renewable outcome.
+
+Extract resources from authoritative source tables, flags, scripts, and map objects. Audit the complete source-defined set, emit the in-game item name for fixed outputs, and put the cadence or interaction type in `kind`. Use comments for requirements that are not clear from the marker name. Do not create checklist identity for the renewable output. If a later game introduces informational overlays outside this lifecycle, consider a broader discriminated marker model instead of stretching this collection.
+
+The complete package audit and exclusion rationale are recorded in [Resource audit for all game packages](all-packages-resource-audit.md).

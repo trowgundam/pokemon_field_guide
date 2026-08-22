@@ -7,6 +7,9 @@ This directory is the canonical technical documentation for the project.
 - [Generation II packages](gen2-packages.md): Gold/Silver and Crystal source adapter, rendering rules, and package boundaries
 - [Encounter table presentation](encounter-table-presentation.md): condition grouping and identical-table combination rules
 - [Renewable map resources](renewable-map-resources.md): non-checklist resource markers and generator guidance
+- [FireRed and LeafGreen renewable hidden items](frlg-renewable-hidden-items.md): source mechanics, eligible locations, and generator recommendation
+- [Repeatable resource reward pools](repeatable-resource-reward-pools.md): Selphy and Crystal Battle Tower mechanics, pool odds, and contract design
+- [All-package resource audit](all-packages-resource-audit.md): qualifying resources, package targets, enabling events, and explicit exclusions
 - [Adding a game](adding-a-game.md): end-to-end instructions for creating and registering a game package
 - [Development](development.md): local commands, generated-data practices, testing, and package regeneration
 - [Deployment](deployment.md): GitHub Pages publishing and base-path behavior
