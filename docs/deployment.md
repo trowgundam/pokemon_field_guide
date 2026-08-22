@@ -4,7 +4,7 @@
 
 The repository includes `.github/workflows/deploy-pages.yml`. Pushes to `main` and manual workflow dispatches publish the Blazor WebAssembly application. A push that changes only root Markdown files or files under `docs/` skips deployment because those files are not part of the published site.
 
-Pull requests targeting `main` run the separate `.github/workflows/validate.yml` build without deploying. Configure the `Validate / build` check as required in the `main` branch ruleset if merges should be blocked until the release build succeeds.
+Pull requests targeting `main` run the separate `.github/workflows/validate.yml` workflow without deploying. Its required `build` job always reports a result. When a pull request changes only root Markdown files or files under `docs/`, the job skips .NET setup and `just check`. Other pull requests run the complete validation.
 
 In repository settings, configure Pages to use **GitHub Actions** as its source. The workflow:
 
