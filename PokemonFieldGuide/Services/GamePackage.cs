@@ -11,6 +11,7 @@ public sealed class GamePackage
     private readonly IReadOnlyDictionary<string, GuideArea> areasById;
     private readonly IReadOnlyDictionary<string, GuideWorld> worldsById;
     private readonly HashSet<string> outdoorAreaIds;
+    private readonly Dictionary<string, IReadOnlySet<string>> reachableAreaIdsByVersion = [];
 
     internal GamePackage(
         GameDefinition definition,
@@ -85,7 +86,8 @@ public sealed class GamePackage
         bool Matches(string? value) => value?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
 
         return areas
-            .Where(area => area.MapImage is not null &&
+            .Where(area => ReachableAreaIds(versionId).Contains(area.Id)
+                && area.MapImage is not null &&
                 (Matches(area.Name)
                  || Matches(area.Region)
                  || ItemsFor(area, versionId).Any(item => Matches(item.Name) || Matches(item.Kind))
@@ -95,7 +97,7 @@ public sealed class GamePackage
                      || resource.Rewards.Any(reward => Matches(reward.Name) || Matches(reward.Comment)))
                  || EncountersFor(area, versionId).Any(encounter => Matches(encounter.Species) || Matches(encounter.Method))
                  || SpecialPokemonFor(area, versionId).Any(mon => Matches(mon.Species) || Matches(mon.Kind) || Matches(mon.RequestedSpecies))
-                 || area.Entrances.Any(entrance => Matches(entrance.Name))
+                 || EntrancesFor(area, versionId).Any(entrance => Matches(entrance.Name))
                  || TransportsFor(area, versionId).Any(transport =>
                      Matches(transport.Name)
                      || transport.Destinations.Any(destination =>
@@ -104,10 +106,13 @@ public sealed class GamePackage
             .ToList();
     }
 
-    public IReadOnlyList<DisplayEntrance> RelevantEntrances(GuideArea area)
+    public IReadOnlyList<DisplayEntrance> RelevantEntrances(GuideArea area) =>
+        RelevantEntrances(area, Definition.Versions[0].Id);
+
+    public IReadOnlyList<DisplayEntrance> RelevantEntrances(GuideArea area, string versionId)
     {
-        var resolved = area.Entrances
-            .Select(entrance => (Warp: entrance, Target: ResolveRelevantTarget(area.Id, entrance.TargetId)))
+        var resolved = EntrancesFor(area, versionId)
+            .Select(entrance => (Warp: entrance, Target: ResolveRelevantTarget(area.Id, entrance.TargetId, versionId)))
             .Where(pair => pair.Target is not null)
             .Select(pair => new DisplayEntrance(pair.Target!.Id, pair.Target.Name, pair.Warp.X, pair.Warp.Y))
             .ToList();
@@ -146,8 +151,16 @@ public sealed class GamePackage
         return clustered;
     }
 
-    public IReadOnlyList<GuideArea> InteriorFloors(string startId)
+    public IReadOnlyList<GuideArea> InteriorFloors(string startId) =>
+        InteriorFloors(startId, Definition.Versions[0].Id);
+
+    public IReadOnlyList<GuideArea> InteriorFloors(string startId, string versionId)
     {
+        if (!ReachableAreaIds(versionId).Contains(NormalizeAreaId(startId)))
+        {
+            return [];
+        }
+
         var queue = new Queue<string>();
         var visited = new HashSet<string>();
         var floors = new List<GuideArea>();
@@ -172,7 +185,7 @@ public sealed class GamePackage
                 floors.Add(area);
             }
 
-            foreach (var exit in area.Entrances)
+            foreach (var exit in EntrancesFor(area, versionId))
             {
                 if (!string.IsNullOrEmpty(exit.TargetId) && !visited.Contains(exit.TargetId))
                 {
@@ -251,6 +264,19 @@ public sealed class GamePackage
             .Where(transport => transport.Destinations.Count > 0)
             .ToList();
 
+    public IReadOnlyList<DisplayTravelMarker> TravelMarkersFor(GuideArea area, string versionId) =>
+        TransportsFor(area, versionId)
+            .Select<DisplayTransport, DisplayTravelMarker>(transport => transport.Destinations.Count == 1
+                ? new DirectTravelMarker(transport.Id, transport.Name, transport.X, transport.Y, transport.Destinations[0])
+                : new TransportChoiceMarker(transport.Id, transport.Name, transport.X, transport.Y, transport.Destinations))
+            .ToList();
+
+    public GuideArea? NavigableArea(string id, string versionId)
+    {
+        var normalizedId = NormalizeAreaId(id);
+        return ReachableAreaIds(versionId).Contains(normalizedId) ? Area(normalizedId) : null;
+    }
+
     public IReadOnlyList<PokedexResult> SearchPokedex(string dexModeId, string versionId, string search)
     {
         var mode = Definition.DexModes.FirstOrDefault(candidate => candidate.Id == dexModeId) ?? Definition.DexModes[0];
@@ -288,7 +314,7 @@ public sealed class GamePackage
     private IEnumerable<SpecialPokemon> SpecialPokemonFor(GuideArea area, string versionId) =>
         area.SpecialPokemon.Where(mon => mon.Version == "Both" || mon.Version == versionId);
 
-    private GuideArea? ResolveRelevantTarget(string sourceId, string targetId)
+    private GuideArea? ResolveRelevantTarget(string sourceId, string targetId, string versionId)
     {
         var queue = new Queue<string>();
         var visited = new HashSet<string> { sourceId };
@@ -316,7 +342,7 @@ public sealed class GamePackage
                 return area;
             }
 
-            foreach (var exit in area.Entrances)
+            foreach (var exit in EntrancesFor(area, versionId))
             {
                 if (!visited.Contains(exit.TargetId))
                 {
@@ -326,6 +352,79 @@ public sealed class GamePackage
         }
 
         return null;
+    }
+
+    private IEnumerable<MapEntrance> EntrancesFor(GuideArea area, string versionId) =>
+        area.Entrances.Where(entrance => entrance.Version == "Both" || entrance.Version == versionId);
+
+    private IReadOnlySet<string> ReachableAreaIds(string versionId)
+    {
+        if (reachableAreaIdsByVersion.TryGetValue(versionId, out var cached))
+        {
+            return cached;
+        }
+
+        var reachable = new HashSet<string>();
+        var enteredWorlds = new HashSet<string>();
+        var queue = new Queue<string>();
+
+        void EnqueueArea(string id)
+        {
+            var normalizedId = NormalizeAreaId(id);
+            if (reachable.Add(normalizedId))
+            {
+                queue.Enqueue(normalizedId);
+            }
+        }
+
+        void EnterWorld(string worldId)
+        {
+            if (!enteredWorlds.Add(worldId) || !worldsById.TryGetValue(worldId, out var world))
+            {
+                return;
+            }
+
+            foreach (var placement in world.Maps)
+            {
+                EnqueueArea(placement.Id);
+            }
+        }
+
+        EnterWorld(Definition.DefaultWorldId);
+        foreach (var region in Definition.Regions)
+        {
+            EnterWorld(region.WorldId);
+        }
+
+        while (queue.Count > 0)
+        {
+            var area = Area(queue.Dequeue());
+            if (area is null)
+            {
+                continue;
+            }
+
+            foreach (var entrance in EntrancesFor(area, versionId))
+            {
+                EnqueueArea(entrance.TargetId);
+            }
+
+            foreach (var transport in TransportsFor(area, versionId))
+            {
+                foreach (var destination in transport.Destinations)
+                {
+                    EnqueueArea(destination.TargetId);
+                    var world = WorldForArea(destination.TargetId);
+                    if (world is not null)
+                    {
+                        EnterWorld(world.Id);
+                    }
+                }
+            }
+        }
+
+        reachableAreaIdsByVersion[versionId] = reachable;
+        return reachable;
     }
 
     private string NormalizeAreaId(string id) => manifest.AreaAliases.GetValueOrDefault(id, id);
@@ -494,6 +593,19 @@ public sealed record DisplayTransport(
     double Y,
     IReadOnlyList<DisplayTransportDestination> Destinations);
 public sealed record DisplayTransportDestination(string Id, string Name, string TargetId, string? Requirement);
+public abstract record DisplayTravelMarker(string Id, string Name, double X, double Y);
+public sealed record DirectTravelMarker(
+    string Id,
+    string Name,
+    double X,
+    double Y,
+    DisplayTransportDestination Destination) : DisplayTravelMarker(Id, Name, X, Y);
+public sealed record TransportChoiceMarker(
+    string Id,
+    string Name,
+    double X,
+    double Y,
+    IReadOnlyList<DisplayTransportDestination> Destinations) : DisplayTravelMarker(Id, Name, X, Y);
 public sealed record EncounterGroup(string Name, IReadOnlyList<Encounter> Encounters);
 public sealed record ItemGroup(string Kind, IReadOnlyList<GuideItem> Items);
 public sealed record SpecialPokemonGroup(string Kind, IReadOnlyList<SpecialPokemon> Pokemon);

@@ -1,0 +1,34 @@
+@if (Marker is DirectTravelMarker direct)
+{
+    var requirement = string.IsNullOrWhiteSpace(direct.Destination.Requirement)
+        ? ""
+        : $" · Requires {direct.Destination.Requirement}";
+    var directLabel = $"Travel to {direct.Destination.Name}{requirement}";
+    <button aria-label="@directLabel"
+            title="@directLabel"
+            style="left:@(Left)px;top:@(Top)px"
+            class="map-marker entrance-marker"
+            @onclick="()=>OnDirect.InvokeAsync(direct.Destination)">
+        <span>⌂</span><label>@ContextPrefix@direct.Destination.Name@requirement</label>
+    </button>
+}
+else if (Marker is TransportChoiceMarker choice)
+{
+    <button aria-label="Travel from @choice.Name"
+            style="left:@(Left)px;top:@(Top)px"
+            class="map-marker transport-marker"
+            @onclick="()=>OnChoice.InvokeAsync(choice)">
+        <span>⇄</span><label>@ContextPrefix@choice.Name</label>
+    </button>
+}
+
+@code {
+    [Parameter, EditorRequired] public DisplayTravelMarker Marker { get; set; } = null!;
+    [Parameter] public double Left { get; set; }
+    [Parameter] public double Top { get; set; }
+    [Parameter] public string? ContextName { get; set; }
+    [Parameter] public EventCallback<DisplayTransportDestination> OnDirect { get; set; }
+    [Parameter] public EventCallback<TransportChoiceMarker> OnChoice { get; set; }
+
+    private string ContextPrefix => string.IsNullOrWhiteSpace(ContextName) ? "" : $"{ContextName} · ";
+}

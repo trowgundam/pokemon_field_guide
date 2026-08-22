@@ -190,9 +190,12 @@ Represent locally repeatable encounters as encounters and one-time choices or in
   "targetId": "MAP_EXAMPLE_CAVE_1F",
   "name": "Example Cave 1F",
   "x": 14,
-  "y": 7
+  "y": 7,
+  "version": "Both"
 }
 ```
+
+Use `Both` when every package version can traverse the entrance. Use an exact version ID when source collision, story state, or another version rule makes the physical edge exclusive to one version. The runtime derives searchable and navigable areas from the selected version's entrance and transport graph, so a version-exclusive component does not need a separate area-availability flag.
 
 Include both directions where the game supports returning. Preserve edges through empty gates, stairwells, elevators, and transition rooms because interior discovery traverses the entrance graph. Outdoor-to-outdoor gates do not need a checklist entrance marker; the runtime stops traversal when it reaches an outdoor area.
 
@@ -220,7 +223,9 @@ Use a transport when one map marker offers a deliberate jump to one or more dest
 
 Requirements are informational. The chooser always lists every destination available to the selected version. Do not turn tickets or story conditions into checklist entries. Include a return transport when the game provides one. Transport targets must be retained areas, and transports do not join interior floor graphs.
 
-Package finalization promotes a transport from an interior to its unique outdoor entrance when the interior has exactly one transport and no other guide content. The interior must not lead to another relevant interior. Finalization leaves the transport in place when the host has checklist content, encounters, resources, special Pokémon, explicit navigation retention, multiple transports, or an ambiguous outdoor entrance. Treat coordinate-less checklist records as guide content even though the atlas does not render markers for them.
+After version filtering, a transport with one destination renders as an entrance-style marker and travels immediately. A transport with two or more destinations renders as a transport marker and opens the chooser. Keep singleton travel serialized as a transport because it can activate a hidden world and retain requirement metadata.
+
+Package finalization promotes a transport from an interior to its unique outdoor entrance when the interior has exactly one transport and no other guide content. Promotion traverses empty transition chains in both directions. The chain must not lead to another relevant interior. Finalization leaves the transport in place when the host has checklist content, encounters, resources, special Pokémon, explicit navigation retention, multiple transports, or an ambiguous outdoor entrance. Treat coordinate-less checklist records as guide content even though the atlas does not render markers for them.
 
 Treat reachability as a generated-data invariant. Start from catalog-visible worlds and follow entrance and transport edges in their declared direction. Entering a world exposes all of its placements. Run the traversal before and after entrance contraction and fail if any area is unreachable. A world omitted from catalog regions is hidden navigation state and must have an inbound transport path. Do not return unused, beta, debug, or inaccessible maps in the draft. Also confirm that every interior belongs to a component opened by a world or transport marker. Do not expose linear empty transition rooms as selectable interiors. Set `includeInNavigation` only when an otherwise empty map has visual or navigational value that the player should be able to inspect. Retain an empty junction when separate branches lead to relevant interiors, including branches of different lengths. Verify every entrance and transport target instead of filtering a missing target to conceal incomplete extraction.
 

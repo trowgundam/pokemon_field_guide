@@ -2,9 +2,11 @@
 
 Package finalization turns one game adapter's draft into a checked game package. It gives every current and future adapter the same package contract without teaching the shared module how any source project stores maps, encounters, palettes, or scripts.
 
-Before contraction, finalization promotes a sole transport from an otherwise irrelevant interior to its unique outdoor entrance. It rewrites inbound transport destinations to the outdoor area and then contracts the empty interior. Finalization does not promote a transport when the host has other guide content, leads to a relevant interior, has multiple transports, or has an ambiguous outdoor entrance.
+Before contraction, finalization promotes a sole transport from an otherwise irrelevant interior to its unique outdoor entrance. It traverses empty entrance chains backward to find the outdoor marker and forward to detect other relevant interiors. Cycles terminate without changing the result. It rewrites inbound transport destinations to the outdoor area and then contracts the empty chain. Finalization does not promote a transport when the host has other guide content, leads to a relevant interior, has multiple transports, or has an ambiguous outdoor entrance.
 
 Finalization then starts from catalog-visible worlds and follows directed entrance and transport edges. Entering a world exposes all of its placements. Every draft area must be reachable, and every hidden world must have an inbound transport path. Adapters must omit unused, beta, debug, and inaccessible maps instead of relying on contraction to discard them. After contraction, package validation repeats the traversal over every retained area. Transport edges do not participate in interior-floor grouping.
+
+Manifest-v3 contraction retains an otherwise empty area when it owns a version-specific entrance. This preserves the version boundary instead of projecting the restricted edge as an unrestricted entrance from an earlier map in the chain.
 
 Finalization trusts each adapter's world boundary. It cannot infer that a detached placement should have been an interior. Adapters must build worlds from declared cardinal roots, treat source outdoor categories as eligibility only, and test that no undeclared disconnected component appears in `worlds.json`.
 

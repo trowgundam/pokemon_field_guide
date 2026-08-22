@@ -59,6 +59,7 @@ public sealed class MapEntrance
     [JsonRequired] public string Name { get; set; } = "";
     [JsonRequired] public int X { get; set; }
     [JsonRequired] public int Y { get; set; }
+    public string Version { get; set; } = "Both";
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

@@ -19,7 +19,7 @@ public sealed class GamePackageTests
             Area("ROUTE_2", "Route 2", items: [Item("Potion", "Visible")]),
             Area("BLUE_ONLY", "Blue Cave", encounters: [Encounter("Pikachu", "SPECIES_PIKACHU", "Surf", "Blue")])
         ]);
-        fixture.Worlds.Add(World("world", "ROUTE_2"));
+        fixture.Worlds.Add(World("world", "ROUTE_2", "ROUTE_10", "BLUE_ONLY"));
         var package = await fixture.LoadAsync();
 
         var pikachuAreas = package.SearchAreas("Pikachu", "Red");
@@ -117,6 +117,61 @@ public sealed class GamePackageTests
         Assert.Equal(["Southern Island", "Battle Frontier"], blueTransport.Destinations.Select(destination => destination.Name));
         Assert.Equal("hidden", package.WorldForArea(blueTransport.Destinations[1].TargetId)!.Id);
         Assert.Empty(package.InteriorFloors("OUT"));
+    }
+
+    [Fact]
+    public async Task Travel_markers_direct_single_destinations_and_keep_multiple_destination_choices()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.AddRange([
+            Area("OUT", "Harbor", transports:
+            [
+                new GuideTransport
+                {
+                    Id = "OUT:ferry",
+                    Name = "Ferry",
+                    X = 8,
+                    Y = 10,
+                    Destinations =
+                    [
+                        new() { Id = "island", Name = "Island", TargetId = "ISLAND", Version = "Both", Requirement = "Ticket" },
+                        new() { Id = "frontier", Name = "Frontier", TargetId = "FRONTIER", Version = "Blue" }
+                    ]
+                }
+            ]),
+            Area("ISLAND", "Island"),
+            Area("FRONTIER", "Frontier")
+        ]);
+        fixture.Worlds.AddRange([World("world", "OUT"), World("hidden", "FRONTIER")]);
+        var package = await fixture.LoadAsync();
+
+        var direct = Assert.IsType<DirectTravelMarker>(Assert.Single(package.TravelMarkersFor(package.Area("OUT")!, "Red")));
+        Assert.Equal(("Island", "Ticket"), (direct.Destination.Name, direct.Destination.Requirement));
+        var choice = Assert.IsType<TransportChoiceMarker>(Assert.Single(package.TravelMarkersFor(package.Area("OUT")!, "Blue")));
+        Assert.Equal(["Island", "Frontier"], choice.Destinations.Select(destination => destination.Name));
+    }
+
+    [Fact]
+    public async Task Versioned_entrances_control_navigation_floors_and_search()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.AddRange([
+            Area("OUT", "Lilycove", entrances:
+            [
+                Entrance("OUT:aqua", "AQUA", 1, 1, "Blue"),
+                Entrance("OUT:magma", "MAGMA", 2, 1, "Red")
+            ]),
+            Area("AQUA", "Aqua Hideout", items: [Item("Aqua Item", "Visible")]),
+            Area("MAGMA", "Magma Hideout", items: [Item("Magma Item", "Visible")])
+        ]);
+        fixture.Worlds.Add(World("world", "OUT"));
+        var package = await fixture.LoadAsync();
+
+        Assert.Equal("MAGMA", Assert.Single(package.RelevantEntrances(package.Area("OUT")!, "Red")).TargetId);
+        Assert.Equal(["MAGMA"], package.InteriorFloors("MAGMA", "Red").Select(area => area.Id));
+        Assert.Equal(["MAGMA"], package.SearchAreas("Hideout", "Red").Select(area => area.Id));
+        Assert.Null(package.NavigableArea("AQUA", "Red"));
+        Assert.NotNull(package.NavigableArea("AQUA", "Blue"));
     }
 
     [Fact]
@@ -430,7 +485,7 @@ public sealed class GamePackageTests
     {
         var fixture = PackageFixture.Create();
         fixture.FieldGuide.Areas.AddRange(Enumerable.Range(1, 81).Select(number => Area($"AREA_{number}", $"Match {number}")));
-        fixture.Worlds.Add(World("world", "AREA_1"));
+        fixture.Worlds.Add(World("world", [.. Enumerable.Range(1, 81).Select(number => $"AREA_{number}")]));
         var package = await fixture.LoadAsync();
 
         var results = package.SearchAreas("Match", "Red");
@@ -498,13 +553,14 @@ public sealed class GamePackageTests
         Version = version
     };
 
-    private static MapEntrance Entrance(string id, string targetId, int x, int y) => new()
+    private static MapEntrance Entrance(string id, string targetId, int x, int y, string version = "Both") => new()
     {
         Id = id,
         TargetId = targetId,
         Name = targetId,
         X = x,
-        Y = y
+        Y = y,
+        Version = version
     };
 
     private static GuideWorld World(string id, params string[] areaIds) => new()

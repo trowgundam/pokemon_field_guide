@@ -89,9 +89,14 @@ else
                                 {
                                     <button aria-label="Enter @entrance.Name" style="left:@(placement.X+(entrance.X-placement.MarkerOffsetX)*16+8)px;top:@(placement.Y+(entrance.Y-placement.MarkerOffsetY)*16+8)px" class="map-marker entrance-marker" @onclick="()=>OpenEntrance(entrance.TargetId)"><span>⌂</span><label>@area.Name · @entrance.Name</label></button>
                                 }
-                                @foreach (var transport in TransportsFor(area))
+                                @foreach (var travel in TravelMarkersFor(area))
                                 {
-                                    <button aria-label="Travel from @transport.Name" style="left:@(placement.X+(transport.X-placement.MarkerOffsetX)*16+8)px;top:@(placement.Y+(transport.Y-placement.MarkerOffsetY)*16+8)px" class="map-marker transport-marker" @onclick="()=>OpenTransport(transport)"><span>⇄</span><label>@area.Name · @transport.Name</label></button>
+                                    <TravelMarker Marker="travel"
+                                                  Left="@(placement.X+(travel.X-placement.MarkerOffsetX)*16+8)"
+                                                  Top="@(placement.Y+(travel.Y-placement.MarkerOffsetY)*16+8)"
+                                                  ContextName="@area.Name"
+                                                  OnDirect="TravelTo"
+                                                  OnChoice="OpenTransport" />
                                 }
                             }
                         }
@@ -147,7 +152,7 @@ else
         <section class="interior-modal" role="dialog" aria-modal="true" aria-labelledby="interior-title">
             <header><div><span class="eyebrow">INTERIOR MAP</span><h2 id="interior-title">@InteriorTitle</h2></div>@if(InteriorFloors.Count>1){<select aria-label="Interior floor" @onchange="ChangeInterior">@foreach(var floor in InteriorFloors){<option value="@floor.Id" selected="@(floor==interiorArea)">@floor.Name</option>}</select>}<button aria-label="Close interior map" @onclick="()=>interiorOpen=false">×</button></header>
             <div class="interior-body">
-                <div class="interior-map"><div class="interior-map-controls"><button aria-label="Zoom interior out" @onclick="()=>ZoomInterior(.8)">−</button><button aria-label="Fit interior map" @onclick="FitInterior">⌖</button><button aria-label="Zoom interior in" @onclick="()=>ZoomInterior(1.25)">+</button></div>@if(InteriorMap is not null){<div class="interior-canvas" style="width:@(InteriorMap.Width)px;height:@(InteriorMap.Height)px"><img alt="@InteriorTitle map" src="@InteriorMap.Image" draggable="false"/>@foreach(var item in ItemsFor(interiorArea).Where(x=>x.X>=0)){<button aria-label="@item.Name" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.IsCollected(item.Id)?"done":"")" style="left:@(item.X*16+8)px;top:@(item.Y*16+8)px" @onclick="()=>InspectInteriorItem(item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@item.Name@(item.Quantity>1?$" ×{item.Quantity}":"")</label></button>}@foreach(var resource in interiorArea.Resources){<button aria-label="@resource.Name — @resource.Kind" class="map-marker resource-marker" style="left:@(resource.X*16+8)px;top:@(resource.Y*16+8)px" @onclick="()=>InspectInteriorResource(resource)"><span>●</span><label>@resource.Name · @resource.Kind</label></button>}@foreach(var warp in RelevantEntrancesFor(interiorArea).Where(x=>InteriorFloors.Any(f=>f.Id==x.TargetId))){<button aria-label="Go to @warp.Name" class="map-marker entrance-marker" style="left:@(warp.X*16+8)px;top:@(warp.Y*16+8)px" @onclick="()=>NavigateInterior(warp.TargetId)"><span>⌂</span><label>@warp.Name</label></button>}@foreach(var transport in TransportsFor(interiorArea)){<button aria-label="Travel from @transport.Name" class="map-marker transport-marker" style="left:@(transport.X*16+8)px;top:@(transport.Y*16+8)px" @onclick="()=>OpenTransport(transport)"><span>⇄</span><label>@transport.Name</label></button>}</div>}</div>
+                <div class="interior-map"><div class="interior-map-controls"><button aria-label="Zoom interior out" @onclick="()=>ZoomInterior(.8)">−</button><button aria-label="Fit interior map" @onclick="FitInterior">⌖</button><button aria-label="Zoom interior in" @onclick="()=>ZoomInterior(1.25)">+</button></div>@if(InteriorMap is not null){<div class="interior-canvas" style="width:@(InteriorMap.Width)px;height:@(InteriorMap.Height)px"><img alt="@InteriorTitle map" src="@InteriorMap.Image" draggable="false"/>@foreach(var item in ItemsFor(interiorArea).Where(x=>x.X>=0)){<button aria-label="@item.Name" class="map-marker @(item.Kind=="Hidden"?"hidden-marker":"item-marker") @(CurrentProgress.IsCollected(item.Id)?"done":"")" style="left:@(item.X*16+8)px;top:@(item.Y*16+8)px" @onclick="()=>InspectInteriorItem(item)"><span>@(item.Kind=="Hidden"?"?":"◆")</span><label>@item.Name@(item.Quantity>1?$" ×{item.Quantity}":"")</label></button>}@foreach(var resource in interiorArea.Resources){<button aria-label="@resource.Name — @resource.Kind" class="map-marker resource-marker" style="left:@(resource.X*16+8)px;top:@(resource.Y*16+8)px" @onclick="()=>InspectInteriorResource(resource)"><span>●</span><label>@resource.Name · @resource.Kind</label></button>}@foreach(var warp in RelevantEntrancesFor(interiorArea).Where(x=>InteriorFloors.Any(f=>f.Id==x.TargetId))){<button aria-label="Go to @warp.Name" class="map-marker entrance-marker" style="left:@(warp.X*16+8)px;top:@(warp.Y*16+8)px" @onclick="()=>NavigateInterior(warp.TargetId)"><span>⌂</span><label>@warp.Name</label></button>}@foreach(var travel in TravelMarkersFor(interiorArea)){<TravelMarker Marker="travel" Left="@(travel.X*16+8)" Top="@(travel.Y*16+8)" OnDirect="TravelTo" OnChoice="OpenTransport" />}</div>}</div>
                 <div class="interior-guide">
                     @if(inspectedItem is not null){<div class="focused-find"><img alt="" src="@ItemIcon(inspectedItem)" onerror="@ItemFallbackScript"/><div><strong>@inspectedItem.Name</strong><small>@inspectedItem.Kind item</small></div><label><input type="checkbox" checked="@CurrentProgress.IsCollected(inspectedItem.Id)" @onchange="()=>ToggleItem(inspectedItem.Id)"/> Collected</label></div>}
                     @if(inspectedResource is not null){<ResourceDetails Resource="@inspectedResource" />}
@@ -225,7 +230,7 @@ else
 @if(confirmReset){<div class="modal-backdrop" @onclick="()=>confirmReset=false"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title" @onclick:stopPropagation><span class="warning">!</span><h2 id="reset-title">Reset checklist progress?</h2><p>Select the games to clear. Preferences remain unchanged.</p><div class="backup-games">@foreach(var choice in localState!.ResetChoices){<label><input type="checkbox" checked="@resetProfileIds.Contains(choice.ProfileId)" @onchange="e=>ToggleProfile(resetProfileIds,choice.ProfileId,e)"/><span><strong>@choice.VersionName</strong><small>@choice.PackageName</small></span></label>}</div><div><button @onclick="()=>confirmReset=false">Cancel</button><button class="danger" disabled="@(resetProfileIds.Count==0)" @onclick="Reset">Reset selected</button></div></div></div>}
 
 @code {
-    GameCatalog? catalog; GamePackage? gamePackage; GameDefinition? game; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; GuideMapResource? inspectedResource; DisplayTransport? selectedTransport; LocalGuideSession? localState; LocalGuideRecovery? recovery; PortableBackupPreview? importPreview; string query="",pokedexQuery="",backupMode="export",backupMessage="",stateError=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<ChecklistProfileId> exportProfileIds=[],importProfileIds=[],resetProfileIds=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
+    GameCatalog? catalog; GamePackage? gamePackage; GameDefinition? game; GuideWorld? currentWorld; GameRegionDefinition? currentRegion; GuideArea? mapArea; GuideArea? detailArea; GuideArea? interiorArea; GuideItem? inspectedItem; GuideMapResource? inspectedResource; TransportChoiceMarker? selectedTransport; LocalGuideSession? localState; LocalGuideRecovery? recovery; PortableBackupPreview? importPreview; string query="",pokedexQuery="",backupMode="export",backupMessage="",stateError=""; bool confirmReset,searchOpen,interiorOpen,pokedexOpen,menuOpen,backupOpen,backupError; HashSet<ChecklistProfileId> exportProfileIds=[],importProfileIds=[],resetProfileIds=[]; ElementReference mapViewport; string? initializedMap,initializedInterior,loadError;
     LocalGuideSnapshot State=>localState?.Current??LocalGuideSnapshot.Empty;
     ChecklistProfileView CurrentProgress=>State.Checklist;
     GameVersionDefinition ActiveVersion=>game!.Versions.First(version=>version.Id==State.ActiveVersionId);
@@ -239,7 +244,7 @@ else
     IReadOnlyList<GuideArea> OutdoorAreas=>string.IsNullOrWhiteSpace(query)?gamePackage!.AreasForWorld(currentWorld!.Id):gamePackage!.SearchAreas(query,State.ActiveVersionId);
     IReadOnlyList<EncounterGroup> EncounterGroups=>detailArea is null?[]:gamePackage!.EncounterGroups(detailArea,State.ActiveVersionId);
     IReadOnlyList<SpecialPokemonGroup> SpecialPokemonGroups=>detailArea is null?[]:gamePackage!.SpecialPokemonGroups(detailArea,State.ActiveVersionId);
-    IReadOnlyList<GuideArea> InteriorFloors=>interiorArea is null?[]:gamePackage!.InteriorFloors(interiorArea.Id);
+    IReadOnlyList<GuideArea> InteriorFloors=>interiorArea is null?[]:gamePackage!.InteriorFloors(interiorArea.Id,State.ActiveVersionId);
     AreaMapDescriptor? InteriorMap=>interiorArea is null?null:gamePackage!.AreaMap(interiorArea,State.ActiveVersionId);
     string CurrentWorldName=>currentWorld is null?"":gamePackage!.WorldName(currentWorld);
     string InteriorTitle=>interiorArea!.Name;
@@ -272,20 +277,20 @@ else
     IReadOnlyList<GuideItem> ItemsFor(GuideArea area)=>gamePackage!.ItemsFor(area,State.ActiveVersionId);
     IReadOnlyList<ItemGroup> ItemGroupsFor(GuideArea area)=>gamePackage!.ItemGroups(area, State.ActiveVersionId);
     IReadOnlyList<SpecialPokemonGroup> SpecialPokemonGroupsFor(GuideArea area)=>gamePackage!.SpecialPokemonGroups(area,State.ActiveVersionId);
-    IReadOnlyList<DisplayEntrance> RelevantEntrancesFor(GuideArea area)=>gamePackage!.RelevantEntrances(area);
-    IReadOnlyList<DisplayTransport> TransportsFor(GuideArea area)=>gamePackage!.TransportsFor(area,State.ActiveVersionId);
+    IReadOnlyList<DisplayEntrance> RelevantEntrancesFor(GuideArea area)=>gamePackage!.RelevantEntrances(area,State.ActiveVersionId);
+    IReadOnlyList<DisplayTravelMarker> TravelMarkersFor(GuideArea area)=>gamePackage!.TravelMarkersFor(area,State.ActiveVersionId);
     bool IsOutdoor(string id)=>gamePackage!.IsOutdoor(id);
     void SearchChanged(ChangeEventArgs e){query=e.Value?.ToString()??"";searchOpen=true;}
     void SelectArea(GuideArea area){mapArea=area;detailArea=area;inspectedItem=null;inspectedResource=null;searchOpen=false;query="";}
     void SelectSearchArea(GuideArea area){if(IsOutdoor(area.Id)){var world=gamePackage!.WorldForArea(area.Id);if(world is not null&&world!=currentWorld){currentWorld=world;currentRegion=game!.Regions.FirstOrDefault(region=>region.WorldId==world.Id);initializedMap=null;}SelectArea(area);}else{OpenEntrance(area.Id);searchOpen=false;query="";}}
     void ShowRegion(GameRegionDefinition selected){currentRegion=selected;currentWorld=gamePackage!.World(selected.WorldId);initializedMap=null;}
-    void OpenEntrance(string targetId){interiorArea=gamePackage!.Area(targetId);if(interiorArea is not null){interiorOpen=true;inspectedItem=null;inspectedResource=null;}}
-    void OpenTransport(DisplayTransport transport)=>selectedTransport=transport;
+    void OpenEntrance(string targetId){interiorArea=gamePackage!.NavigableArea(targetId,State.ActiveVersionId);if(interiorArea is not null){interiorOpen=true;inspectedItem=null;inspectedResource=null;}}
+    void OpenTransport(TransportChoiceMarker transport)=>selectedTransport=transport;
     void CloseTransport()=>selectedTransport=null;
     void TravelTo(DisplayTransportDestination destination)
     {
         selectedTransport=null;
-        var target=gamePackage!.Area(destination.TargetId);
+        var target=gamePackage!.NavigableArea(destination.TargetId,State.ActiveVersionId);
         if(target is null)return;
         var world=gamePackage.WorldForArea(target.Id);
         if(world is null){OpenEntrance(target.Id);return;}
@@ -295,7 +300,7 @@ else
     void InspectResource(GuideArea area,GuideMapResource resource){mapArea=area;detailArea=area;inspectedItem=null;inspectedResource=resource;}
     void InspectInteriorItem(GuideItem item){inspectedItem=item;inspectedResource=null;}
     void InspectInteriorResource(GuideMapResource resource){inspectedItem=null;inspectedResource=resource;}
-    void NavigateInterior(string targetId){interiorArea=gamePackage!.Area(targetId)??interiorArea;inspectedItem=null;inspectedResource=null;} void ChangeInterior(ChangeEventArgs e){interiorArea=gamePackage!.Area((string?)e.Value??"")??interiorArea;inspectedItem=null;inspectedResource=null;}
+    void NavigateInterior(string targetId){interiorArea=gamePackage!.NavigableArea(targetId,State.ActiveVersionId)??interiorArea;inspectedItem=null;inspectedResource=null;} void ChangeInterior(ChangeEventArgs e){interiorArea=gamePackage!.NavigableArea((string?)e.Value??"",State.ActiveVersionId)??interiorArea;inspectedItem=null;inspectedResource=null;}
     async Task Zoom(double z)=>await JS.InvokeVoidAsync("fieldMap.zoom",mapViewport,z); async Task ResetView()=>await JS.InvokeVoidAsync("fieldMap.reset",mapViewport);
     async Task ZoomInterior(double z)=>await JS.InvokeVoidAsync("fieldMap.zoomInterior",z); async Task FitInterior()=>await JS.InvokeVoidAsync("fieldMap.fitInterior");
     async Task<bool> Apply(Task<LocalGuideChangeResult> pending)
@@ -321,7 +326,14 @@ else
         }
         if(!await Apply(localState!.SelectPlayableGameAsync(parts[0],parts[1])))return;
         if(loadedPackage is not null)UseGamePackage(loadedPackage);
-        else{inspectedItem=null;inspectedResource=null;selectedTransport=null;initializedInterior=null;}
+        else
+        {
+            inspectedItem=null;inspectedResource=null;selectedTransport=null;initializedInterior=null;
+            if(interiorArea is not null&&gamePackage!.NavigableArea(interiorArea.Id,State.ActiveVersionId) is null)
+            {
+                interiorArea=null;interiorOpen=false;
+            }
+        }
         await ApplyAppearance();
     }
     async Task ChangeDexMode(string mode){if(await Apply(localState!.SetDexModeAsync(mode)))pokedexQuery="";}
