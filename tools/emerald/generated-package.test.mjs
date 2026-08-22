@@ -9,6 +9,19 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package-manifest.js
 const worlds = JSON.parse(fs.readFileSync(path.join(root, 'worlds.json')));
 const areas = new Map(fieldGuide.areas.map(area => [area.id, area]));
 
+const worldAreaIds = worldId => new Set(worlds.find(world => world.id === worldId).maps.map(map => map.id));
+
+const reachableInteriors = startId => {
+  const reachable = new Set(), pending = [startId];
+  while (pending.length) {
+    const id = pending.shift();
+    if (reachable.has(id) || !areas.has(id)) continue;
+    reachable.add(id);
+    pending.push(...areas.get(id).entrances.map(entrance => entrance.targetId));
+  }
+  return reachable;
+};
+
 test('Emerald exposes Hoenn, Underwater, and the transport-only Battle Frontier', () => {
   assert.equal(manifest.formatVersion, 3);
   assert.deepEqual(worlds.map(world => world.id), [
@@ -17,10 +30,37 @@ test('Emerald exposes Hoenn, Underwater, and the transport-only Battle Frontier'
   assert.deepEqual(worlds.find(world => world.id === 'emerald-battle-frontier').maps.map(map => map.id), [
     'MAP_BATTLE_FRONTIER_OUTSIDE_WEST', 'MAP_BATTLE_FRONTIER_OUTSIDE_EAST'
   ]);
+  assert.equal(worldAreaIds('emerald-hoenn').size, 49);
+  assert.equal(worldAreaIds('emerald-underwater').size, 4);
+  for (const id of [
+    'MAP_PETALBURG_WOODS', 'MAP_JAGGED_PASS', 'MAP_MT_CHIMNEY', 'MAP_MT_PYRE_EXTERIOR',
+    'MAP_MT_PYRE_SUMMIT', 'MAP_SKY_PILLAR_OUTSIDE', 'MAP_SKY_PILLAR_TOP', 'MAP_SOOTOPOLIS_CITY',
+    'MAP_SOUTHERN_ISLAND_EXTERIOR', 'MAP_SOUTHERN_ISLAND_INTERIOR', 'MAP_SAFARI_ZONE_SOUTH'
+  ]) assert.equal(worldAreaIds('emerald-hoenn').has(id), false, `${id} belongs behind an entrance or transport`);
   const destinations = areas.get('MAP_LILYCOVE_CITY_HARBOR').transports[0].destinations;
   assert.deepEqual(destinations.map(destination => destination.name), [
     'Battle Frontier', 'Southern Island', 'Navel Rock', 'Birth Island', 'Faraway Island'
   ]);
+  assert.equal(fieldGuide.areas.some(area => area.id.includes('PROTOTYPE')), false);
+});
+
+test('Emerald keeps disconnected source maps behind navigation markers', () => {
+  const safari = reachableInteriors('MAP_SAFARI_ZONE_SOUTH');
+  for (const id of [
+    'MAP_SAFARI_ZONE_NORTH', 'MAP_SAFARI_ZONE_NORTHWEST', 'MAP_SAFARI_ZONE_SOUTH',
+    'MAP_SAFARI_ZONE_NORTHEAST', 'MAP_SAFARI_ZONE_SOUTHWEST', 'MAP_SAFARI_ZONE_SOUTHEAST'
+  ]) assert(safari.has(id), `${id} must remain in the Safari Zone interior graph`);
+
+  assert.deepEqual(areas.get('MAP_UNDERWATER_SOOTOPOLIS_CITY').entrances
+    .find(entrance => entrance.targetId === 'MAP_SOOTOPOLIS_CITY'), {
+    id: 'MAP_UNDERWATER_SOOTOPOLIS_CITY:dive:MAP_SOOTOPOLIS_CITY',
+    targetId: 'MAP_SOOTOPOLIS_CITY', name: 'Sootopolis City', x: 9, y: 6
+  });
+  assert.deepEqual(areas.get('MAP_SOOTOPOLIS_CITY').entrances
+    .find(entrance => entrance.targetId === 'MAP_UNDERWATER_SOOTOPOLIS_CITY'), {
+    id: 'MAP_SOOTOPOLIS_CITY:dive:MAP_UNDERWATER_SOOTOPOLIS_CITY',
+    targetId: 'MAP_UNDERWATER_SOOTOPOLIS_CITY', name: 'Underwater Sootopolis City', x: 29, y: 53
+  });
 });
 
 test('Emerald retains event-island and single-player legendary encounters', () => {

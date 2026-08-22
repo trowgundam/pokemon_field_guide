@@ -4,6 +4,8 @@ Package finalization turns one game adapter's draft into a checked game package.
 
 Before contraction, finalization starts from catalog-visible worlds and follows directed entrance and transport edges. Entering a world exposes all of its placements. Every draft area must be reachable, and every hidden world must have an inbound transport path. Adapters must omit unused, beta, debug, and inaccessible maps instead of relying on contraction to discard them. After contraction, package validation repeats the traversal over every retained area. Transport edges never participate in entrance contraction or interior-floor grouping.
 
+Finalization trusts each adapter's world boundary. It cannot infer that a detached placement should have been an interior. Adapters must build worlds from declared cardinal roots, treat source outdoor categories as eligibility only, and test that no undeclared disconnected component appears in `worlds.json`.
+
 ## Usage
 
 A public generator command calls `generatePackage` once:

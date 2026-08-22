@@ -6,7 +6,9 @@ The installed data was generated from [`pret/pokeruby` commit `63a8cbf`](https:/
 
 ## Worlds and map states
 
-Both packages expose selectable Hoenn and Underwater world layers. Ocean routes are part of Hoenn. Southern Island is a disconnected placement on the Hoenn canvas. Ruby/Sapphire's Battle Tower and Emerald's two-map Battle Frontier canvas are hidden worlds with inbound ferry transports, so neither appears as a region tab.
+Both packages expose selectable Hoenn and Underwater world layers. Each layer contains only the cardinal component reached from its declared root. Ocean routes are part of Hoenn. Warp-connected outdoor-looking maps, detached underwater pockets, Sootopolis, and the event islands remain interior graphs. The generators convert source cardinal transitions and reciprocal scripted Dive transitions into entrance edges when either endpoint is not on a world. Ruby/Sapphire's Battle Tower and Emerald's two-map Battle Frontier canvas are hidden worlds with inbound ferry transports, so neither appears as a region tab.
+
+Hoenn contains 49 placements rooted at Littleroot Town. Ruby/Sapphire's Underwater layer contains the four-map component rooted at Underwater 1. Emerald's Underwater layer contains the four-map component rooted at Underwater Route 124. The Sootopolis chain runs from the main Underwater layer through Underwater Sootopolis City and surfaces in Sootopolis City. Southern Island opens as an interior from the S.S. Tidal transport marker.
 
 Route 130 renders the useful Mirage Island state. Shoal Cave retains low- and high-tide maps in its interior navigation graph. Ruby and Sapphire differ inside Cave of Origin B4F and Seafloor Cavern Room 9. Manifest v3 stores complete Ruby image descriptors for those two interiors while Sapphire uses each area's base descriptor. Outdoor version overrides remain prohibited because they would invalidate connected-world placement geometry.
 

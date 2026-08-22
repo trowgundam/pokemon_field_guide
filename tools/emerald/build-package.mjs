@@ -2,14 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { addFeebasEncounters, addHoennRenewableResources, addMassOutbreaks, readGen3Source } from '../gen3/source-data.mjs';
-import { renderConnectedWorld, renderGen3Maps } from '../gen3/map-rendering.mjs';
+import { renderGen3Maps } from '../gen3/map-rendering.mjs';
 import { addSpecial, extractScriptAcquisitions } from '../gen3/script-extraction.mjs';
 import { buildPokedex, finishAreas, registerPokemonSprites, selectReachableAreas } from '../gen3/package-building.mjs';
+import { realizeGen3Topology } from '../gen3/world-topology.mjs';
 
 const versions = [{ id: 'Emerald' }];
 const outdoorTypes = new Set(['MAP_TYPE_TOWN', 'MAP_TYPE_CITY', 'MAP_TYPE_ROUTE', 'MAP_TYPE_OCEAN_ROUTE']);
 const frontierMaps = new Set(['MAP_BATTLE_FRONTIER_OUTSIDE_WEST', 'MAP_BATTLE_FRONTIER_OUTSIDE_EAST']);
-const excluded = /(?:SECRET_BASE|SINGLE_BATTLE_COLOSSEUM|TRADE_CENTER|RECORD_CORNER|UNION_ROOM|UNKNOWN_MAP|TEST|UNUSED|BATTLE_PIKE_ROOM_WILD_MONS|BATTLE_PYRAMID_FLOOR)/;
+const excluded = /(?:SECRET_BASE|SINGLE_BATTLE_COLOSSEUM|TRADE_CENTER|RECORD_CORNER|UNION_ROOM|UNKNOWN_MAP|PROTOTYPE|TEST|UNUSED|BATTLE_PIKE_ROOM_WILD_MONS|BATTLE_PYRAMID_FLOOR)/;
 
 const requireArea = (work, id) => {
   const area = work.areas.get(id);
@@ -53,14 +54,6 @@ function addDynamicCaveEntrances(work) {
     id: `${mapId}:terra-cave:${x}:${y}`, targetId: 'MAP_TERRA_CAVE_ENTRANCE',
     name: 'Terra Cave (possible location)', x, y
   });
-  requireArea(work, 'MAP_UNDERWATER_MARINE_CAVE').entrances.push({
-    id: 'MAP_UNDERWATER_MARINE_CAVE:emerge', targetId: 'MAP_MARINE_CAVE_ENTRANCE',
-    name: 'Marine Cave Entrance', x: 6, y: 7
-  });
-  requireArea(work, 'MAP_UNDERWATER_SEAFLOOR_CAVERN').entrances.push({
-    id: 'MAP_UNDERWATER_SEAFLOOR_CAVERN:dive', targetId: 'MAP_SEAFLOOR_CAVERN_ENTRANCE',
-    name: 'Seafloor Cavern Entrance', x: 6, y: 7
-  });
 }
 
 function addEmeraldContent(work) {
@@ -99,11 +92,11 @@ export async function buildEmeraldPackage({ source, assets, sharp }) {
     .filter(map => outdoorTypes.has(map.map_type) && !frontierMaps.has(map.id) && !excluded.test(map.id))
     .map(map => map.id);
   const underwaterMapIds = [...work.sourceMaps.values()].filter(map => map.map_type === 'MAP_TYPE_UNDERWATER').map(map => map.id);
-  const worlds = [
-    await renderConnectedWorld(rendered, { id: 'emerald-hoenn', name: 'Hoenn', mapIds: hoennMapIds, rootId: 'MAP_LITTLEROOT_TOWN' }),
-    await renderConnectedWorld(rendered, { id: 'emerald-underwater', name: 'Underwater', mapIds: underwaterMapIds, rootId: underwaterMapIds[0] }),
-    await renderConnectedWorld(rendered, { id: 'emerald-battle-frontier', name: 'Battle Frontier', mapIds: [...frontierMaps], rootId: 'MAP_BATTLE_FRONTIER_OUTSIDE_WEST' })
-  ];
+  const worlds = await realizeGen3Topology(work, rendered, [
+    { id: 'emerald-hoenn', name: 'Hoenn', eligibleMapIds: hoennMapIds, roots: [{ id: 'MAP_LITTLEROOT_TOWN' }] },
+    { id: 'emerald-underwater', name: 'Underwater', eligibleMapIds: underwaterMapIds, roots: [{ id: 'MAP_UNDERWATER_ROUTE124' }] },
+    { id: 'emerald-battle-frontier', name: 'Battle Frontier', eligibleMapIds: [...frontierMaps], roots: [{ id: 'MAP_BATTLE_FRONTIER_OUTSIDE_WEST' }] }
+  ], excluded);
   const areas = selectReachableAreas(work, worlds, excluded);
   finishAreas(work, areas, rendered.mapAssets);
   const pokedex = buildPokedex(work, areas);

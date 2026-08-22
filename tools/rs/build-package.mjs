@@ -2,14 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { addFeebasEncounters, addHoennRenewableResources, addMassOutbreaks, readGen3Source } from '../gen3/source-data.mjs';
-import { renderConnectedWorld, renderGen3Maps } from '../gen3/map-rendering.mjs';
+import { renderGen3Maps } from '../gen3/map-rendering.mjs';
 import { addSpecial, extractScriptAcquisitions } from '../gen3/script-extraction.mjs';
 import { buildPokedex, finishAreas, registerPokemonSprites, selectReachableAreas } from '../gen3/package-building.mjs';
+import { realizeGen3Topology } from '../gen3/world-topology.mjs';
 
 const versions = [{ id: 'Ruby' }, { id: 'Sapphire' }];
 const outdoorTypes = new Set(['MAP_TYPE_TOWN', 'MAP_TYPE_CITY', 'MAP_TYPE_ROUTE', 'MAP_TYPE_6']);
 const hiddenWorldMaps = new Set(['MAP_BATTLE_TOWER_OUTSIDE']);
-const excluded = /(?:SECRET_BASE|SINGLE_BATTLE_COLOSSEUM|TRADE_CENTER|RECORD_CORNER|UNION_ROOM|UNKNOWN_MAP|TEST|UNUSED)/;
+const excluded = /(?:SECRET_BASE|SINGLE_BATTLE_COLOSSEUM|TRADE_CENTER|RECORD_CORNER|UNION_ROOM|UNKNOWN_MAP|PROTOTYPE|TEST|UNUSED)/;
 
 const requireArea = (work, id) => {
   const area = work.areas.get(id);
@@ -66,10 +67,6 @@ function addRubySapphireContent(work) {
   addTransport(requireArea(work, 'MAP_SOUTHERN_ISLAND_EXTERIOR'), 'ferry', 'S.S. Tidal', 13, 23, [
     { id: 'lilycove', targetId: 'MAP_LILYCOVE_CITY_HARBOR', name: 'Lilycove City', version: 'Both', requirement: 'Eon Ticket' }
   ]);
-  requireArea(work, 'MAP_UNDERWATER_SEAFLOOR_CAVERN').entrances.push({
-    id: 'MAP_UNDERWATER_SEAFLOOR_CAVERN:dive', targetId: 'MAP_SEAFLOOR_CAVERN_ENTRANCE',
-    name: 'Seafloor Cavern Entrance', x: 6, y: 7
-  });
 }
 
 export async function buildRubySapphirePackage({ source, assets, sharp }) {
@@ -90,10 +87,11 @@ export async function buildRubySapphirePackage({ source, assets, sharp }) {
     .filter(map => outdoorTypes.has(map.map_type) && !hiddenWorldMaps.has(map.id) && !excluded.test(map.id))
     .map(map => map.id);
   const underwaterMapIds = [...work.sourceMaps.values()].filter(map => map.map_type === 'MAP_TYPE_UNDERWATER').map(map => map.id);
-  const hoenn = await renderConnectedWorld(rendered, { id: 'rs-hoenn', name: 'Hoenn', mapIds: hoennMapIds, rootId: 'MAP_LITTLEROOT_TOWN' });
-  const underwater = await renderConnectedWorld(rendered, { id: 'rs-underwater', name: 'Underwater', mapIds: underwaterMapIds, rootId: underwaterMapIds[0] });
-  const battleTower = await renderConnectedWorld(rendered, { id: 'rs-battle-tower', name: 'Battle Tower', mapIds: [...hiddenWorldMaps], rootId: 'MAP_BATTLE_TOWER_OUTSIDE' });
-  const worlds = [hoenn, underwater, battleTower];
+  const worlds = await realizeGen3Topology(work, rendered, [
+    { id: 'rs-hoenn', name: 'Hoenn', eligibleMapIds: hoennMapIds, roots: [{ id: 'MAP_LITTLEROOT_TOWN' }] },
+    { id: 'rs-underwater', name: 'Underwater', eligibleMapIds: underwaterMapIds, roots: [{ id: 'MAP_UNDERWATER1' }] },
+    { id: 'rs-battle-tower', name: 'Battle Tower', eligibleMapIds: [...hiddenWorldMaps], roots: [{ id: 'MAP_BATTLE_TOWER_OUTSIDE' }] }
+  ], excluded);
   const areas = selectReachableAreas(work, worlds, excluded);
   finishAreas(work, areas, rendered.mapAssets);
   const pokedex = buildPokedex(work, areas);
