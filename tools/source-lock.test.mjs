@@ -18,6 +18,7 @@ function sourceFixture() {
   const remote = path.join(root, 'pokered-origin');
   fs.mkdirSync(remote);
   git(remote, 'init', '--quiet');
+  git(remote, 'config', 'commit.gpgSign', 'false');
   git(remote, 'config', 'user.email', 'source-lock@example.test');
   git(remote, 'config', 'user.name', 'Source Lock Test');
   fs.writeFileSync(path.join(remote, 'revision.txt'), 'first\n');
