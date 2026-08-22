@@ -170,7 +170,7 @@ check: check-docs install-schema-tools
     node --check tools/gen3/script-extraction.mjs
     node --check tools/gen3/source-data.mjs
     node --check tools/gen3/sprite-rendering.mjs
-    node --check tools/gen3/item-sprites.mjs
+    node --check tools/emerald/item-sprites.mjs
     node --check tools/gen3/technical-machines.mjs
     node --check tools/gen3/world-topology.mjs
     node --check tools/rs/build-package.mjs
