@@ -32,11 +32,21 @@ This boundary preserves two independently installable game packages without dupl
 
 An encounter may have a `condition`. The runtime groups by encounter type and condition, so morning, day, night, swarm, and tree-rarity tables do not collapse into one probability table. Package finalization checks each type-condition-version table independently.
 
-Manifest format v2 may include `pokemonSpritesByVersion`. The runtime looks up a sprite for the active version first, then uses the package-wide association, then the question-mark fallback. This lets Gold and Silver share data and maps while retaining their different battle sprites. Crystal stores one package-wide association per species.
+Both packages use manifest format v3. The runtime looks up a sprite for the active version first, then uses the package-wide association, then the question-mark fallback. This lets Gold and Silver share data and maps while retaining their different battle sprites. Crystal stores one package-wide association per species.
 
 Headbutt is a stable `EncounterType`, alongside the existing grass, surfing, rod, roaming, and Rock Smash categories.
 
 Renewable pickups and repeatable item rewards use `GuideArea.Resources`, not checklist items. The builders join the ordered `FRUITTREE_*` constants with `data/items/fruit_trees.asm`, resolve each `SPRITE_FRUIT_TREE` object through its script, and audit all 30 source trees. They also emit the weekly Moon Stone, the Bug-Catching Contest prize, the Sunday TM reward, and the Magikarp record prize. Crystal adds the Battle Tower prize. Crystal phone gifts become ten coordinate-bearing `Register [trainer]` checklist events because registration is the one-time enabling goal.
+
+The shared RGBDS TM resolver reads the 50 `add_tm` rows from `constants/item_constants.asm`. It emits labels such as `TM24 - Dragonbreath` and fails generation when the source order is incomplete. The Sunday rewards use `TM27 - Return` and `TM21 - Frustration`.
+
+## Transport markers
+
+The Goldenrod City and Saffron City station entrances are Magnet Train markers. Each marker has one destination and records `Rail Pass; power restored to Kanto` as its requirement. The station maps remain excluded because they contain no separate guide content.
+
+Olivine Port and Vermilion Port use S.S. Aqua transport markers. The Olivine marker records Monday and Friday service, with the first voyage available on any day. The Vermilion marker records Wednesday and Sunday service. Both require the S.S. Ticket.
+
+S.S. Aqua 1F has an exit-choice marker with two destinations. The requirement for each destination explains that the voyage origin selects the exit. Adding this marker retains the ship floor and its connected cabins as an interior graph.
 
 ## Source and rendering rules
 

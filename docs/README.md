@@ -17,6 +17,7 @@ Research and decision pages preserve evidence that would be expensive to reconst
 - [Architecture](architecture.md): runtime boundaries, data flow, persistence, and extension points
 - [Package finalization](package-finalization.md): shared generation interface, package invariants, and atomic replacement
 - [Generation II packages](gen2-packages.md): Gold/Silver and Crystal adapter boundaries and rendering rules
+- [FireRed and LeafGreen package](frlg-package.md): TM extraction, Seagallop transport, and source rules
 - [Generation III Hoenn packages](gen3-hoenn-packages.md): Ruby/Sapphire and Emerald adapter boundaries, worlds, transports, and source rules
 - [Encounter table presentation](encounter-table-presentation.md): condition grouping and identical-table combination rules
 - [Renewable map resources](renewable-map-resources.md): non-checklist resource markers and generator rules

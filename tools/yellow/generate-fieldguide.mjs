@@ -3,9 +3,10 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { registerQuestionMarkSprites } from '../package-finalization/assets.mjs';
 import { formatPackageReport, generatePackage } from '../package-finalization/index.mjs';
+import { readRgbdsTechnicalMachines } from '../rgbds-technical-machines.mjs';
 
 const source = path.resolve(process.argv[2] ?? '/tmp/pokeyellow-fieldguide');
-const report = await generatePackage({ gameId: 'yellow', build: async ({ assets }) => {
+const report = await generatePackage({ gameId: 'yellow', formatVersion: 3, build: async ({ assets }) => {
 
 const read = relative => fs.readFileSync(path.join(source, relative), 'utf8');
 const stripDebugBlocks = text => text.replace(/^IF DEF\(_DEBUG\)\s*$[\s\S]*?^ENDC\s*$/gm, '');
@@ -24,6 +25,8 @@ const title = value => value === 'TM_COUNTER' ? 'TM18 (Counter)' : value.replace
   .replace(/^Tm /, 'TM ').replace(/^Hm /, 'HM ').replace(/\bHp\b/g, 'HP').replace(/\bPp\b/g, 'PP')
   .replace(/Elixer/g, 'Elixir').replace(/Digletts/g, "Diglett's");
 const slug = name => name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase();
+const technicalMachines = readRgbdsTechnicalMachines(read('constants/item_constants.asm'), title);
+const itemName = item => technicalMachines.get(item) ?? title(item);
 
 const mapConstantsText = read('constants/map_constants.asm');
 const constants = new Map();
@@ -71,7 +74,7 @@ for (const file of fs.readdirSync(path.join(source, 'data/maps/headers')).filter
   const id = `MAP_${key}`;
   const connections = [...text.matchAll(/connection\s+(north|south|east|west),\s*\w+,\s*([A-Z0-9_]+),\s*(-?\d+)/g)]
     .map(m => ({ direction: m[1], target: `MAP_${m[2]}`, offset: +m[3] }));
-  maps.set(id, { id, key, label, tileset, ...size, connections, name: title(id), region: 'Kanto', encounters: [], items: [], specialPokemon: [], entrances: [] });
+  maps.set(id, { id, key, label, tileset, ...size, connections, name: title(id), region: 'Kanto', encounters: [], items: [], specialPokemon: [], entrances: [], transports: [] });
 }
 const blockLayoutByLabel = new Map();
 let pendingBlockLabels = [];
@@ -137,19 +140,19 @@ for (const area of maps.values()) {
       area.entrances.push({ id: `${area.id}:warp:${warpIndex++}`, x: +match[1], y: +match[2], targetId, name: targetId ? title(targetId) : 'Exit' });
     }
     for (const match of text.matchAll(/object_event\s+(\d+),\s*(\d+),\s*SPRITE_POKE_BALL,\s*STAY,\s*NONE,\s*TEXT_[A-Z0-9_]+,\s*([A-Z][A-Z0-9_]*)\s*$/gm)) {
-      area.items.push({ id: `${area.id}:visible:${match[1]}:${match[2]}`, name: title(match[3]), kind: 'Visible', icon: 'question_mark.png', x: +match[1], y: +match[2], quantity: 1 });
+      area.items.push({ id: `${area.id}:visible:${match[1]}:${match[2]}`, name: itemName(match[3]), kind: 'Visible', icon: 'question_mark.png', x: +match[1], y: +match[2], quantity: 1 });
     }
   }
   const script = readMapScripts(area.label);
   if (script) {
     for (const match of script.matchAll(/lb bc,\s*([A-Z][A-Z0-9_]*),\s*(\d+)[\s\S]{0,240}?call GiveItem/g)) area.items.push({
-      id: `${area.id}:event:${match[1]}:${match.index}`, name: title(match[1]), kind: 'Event', icon: 'question_mark.png', x: -1, y: -1, quantity: +match[2]
+      id: `${area.id}:event:${match[1]}:${match.index}`, name: itemName(match[1]), kind: 'Event', icon: 'question_mark.png', x: -1, y: -1, quantity: +match[2]
     });
   }
 }
 
 for (const [mapId, item] of [['MAP_ROUTE_2_GATE','HM_FLASH'],['MAP_ROUTE_11_GATE_2F','ITEMFINDER'],['MAP_ROUTE_15_GATE_2F','EXP_ALL']]) {
-  const area = maps.get(mapId); if (area) area.items.push({ id: `${mapId}:event:${item}`, name: title(item), kind: 'Event', icon: 'question_mark.png', x: -1, y: -1, quantity: 1 });
+  const area = maps.get(mapId); if (area) area.items.push({ id: `${mapId}:event:${item}`, name: itemName(item), kind: 'Event', icon: 'question_mark.png', x: -1, y: -1, quantity: 1 });
 }
 
 let hiddenArea = null;
@@ -157,7 +160,7 @@ for (const line of read('data/events/hidden_events.asm').split(/\r?\n/)) {
   const section = line.match(/^\s*hidden_events_for\s+([A-Z0-9_]+)/);
   if (section) { hiddenArea = maps.get(`MAP_${section[1]}`); continue; }
   const item = hiddenArea && !/\binaccessible\b/i.test(line) && line.match(/^\s*hidden_event\s+(\d+),\s*(\d+),\s*HiddenItems,\s*([A-Z0-9_]+)/);
-  if (item) hiddenArea.items.push({ id: `${hiddenArea.id}:hidden:${item[1]}:${item[2]}`, name: title(item[3]), kind: 'Hidden', icon: 'question_mark.png', x: +item[1], y: +item[2], quantity: 1 });
+  if (item) hiddenArea.items.push({ id: `${hiddenArea.id}:hidden:${item[1]}:${item[2]}`, name: itemName(item[3]), kind: 'Hidden', icon: 'question_mark.png', x: +item[1], y: +item[2], quantity: 1 });
 }
 
 const addSpecial = (map, species, level, kind = 'Static', version = 'Both', requestedSpecies = null) => maps.get(map)?.specialPokemon.push({

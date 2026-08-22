@@ -101,7 +101,7 @@ Paths are URLs relative to `wwwroot` and must not start with `/`. This makes the
 
 ## Package variability
 
-The package manifest is the runtime authority for area aliases and Pokémon sprite filenames. Manifest v2 remains the frozen format for existing packages. Manifest v3 adds complete image, width, and height overrides keyed by version and area. `GamePackageLoader` dispatches on `formatVersion` and normalizes either format for `GamePackage`. Every referenced image is owned by its Game package. Runtime code contains no embedded image data.
+The package manifest is the runtime authority for area aliases and Pokémon sprite filenames. Every installed package uses manifest v3. Manifest v3 adds complete image, width, and height overrides keyed by version and area. `GamePackageLoader` still accepts frozen manifest v2 packages and normalizes either format for `GamePackage`. Every referenced image is owned by its Game package. Runtime code contains no embedded image data.
 
 Each `Encounter` retains its source `Method` and has a normalized `EncounterType`. A Game adapter must classify every source method. Package generation fails when a method is not classified. C# owns encounter-group labels and ordering through an exhaustive mapping from `EncounterType`.
 
