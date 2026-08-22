@@ -117,15 +117,7 @@ check-docs:
 check: check-docs install-schema-tools
     node --test tools/source-lock.test.mjs
     dotnet run --project {{schema_project}} -- --check
-    node --test tools/package-schema/validate.test.mjs
-    node --test tools/package-finalization.test.mjs
-    node --test tools/rb/generated-package.test.mjs
-    node --test tools/yellow/generated-package.test.mjs
-    node --test tools/gen2/generated-package.test.mjs
-    node --test tools/crystal/generated-package.test.mjs
-    node --test tools/frlg/generated-package.test.mjs
-    node --test tools/rs/generated-package.test.mjs
-    node --test tools/emerald/generated-package.test.mjs
+    node --test tools/package-schema/validate.test.mjs tools/package-finalization.test.mjs tools/*/generated-package.test.mjs
     node --check tools/frlg/generate-fieldguide.mjs
     node --check tools/frlg/audit-renewable-hidden-items.mjs
     node --check tools/frlg/renewable-hidden-items.mjs
