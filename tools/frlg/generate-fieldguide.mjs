@@ -1,11 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { registerQuestionMarkSprites } from '../package-finalization/assets.mjs';
 import { formatPackageReport, generatePackage } from '../package-finalization/index.mjs';
 import { renderFrlgMaps } from './render-maps.mjs';
 import { readRenewableHiddenItems } from './renewable-hidden-items.mjs';
 
+const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const source = path.resolve(process.argv[2] ?? '/tmp/pokefirered-fieldguide');
 const report = await generatePackage({ gameId: 'frlg', build: async ({ assets }) => {
 const renewableHiddenItems = readRenewableHiddenItems(source);
@@ -248,7 +250,7 @@ for (const entry of pokedex.filter(entry => entry.speciesId !== 'SPECIES_UNOWN')
 // FRLG has no standalone Unown menu-sprite file. Use form A as the package's
 // deterministic canonical form rather than relying on source enumeration order.
 pokemonSprites.SPECIES_UNOWN = await assets.pokemonSprite('unown.png', target =>
-  fs.promises.copyFile(path.join(import.meta.dirname, 'assets/unown.png'), target));
+  fs.promises.copyFile(path.join(moduleDirectory, 'assets/unown.png'), target));
 const itemSpriteFiles = new Set(data.flatMap(a => a.items.map(item => item.icon)).filter(file => file !== 'question_mark.png'));
 for (const file of itemSpriteFiles) {
   const sourceIcon = path.join(source, 'graphics/items/icons', file);
