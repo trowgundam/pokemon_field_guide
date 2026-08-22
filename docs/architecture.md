@@ -37,7 +37,8 @@ PokemonFieldGuide.Shared/
 └── Contracts/                  Authoritative C# JSON contracts and serialization settings
 PokemonFieldGuide/
 ├── Components/
-│   └── ResourceDetails.razor   Shared fixed and multi-outcome resource details
+│   ├── ResourceDetails.razor   Shared fixed and multi-outcome resource details
+│   └── TravelMarker.razor      Direct or selectable transport presentation
 ├── Pages/
 │   └── Home.razor              Shared atlas, checklist, interiors, and Pokédex UI
 ├── Services/
@@ -75,7 +76,7 @@ Build-time tooling follows the same ownership boundary. Scripts under `tools/<ga
 - visible, hidden, or event `GuideItem` rows, filtered by version;
 - renewable, non-checklist `GuideMapResource` rows with optional comments and reward outcomes;
 - static, gift, or trade `SpecialPokemon` rows;
-- `MapEntrance` edges to other areas;
+- version-aware `MapEntrance` edges to other areas;
 - `GuideTransport` markers with selectable, version-aware destinations;
 - an optional rendered map and its pixel dimensions.
 
@@ -110,9 +111,11 @@ Each `Encounter` retains its source `Method` and has a normalized `EncounterType
 
 Outdoor areas are those referenced by any loaded `GuideWorld`. The Game package indexes those placements during assembly. `NormalizeAreaId` allows a rendered placement to resolve to a differently named guide area when source data requires it.
 
-Interior reachability is graph-based. An outdoor marker opens the nearest interior that contains encounters, items, resources, special Pokémon, transports, or an explicit `IncludeInNavigation` value. Once open, every connected non-outdoor area with guide data becomes a selectable floor. Package finalization contracts empty transition chains but retains a junction when distinct branches lead to relevant interiors, even when the branches have different lengths. Complete and correct source entrance edges are therefore essential for rooms that are omitted from the final package.
+Interior reachability is graph-based and filtered by the active version. An outdoor marker opens the nearest interior that contains encounters, items, resources, special Pokémon, transports, or an explicit `IncludeInNavigation` value. Once open, every connected non-outdoor area with guide data becomes a selectable floor. Search uses the same version-filtered reachable-area set, so it cannot open a component that the selected version cannot enter. Package finalization contracts empty transition chains but retains a junction when distinct branches lead to relevant interiors, even when the branches have different lengths. Complete and correct source entrance edges are therefore essential for rooms that are omitted from the final package.
 
-Transport edges are deliberate jumps, not physical adjacency. They contribute to package reachability and can open an outdoor world or an interior component, but they do not join the interior floor graph. Package finalization promotes a sole transport from an otherwise irrelevant interior to its unique outdoor entrance. The original interior then contracts like any other empty transition map. Catalog regions seed navigation. A world omitted from the region list must have an inbound transport path.
+Transport edges are deliberate jumps, not physical adjacency. They contribute to package reachability and can open an outdoor world or an interior component, but they do not join the interior floor graph. Package finalization promotes a sole transport through an otherwise irrelevant empty chain to its unique outdoor entrance. The empty chain then contracts. Catalog regions seed navigation. A world omitted from the region list must have an inbound transport path.
+
+`GamePackage` filters transport destinations before it creates display markers. One remaining destination becomes a direct travel marker with entrance styling. Multiple destinations become a transport-choice marker. Both cases call transport navigation, so direct travel still activates hidden worlds and retains requirement metadata.
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
 

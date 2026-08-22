@@ -267,6 +267,9 @@
                 },
                 "y": {
                   "type": "integer"
+                },
+                "version": {
+                  "type": "string"
                 }
               },
               "required": [

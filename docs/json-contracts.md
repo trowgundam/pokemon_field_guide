@@ -35,6 +35,8 @@ Package generation validates the catalog and every staged Game package document 
 
 JSON Schema owns document shape, required fields, enum strings, scalar constraints, and unknown-property rejection. Package finalization owns facts that span documents or files, including unique IDs, references, chance totals, reachability, and exact asset use.
 
+Manifest-v3 field-guide entrances may include `version`. The value is `Both` or an exact catalog version ID. Older package documents omit the property and deserialize as `Both`.
+
 ## External JSON
 
 These schemas cover formats owned by Pokemon Field Guide. They do not cover NuGet and npm files, .NET build output, editor configuration, or JSON from upstream Pokémon source projects. Those formats have another authority.

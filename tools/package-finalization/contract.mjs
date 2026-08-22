@@ -53,21 +53,53 @@ function promoteTransportOnlyInteriors(draft) {
   const normalize = id => draft.areaAliases?.[id] ?? id;
   const areasById = new Map(draft.areas.map(area => [area.id, area]));
   const outdoorIds = new Set(draft.worlds.flatMap(world => world.maps.map(placement => normalize(placement.id))));
+  const incomingByTarget = new Map();
+  for (const source of draft.areas) for (const entrance of source.entrances) {
+    const targetId = normalize(entrance.targetId);
+    if (!incomingByTarget.has(targetId)) incomingByTarget.set(targetId, []);
+    incomingByTarget.get(targetId).push({ source, entrance });
+  }
   for (const area of draft.areas) {
     if (outdoorIds.has(area.id) || hasGuideContent(area) || (area.transports?.length ?? 0) !== 1) continue;
-    const leadsToRelevantInterior = area.entrances.some(entrance => {
-      const targetId = normalize(entrance.targetId), target = areasById.get(targetId);
-      return target && !outdoorIds.has(targetId) && relevant(target);
-    });
-    if (leadsToRelevantInterior) continue;
-
-    const incoming = [];
-    for (const source of draft.areas) {
-      if (!outdoorIds.has(source.id)) continue;
-      for (const entrance of source.entrances) {
-        if (normalize(entrance.targetId) === area.id) incoming.push({ source, entrance });
+    const forward = [area.id], forwardVisited = new Set();
+    let leadsToRelevantInterior = false;
+    while (forward.length && !leadsToRelevantInterior) {
+      const currentId = forward.shift();
+      if (forwardVisited.has(currentId)) continue;
+      forwardVisited.add(currentId);
+      const current = areasById.get(currentId);
+      for (const entrance of current?.entrances ?? []) {
+        const targetId = normalize(entrance.targetId), target = areasById.get(targetId);
+        if (!target || outdoorIds.has(targetId) || forwardVisited.has(targetId)) continue;
+        if (targetId !== area.id && relevant(target)) {
+          leadsToRelevantInterior = true;
+          break;
+        }
+        forward.push(targetId);
       }
     }
+    if (leadsToRelevantInterior) continue;
+
+    const incoming = [], reverse = [area.id], reverseVisited = new Set(), contractibleIds = new Set([area.id]);
+    let touchesRelevantInterior = false;
+    while (reverse.length && !touchesRelevantInterior) {
+      const currentId = reverse.shift();
+      if (reverseVisited.has(currentId)) continue;
+      reverseVisited.add(currentId);
+      for (const entry of incomingByTarget.get(currentId) ?? []) {
+        if (outdoorIds.has(entry.source.id)) {
+          incoming.push(entry);
+          continue;
+        }
+        if (entry.source.id !== area.id && relevant(entry.source)) {
+          touchesRelevantInterior = true;
+          break;
+        }
+        contractibleIds.add(entry.source.id);
+        reverse.push(entry.source.id);
+      }
+    }
+    if (touchesRelevantInterior) continue;
     const clusters = entranceClusters(incoming);
     if (clusters.length !== 1) continue;
     const cluster = clusters[0], source = cluster[0].source, transport = area.transports[0];
@@ -82,7 +114,7 @@ function promoteTransportOnlyInteriors(draft) {
     area.transports = [];
     for (const destinationArea of draft.areas) for (const candidate of destinationArea.transports ?? []) {
       for (const destination of candidate.destinations ?? []) {
-        if (normalize(destination.targetId) === area.id) destination.targetId = source.id;
+        if (contractibleIds.has(normalize(destination.targetId))) destination.targetId = source.id;
       }
     }
   }
@@ -309,7 +341,14 @@ export function finalizeDraft(game, draft, formatVersion = 2) {
   const normalizeAreaId = id => draft.areaAliases?.[id] ?? id;
   const outdoorIds = new Set(draft.worlds.flatMap(world => world.maps.map(placement => normalizeAreaId(placement.id))));
   for (const id of outdoorIds) if (!areasById.has(id)) throw new Error(`${game.id}: world placement targets missing draft area ${id}.`);
-  const finalIds = new Set([...outdoorIds, ...draft.areas.filter(relevant).map(area => area.id)]);
+  const versionBoundaries = formatVersion === 3
+    ? draft.areas.filter(area => area.entrances.some(entrance => (entrance.version ?? 'Both') !== 'Both'))
+    : [];
+  const finalIds = new Set([
+    ...outdoorIds,
+    ...draft.areas.filter(relevant).map(area => area.id),
+    ...versionBoundaries.map(area => area.id)
+  ]);
   let retainedJunction = true;
   while (retainedJunction) {
     retainedJunction = false;
@@ -352,8 +391,14 @@ export function finalizeDraft(game, draft, formatVersion = 2) {
     }),
     ...(area.includeInNavigation === true ? { includeInNavigation: true } : {}),
     entrances: area.entrances.map(entrance => {
+      const version = entrance.version ?? 'Both';
+      if (version !== 'Both' && !versions.has(version))
+        throw new Error(`${game.id}: invalid entrance version '${version}' in ${area.id}.`);
       const target = contractTarget(game.id, area, entrance, areasById, finalIds);
-      return target ? { id: entrance.id, targetId: target.id, name: target.name, x: entrance.x, y: entrance.y } : null;
+      return target ? {
+        id: entrance.id, targetId: target.id, name: target.name, x: entrance.x, y: entrance.y,
+        ...(formatVersion === 3 ? { version } : {})
+      } : null;
     }).filter(Boolean),
     ...(formatVersion === 3 ? {
       transports: (area.transports ?? []).map(transport => {
@@ -491,6 +536,11 @@ export async function checkPackage(game, packageRoot) {
     for (const row of [...(area.encounters ?? []), ...(area.items ?? []), ...(area.specialPokemon ?? [])]) {
       const version = row.version ?? 'Both';
       if (version !== 'Both' && !versions.has(version)) throw new Error(`${game.id}: invalid version '${version}' in ${area.id}.`);
+    }
+    for (const entrance of area.entrances ?? []) {
+      const version = entrance.version ?? 'Both';
+      if (version !== 'Both' && !versions.has(version))
+        throw new Error(`${game.id}: invalid entrance version '${version}' in ${area.id}.`);
     }
     const transportIds = new Set(), destinationIds = new Set();
     for (const transport of area.transports ?? []) {
