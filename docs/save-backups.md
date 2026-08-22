@@ -69,6 +69,8 @@ Checklist profile v2 separates direct caught marks from caught status implied by
 
 The v1-to-v2 migration preserves every v1 `caught` entry as a direct mark. It preserves completed acquisition IDs without guessing their species. This conservative migration does not remove existing caught status.
 
+Gold/Silver, Crystal, FireRed, and LeafGreen use progress version 3 with the same profile v2 JSON shape. Their v2-to-v3 package migrations remove item IDs that now represent renewable resources. Crystal also maps a completed phone-gift ID to the matching `Register [trainer]` checklist ID. Both Local guide state restore and portable backup import apply these migrations. The migrations preserve unrelated and unknown checklist IDs.
+
 Unknown checklist IDs remain in a profile. Only a sequential Game package migration may rename or remove an ID.
 
 ## Import behavior

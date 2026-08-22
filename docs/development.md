@@ -43,6 +43,38 @@ Generated data and assets are committed so the deployed site has no dependency o
 
 Checklist IDs are persistent data. Changing item or special-Pokémon IDs can invalidate browser progress even when the visible entry appears unchanged.
 
+## Clone and regenerate every package
+
+Clone all five source repositories below one directory:
+
+```sh
+just clone-all /tmp
+```
+
+This command creates `/tmp/pokered`, `/tmp/pokeyellow`, `/tmp/pokegold`, `/tmp/pokecrystal`, and `/tmp/pokefirered`. If a target already has the expected `pret` checkout, the clone recipe keeps it unchanged. The recipe fails when a target exists with a different Git origin.
+
+Regenerate every package from those directory names:
+
+```sh
+just generate-all /tmp
+```
+
+Use these commands to clone or regenerate one package:
+
+```sh
+just clone-rb /tmp
+just clone-yellow /tmp
+just clone-gs /tmp
+just clone-crystal /tmp
+just clone-frlg /tmp
+
+just generate-rb /tmp/pokered
+just generate-yellow /tmp/pokeyellow
+just generate-gs /tmp/pokegold
+just generate-crystal /tmp/pokecrystal
+just generate-frlg /tmp/pokefirered
+```
+
 ## Regenerating FRLG
 
 ```sh
@@ -56,6 +88,7 @@ just generate-frlg /path/to/pokefirered
 - excludes prototype, unused, and multiplayer/link-room maps;
 - excludes source entrances that target excluded maps;
 - retains interior transition records in the draft so package finalization can contract them;
+- emits the 61 source-allowlisted renewable hidden items, Selphy, and both size judges as resources;
 - sources every map, item icon, Pokémon sprite, and fallback needed to build an empty package directory.
 
 `render-maps.mjs` is internal to the FRLG adapter. It returns native-scale individual maps, connected world canvases, and world placement data through the managed asset workspace. FRLG reserves palettes 0 through 6 for primary tilesets and 7 through 12 for secondary tilesets. Preserve that renderer behavior.
@@ -89,7 +122,7 @@ just generate-crystal /path/to/pokecrystal
 
 Gold/Silver and Crystal have separate package commands, dependency locks, and package builders. The builders use modules under `tools/gen2/` for stable RGBDS parsing, display-name conversion, map rendering, connected-world construction, and sprite processing. Package-specific acquisition rules, graphics aliases, world placement, and sprite-file selection remain in `tools/gs/build-package.mjs` and `tools/crystal/build-package.mjs`.
 
-The builders extract time-of-day and swarm tables as separate encounter conditions; fishing, headbutt, Rock Smash, roaming, gift, static, prize, egg, and NPC-trade sources; one connected Johto and Kanto world canvas; and the New and National Pokédex orders. They join ordered fruit-tree constants and item tables to `SPRITE_FRUIT_TREE` map objects, audit all 30 source trees, and emit them as renewable resources. They follow outdoor map connections instead of placing every town- or route-classified source map on the world. Parks, ports, and landmark exteriors reached through warps remain interior maps unless their rendered edges align with the connected outdoor canvas. Route 26 and Route 27 stay in the New Bark Town outdoor component. Routes 22, 23, 26, and 28 remain full-size maps on the cardinal sides of a 320-pixel rocky Victory Road connector, with no overlap between routes. The builders filter fishing by the water permissions of blocks used in each map instead of treating the broad map fish-group field as proof that a location is fishable. Maps use the canonical daytime palette and reproduce each map group's dynamically loaded roof graphics, roof colors, and two-bank tileset addressing. In Crystal, the Route 40 gate contracts away and Battle Tower Outside is placed directly above Route 40 on the world canvas. Its entrance opens Battle Tower 1F, which records the five possible stat-boosting rewards.
+The builders extract time-of-day and swarm tables as separate encounter conditions; fishing, headbutt, Rock Smash, roaming, gift, static, prize, egg, and NPC-trade sources; one connected Johto and Kanto world canvas; and the New and National Pokédex orders. They audit 30 fruit trees and four other shared renewable sources. Crystal adds the Battle Tower resource and ten trainer-registration checklist events. They follow outdoor map connections instead of placing every town- or route-classified source map on the world. Parks, ports, and landmark exteriors reached through warps remain interior maps unless their rendered edges align with the connected outdoor canvas. Route 26 and Route 27 stay in the New Bark Town outdoor component. Routes 22, 23, 26, and 28 remain full-size maps on the cardinal sides of a 320-pixel rocky Victory Road connector, with no overlap between routes. The builders filter fishing by the water permissions of blocks used in each map instead of treating the broad map fish-group field as proof that a location is fishable. Maps use the canonical daytime palette and reproduce each map group's dynamically loaded roof graphics, roof colors, and two-bank tileset addressing. In Crystal, the Route 40 gate contracts away and Battle Tower Outside is placed directly above Route 40 on the world canvas. Its entrance opens Battle Tower 1F and its weighted prize pool.
 
 Gold/Silver registers distinct per-version battle sprites when the source provides them. Crystal extracts the first native battle frame from each animated front-sprite sheet. The adapter makes each battle sprite's dominant border-connected background transparent without removing enclosed light details. Generation II does not provide standalone bag item icons, so both packages use the required item fallback.
 
@@ -116,6 +149,8 @@ At minimum, verify:
 - selective reset clears only confirmed Checklist profiles and preserves preferences;
 - malformed Local guide state remains downloadable until the user explicitly deletes it;
 - local profile v1 migrates to v2 without removing direct caught marks or unknown checklist IDs;
+- Gold/Silver, Crystal, and FireRed/LeafGreen profile v2 data migrates to v3 without retaining retired resource-item IDs;
+- Crystal profile migration maps completed phone-gift IDs to the corresponding trainer-registration ID;
 - backup v1 imports checklist data without preferences, and backup v2 round-trips selected profiles;
 - import previews replacements and applies only the profiles confirmed by the user;
 - failed browser writes do not change the displayed Local guide state;

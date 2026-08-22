@@ -8,7 +8,7 @@ Create one package for versions that share map topology, assets, data shape, Pok
 
 If paired games differ only in some records, keep one copy of shared maps and sprites and identify version-specific encounter or special-Pokémon records with the exact version ID. Split them into separate packages only when their topology, assets, source tooling, or runtime rules differ enough that a shared package would require pervasive exceptions.
 
-Set every catalog version's `progressVersion` to the current Checklist profile format, which is `2`. This is the schema version of that individual game's Checklist profile, not the package or application version. Do not rename an ID or increment `progressVersion` after release without adding and testing a sequential Checklist profile migration. See [Checklist backup format](save-backups.md).
+Set every new catalog version's initial `progressVersion` to `2`, the current Checklist profile JSON shape. A released game can have a higher progress version when a package migration changes checklist ID meaning without changing the JSON shape. Do not rename or remove an ID, or increment `progressVersion`, without adding and testing a sequential Checklist profile migration. See [Checklist backup format](save-backups.md).
 
 ## 2. Create the package directories
 
@@ -123,7 +123,7 @@ Item IDs are checklist keys and must be stable. Coordinate-bearing items use til
 
 ### Renewable map resources
 
-Use `resources` for repeatable map pickups that should appear on the map without becoming checklist entries:
+Use `resources` for free, location-bound item pickups or event rewards that the same save can obtain repeatedly. They appear on the map without becoming checklist entries:
 
 ```json
 {
@@ -134,7 +134,22 @@ Use `resources` for repeatable map pickups that should appear on the map without
 }
 ```
 
-Resources have no checklist ID and never contribute to saved progress or completion percentages. Their coordinates use the same tile convention as items. Include them in source audits and use the in-game reward name. Set `kind` to a user-facing description of the source and renewal schedule, such as `Daily fruit tree`, `Weekly harvest`, or `Repeatable pickup`. The UI displays this value and does not assume that every resource renews daily. See [Renewable map resources](renewable-map-resources.md) for the design rationale.
+Resources have no checklist ID and never contribute to saved progress or completion percentages. Their coordinates use the same tile convention as items. For a fixed output, use the in-game item as the resource name. For an interaction with several possible outputs, use one activity marker and attach its reward list. Optional comments explain shared requirements and outcome-specific conditions. Set `kind` to a user-facing description of the source and renewal rule, such as `Daily fruit tree`, `Weekly pickup`, or `Repeatable size record`. The UI must not assume that every resource renews daily.
+
+For every game, inspect more than obvious item balls and hidden-item tables. Check:
+
+- daily, weekly, step-based, map-entry, season, and rematch reset flags;
+- scripts that clear an item event after it has been set;
+- NPC gifts that can run again;
+- size, score, streak, rank, and other record-based prizes;
+- contests, towers, and other repeatable single-player event rewards;
+- random reward tables and condition-based reward branches.
+
+Exclude purchases, vending machines, Game Corner and point exchanges, crafting or conversion services, multiplayer-only prizes, global delivery mechanics, repeatable Pokémon encounters, and OT-ID lotteries. This includes later Pokémon Lotto or Lucky Number variants. Verify persistent state rather than assuming that a scheduled NPC gives its item repeatedly.
+
+When a renewable reward requires a one-time enabling action that is itself a useful completion goal, record the enabling action as a coordinate-bearing `Event` checklist item instead. Crystal's `Register [trainer]` phone entries are the precedent; their later item gifts and pools are not separate guide entries. Use `question_mark.png` when the action has no appropriate item sprite.
+
+See [Renewable map resources](renewable-map-resources.md) for the design rationale, [Repeatable resource reward pools](repeatable-resource-reward-pools.md) for outcome metadata, and [Resource audit for all game packages](all-packages-resource-audit.md) for worked examples and exclusions.
 
 ### Static, gift, and trade Pokémon
 
