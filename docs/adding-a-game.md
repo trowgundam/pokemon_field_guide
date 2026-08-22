@@ -247,7 +247,11 @@ Create one record per connected outdoor canvas:
 
 World placement coordinates and dimensions are pixels in the connected image. Placement IDs must resolve to areas after the package manifest applies its `areaAliases`. The world image must align exactly with every placement because markers add the area's tile coordinates to the placement origin.
 
-Disconnected landmasses may either become separate worlds/region tabs or be arranged on one composite canvas, as appropriate for the game. A transport-only world may be omitted from catalog `regions`; give it a `name` so the toolbar can identify it.
+Treat a source map's town, route, city, outdoor, or environment category as an eligibility filter. The category does not make the map a world placement. Start each world from a declared root and follow only source connections that form the continuous rendered canvas. Maps reached through doors, gates, caves, elevators, Dive transitions, or other warps remain interiors even when the source classifies them as outdoor.
+
+Disconnected placement is an exception. Declare each additional component, document why it belongs on the same canvas, and add a package test that rejects undeclared components. A separate landmass reached through transport normally opens as an interior component. Use a separate world only when the player navigates a real outdoor canvas there, such as a large post-game facility. A transport-only world may be omitted from catalog `regions`; give it a `name` so the toolbar can identify it.
+
+Test the placement graph, not only expected map names. Assert that each world contains the cardinal components rooted by its declarations. Also assert that representative warp-connected outdoor-looking maps are absent from `worlds.json` and remain reachable through entrance or transport markers.
 
 ## 5. Generate `pokedex.json`
 

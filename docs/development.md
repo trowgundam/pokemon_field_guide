@@ -157,6 +157,8 @@ The generators retain Feebas's six save-dependent tiles and mass outbreaks as co
 At minimum, verify:
 
 - outdoor maps load before markers and retain exact pixel rendering;
+- each world contains only components reached from its declared cardinal roots, with every disconnected placement documented and tested;
+- outdoor-looking maps reached through warps remain navigable interiors rather than detached world placements;
 - map selection, search, panning, zooming, and marker tooltips work;
 - pointer dragging works over area hotspots without native image dragging or stuck capture;
 - marker screen size remains usable across zoom levels;
