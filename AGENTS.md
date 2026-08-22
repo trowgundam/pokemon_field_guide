@@ -16,16 +16,19 @@ When investigation establishes a durable project fact, record it in the relevant
 
 ## Make discrete commits
 
+Do not create commits on `main`. Before the first commit for a task, create or switch to a dedicated feature branch and verify that it is checked out. Pushing directly to `main` is prohibited.
+
 Before creating commits, split the work into coherent, independently revertible changes. Keep the code, tests, generated artifacts, and documentation needed for one change together. Put unrelated behavior, refactoring, data, styling, tooling, or deployment work in separate commits.
 
 Format every subject as `<type>(<scope>): <imperative summary>`. Use one of these types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `build`, `ci`, `perf`, or `revert`. Use a lowercase, repository-specific scope such as `frlg`, `state`, `packages`, or `tooling`. Keep the subject at 72 characters or fewer.
 
 Before each commit:
 
-1. Review `git diff --stat` and `git status --short` to identify separate concerns.
-2. Stage only one coherent change.
-3. Review `git diff --cached` and confirm that its code, tests, generated artifacts, and documentation all belong to that change.
-4. Write the subject in the required format.
+1. Verify that the current branch is a dedicated feature branch, not `main`.
+2. Review `git diff --stat` and `git status --short` to identify separate concerns.
+3. Stage only one coherent change.
+4. Review `git diff --cached` and confirm that its code, tests, generated artifacts, and documentation all belong to that change.
+5. Write the subject in the required format.
 
 When reviewing work, treat a mixed-purpose commit, a malformed subject, or stale documentation as a finding that must be fixed before the work is complete.
 
