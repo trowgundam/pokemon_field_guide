@@ -4,9 +4,11 @@ import sharp from 'sharp';
 import { registerQuestionMarkSprites } from '../package-finalization/assets.mjs';
 import { formatPackageReport, generatePackage } from '../package-finalization/index.mjs';
 import { renderFrlgMaps } from './render-maps.mjs';
+import { readRenewableHiddenItems } from './renewable-hidden-items.mjs';
 
 const source = path.resolve(process.argv[2] ?? '/tmp/pokefirered-fieldguide');
 const report = await generatePackage({ gameId: 'frlg', build: async ({ assets }) => {
+const renewableHiddenItems = readRenewableHiddenItems(source);
 const title = value => value
   .replace(/^MAP_/, '').replace(/^SPECIES_/, '').replace(/^ITEM_/, '')
   .toLowerCase().split('_').map(x => x ? x[0].toUpperCase() + x.slice(1) : x).join(' ')
@@ -37,8 +39,9 @@ const trades = {
   INGAME_TRADE_TANGELA:['SPECIES_TANGELA','SPECIES_VENONAT'], INGAME_TRADE_SEEL:['SPECIES_SEEL','SPECIES_PONYTA']
 };
 const areas = new Map();
+const sourceObjectsByMap = new Map();
 const area = id => {
-  if (!areas.has(id)) areas.set(id, { id, name: title(id), region: regionFor(id), encounters: [], items: [], specialPokemon: [], entrances: [] });
+  if (!areas.has(id)) areas.set(id, { id, name: title(id), region: regionFor(id), encounters: [], items: [], resources: [], specialPokemon: [], entrances: [] });
   return areas.get(id);
 };
 function regionFor(id) {
@@ -93,6 +96,7 @@ for (const dir of fs.readdirSync(mapRoot)) {
   if (!fs.existsSync(jsonPath)) continue;
   const map = JSON.parse(fs.readFileSync(jsonPath));
   const id = map.id;
+  sourceObjectsByMap.set(id, map.object_events ?? []);
   const scriptsPath = path.join(mapRoot, dir, 'scripts.inc');
   const scripts = fs.existsSync(scriptsPath) ? fs.readFileSync(scriptsPath, 'utf8') : '';
   const a = area(id);
@@ -116,6 +120,13 @@ for (const dir of fs.readdirSync(mapRoot)) {
   }
   for (const event of map.bg_events ?? []) {
     if (event.type === 'hidden_item') {
+      const renewable = renewableHiddenItems.byFlag.get(event.flag);
+      if (renewable) {
+        if (renewable.mapId !== id || renewable.x !== event.x || renewable.y !== event.y || renewable.item !== event.item)
+          throw new Error(`${id} renewable hidden item ${event.flag} does not match its audited source event.`);
+        a.resources.push({ name: title(event.item), kind: '1,500-step renewable hidden item', x: event.x, y: event.y });
+        continue;
+      }
       const isCoins = event.item === 'ITEM_NONE' && /GAME_CORNER_COINS/.test(event.flag ?? '');
       a.items.push({ id: `${id}:hidden:${event.x}:${event.y}`, name: isCoins ? 'Coins' : title(event.item), kind: 'Hidden', icon: isCoins ? 'coin_case.png' : itemIcons.get(event.item) ?? 'question_mark.png', x: event.x, y: event.y, quantity: event.quantity ?? 1 });
     }
@@ -148,14 +159,49 @@ for (const dir of fs.readdirSync(mapRoot)) {
 }
 
 const addSpecial = (mapId, speciesId, level, kind = 'Gift', version = 'Both') => area(mapId).specialPokemon.push({ id:`${mapId}:${kind}:${speciesId}:${version}`, species:title(speciesId), speciesId, level, kind, version });
-const addEventItem = (mapId, itemId) => area(mapId).items.push({id:`${mapId}:event:${itemId}`,name:title(itemId),kind:'Event',icon:itemIcons.get(itemId)??'question_mark.png',x:-1,y:-1,quantity:1});
 for (const species of ['SPECIES_BULBASAUR','SPECIES_CHARMANDER','SPECIES_SQUIRTLE']) addSpecial('MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB',species,5);
 for (const species of ['SPECIES_HITMONLEE','SPECIES_HITMONCHAN']) addSpecial('MAP_SAFFRON_CITY_DOJO',species,25);
 addSpecial('MAP_FIVE_ISLAND_WATER_LABYRINTH','SPECIES_TOGEPI',5,'Gift');
 for (const [species,fr,lg] of [['SPECIES_ABRA',9,7],['SPECIES_CLEFAIRY',8,12],['SPECIES_DRATINI',18,24],['SPECIES_PORYGON',26,18]]) { addSpecial('MAP_CELADON_CITY_GAME_CORNER_PRIZE_ROOM',species,fr,'Gift','FireRed');addSpecial('MAP_CELADON_CITY_GAME_CORNER_PRIZE_ROOM',species,lg,'Gift','LeafGreen'); }
 addSpecial('MAP_CELADON_CITY_GAME_CORNER_PRIZE_ROOM','SPECIES_SCYTHER',25,'Gift','FireRed');
 addSpecial('MAP_CELADON_CITY_GAME_CORNER_PRIZE_ROOM','SPECIES_PINSIR',18,'Gift','LeafGreen');
-for(const item of ['ITEM_LUXURY_BALL','ITEM_BIG_PEARL','ITEM_PEARL','ITEM_STARDUST','ITEM_STAR_PIECE','ITEM_NUGGET','ITEM_RARE_CANDY']) addEventItem('MAP_FIVE_ISLAND_RESORT_GORGEOUS_HOUSE',item);
+const requireNpc = (mapId, x, y, scriptFragment) => {
+  if (!(sourceObjectsByMap.get(mapId) ?? []).some(event => event.x === x && event.y === y && event.script.includes(scriptFragment)))
+    throw new Error(`${mapId} resource location audit failed for ${scriptFragment}.`);
+};
+requireNpc('MAP_FIVE_ISLAND_RESORT_GORGEOUS_HOUSE', 4, 4, 'Selphy');
+area('MAP_FIVE_ISLAND_RESORT_GORGEOUS_HOUSE').resources.push({
+  name: "Selphy's reward", kind: 'Repeatable Pokémon request', x: 4, y: 4,
+  comment: "Complete Selphy's requested Pokémon showing before the 250-step deadline.",
+  rewards: [
+    ['ITEM_LUXURY_BALL', 70], ['ITEM_BIG_PEARL', 5], ['ITEM_PEARL', 5], ['ITEM_STARDUST', 5],
+    ['ITEM_STAR_PIECE', 5], ['ITEM_NUGGET', 5], ['ITEM_RARE_CANDY', 5]
+  ].map(([item, weight]) => ({ name: title(item), quantity: 1, weight }))
+});
+
+for (const [mapId, itemName, x, y, species] of [
+  ['MAP_ROUTE12_FISHING_HOUSE', 'Net Ball', 4, 4, 'Magikarp'],
+  ['MAP_SIX_ISLAND_WATER_PATH_HOUSE1', 'Nest Ball', 3, 4, 'Heracross']
+]) {
+  requireNpc(mapId, x, y, species === 'Magikarp' ? 'FishingGuruBrother' : 'Beauty');
+  const judgeArea = area(mapId);
+  const prizes = judgeArea.items.filter(item => item.kind === 'Event' && item.name === itemName);
+  if (prizes.length !== 1) throw new Error(`${mapId} size judge reward audit found ${prizes.length}; expected 1.`);
+  judgeArea.items = judgeArea.items.filter(item => !prizes.includes(item));
+  judgeArea.resources.push({ name: itemName, kind: 'Repeatable size record', x, y,
+    comment: `Awarded each time you beat your saved ${species} size record.` });
+}
+
+const allResources = [...areas.values()].flatMap(mapArea => mapArea.resources);
+const renewableHiddenCount = allResources.filter(resource => resource.kind === '1,500-step renewable hidden item').length;
+const displacedRewardNames = new Set(['Luxury Ball', 'Big Pearl', 'Pearl', 'Stardust', 'Star Piece', 'Nugget', 'Rare Candy']);
+const displacedRewards = [
+  ...area('MAP_FIVE_ISLAND_RESORT_GORGEOUS_HOUSE').items.filter(item => displacedRewardNames.has(item.name)),
+  ...area('MAP_ROUTE12_FISHING_HOUSE').items.filter(item => item.name === 'Net Ball'),
+  ...area('MAP_SIX_ISLAND_WATER_PATH_HOUSE1').items.filter(item => item.name === 'Nest Ball')
+];
+if (allResources.length !== 64 || renewableHiddenCount !== 61 || displacedRewards.length !== 0)
+  throw new Error(`FRLG resource audit found ${allResources.length} resources, ${renewableHiddenCount} renewable hidden items, and ${displacedRewards.length} displaced rewards.`);
 
 // Item and special-Pokémon deduplication is source-specific. Package finalization
 // combines equivalent encounter rows for every game package.
@@ -164,7 +210,7 @@ for (const a of areas.values()) {
   a.specialPokemon = [...new Map(a.specialPokemon.map(p => [[p.kind,p.speciesId,p.version].join('|'),p])).values()];
 }
 const excludedMaps = /(?:PROTOTYPE|UNUSED)|^MAP_(?:BATTLE_COLOSSEUM_[24]P|RECORD_CORNER|TRADE_CENTER|UNION_ROOM)$/;
-const hasRelevantData = a => a.encounters.length || a.items.length || a.specialPokemon.length;
+const hasRelevantData = a => a.encounters.length || a.items.length || a.resources.length || a.specialPokemon.length;
 const areaAliases = { MAP_SAFFRON_CITY_CONNECTION: 'MAP_SAFFRON_CITY' };
 const { worlds, mapAssets } = await renderFrlgMaps(source, assets, areaAliases);
 const rawAreas = [...areas.values()].filter(a => !excludedMaps.test(a.id) && !(a.id in areaAliases));
