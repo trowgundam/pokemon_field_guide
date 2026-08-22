@@ -334,13 +334,15 @@ Every draft encounter must include its raw source method and a normalized `type`
 
 The Game adapter must classify every source method. Package generation fails when `type` is missing or unknown. Add an `EncounterType` value and its exhaustive C# presentation mapping when a game introduces a genuinely new encounter category. Keep display labels and ordering out of generated JSON.
 
-Register the package's Checklist profile rules in `Program.cs`:
+Register the package's Checklist profile rules in `Program.AddChecklistProfileRules`:
 
 ```csharp
 builder.Services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("example"));
 ```
 
 The registration associates the package ID with the Local guide state module. The current package-specific v2-to-v3 transformations live in `PokemonFieldGuide/Services/ChecklistProgressMigrations.cs`; `Program.cs` only wires each package into that path. Do not add game-ID checks to `Home.razor`.
+
+The installed-package tests compare this startup registration set with `games/catalog.json`. Adding a catalog package without matching Checklist profile rules fails `just test` and `just check`.
 
 When a released package needs another progress version, extend the sequential switch in `IChecklistProfileRules.Restore`, add the package transformation to `ChecklistProgressMigrations`, and test both Local guide state restore and portable backup import. A new migration must preserve unrelated and unknown checklist IDs. The current implementation supports v1-to-v2 shape migration and package-specific v2-to-v3 ID migration. It does not contain a v3-to-v4 step.
 
