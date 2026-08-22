@@ -102,6 +102,33 @@
       ]
     },
     {
+      "id": "rs",
+      "name": "Pokémon Ruby / Sapphire",
+      "shortName": "R/S",
+      "pageTitle": "Pokémon Ruby / Sapphire | Pokemon Field Guide",
+      "atlasTitle": "Hoenn",
+      "loadingLabel": "LOADING HOENN",
+      "dataPath": "games/rs/data/fieldguide.json",
+      "pokedexPath": "games/rs/data/pokedex.json",
+      "worldsPath": "games/rs/data/worlds.json",
+      "pokemonSpritePath": "games/rs/sprites/pokemon",
+      "itemSpritePath": "games/rs/sprites/items",
+      "defaultAreaId": "MAP_LITTLEROOT_TOWN",
+      "defaultWorldId": "rs-hoenn",
+      "versions": [
+        { "id": "Ruby", "name": "Ruby", "progressVersion": 2, "accent": "#dc4b55", "accentSoft": "#57262c" },
+        { "id": "Sapphire", "name": "Sapphire", "progressVersion": 2, "accent": "#4776d9", "accentSoft": "#25375e" }
+      ],
+      "regions": [
+        { "id": "Hoenn", "name": "Hoenn", "worldId": "rs-hoenn" },
+        { "id": "Underwater", "name": "Underwater", "worldId": "rs-underwater" }
+      ],
+      "dexModes": [
+        { "id": "Hoenn", "name": "Hoenn", "regional": true },
+        { "id": "National", "name": "National", "regional": false }
+      ]
+    },
+    {
       "id": "frlg",
       "name": "Pokémon FireRed / LeafGreen",
       "shortName": "FRLG",
@@ -125,6 +152,32 @@
       ],
       "dexModes": [
         { "id": "Normal", "name": "Normal", "regional": true },
+        { "id": "National", "name": "National", "regional": false }
+      ]
+    },
+    {
+      "id": "emerald",
+      "name": "Pokémon Emerald",
+      "shortName": "Emerald",
+      "pageTitle": "Pokémon Emerald | Pokemon Field Guide",
+      "atlasTitle": "Hoenn",
+      "loadingLabel": "LOADING HOENN",
+      "dataPath": "games/emerald/data/fieldguide.json",
+      "pokedexPath": "games/emerald/data/pokedex.json",
+      "worldsPath": "games/emerald/data/worlds.json",
+      "pokemonSpritePath": "games/emerald/sprites/pokemon",
+      "itemSpritePath": "games/emerald/sprites/items",
+      "defaultAreaId": "MAP_LITTLEROOT_TOWN",
+      "defaultWorldId": "emerald-hoenn",
+      "versions": [
+        { "id": "Emerald", "name": "Emerald", "progressVersion": 2, "accent": "#36b96b", "accentSoft": "#214f35" }
+      ],
+      "regions": [
+        { "id": "Hoenn", "name": "Hoenn", "worldId": "emerald-hoenn" },
+        { "id": "Underwater", "name": "Underwater", "worldId": "emerald-underwater" }
+      ],
+      "dexModes": [
+        { "id": "Hoenn", "name": "Hoenn", "regional": true },
         { "id": "National", "name": "National", "regional": false }
       ]
     }
