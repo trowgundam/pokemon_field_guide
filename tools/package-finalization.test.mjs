@@ -498,6 +498,115 @@ test('retains transport destinations without contracting them into entrances', a
   assert.equal(fieldGuide.areas.find(area => area.id === 'AREA_OUTDOOR').transports[0].destinations[0].targetId, 'FRONTIER');
 });
 
+test('promotes a transport-only interior to its unique outdoor entrance', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await generatePackage({
+    gameId: 'test', webRoot, formatVersion: 3,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets);
+      const mapImage = draft.areas[0].mapImage;
+      draft.areas[0].entrances.push({
+        id: 'AREA_OUTDOOR:harbor', targetId: 'HARBOR', name: 'Harbor', x: 0, y: 0
+      });
+      draft.areas.push(
+        {
+          id: 'HARBOR', name: 'Harbor', region: 'Test', mapImage,
+          mapWidth: 16, mapHeight: 16, encounters: [], items: [], resources: [], specialPokemon: [],
+          entrances: [{ id: 'HARBOR:out', targetId: 'AREA_OUTDOOR', name: 'Outdoor', x: 0, y: 0 }],
+          transports: [{
+            id: 'HARBOR:ferry', name: 'Ferry', x: 0, y: 0,
+            destinations: [{ id: 'island', name: 'Island', targetId: 'ISLAND', version: 'Both' }]
+          }]
+        },
+        {
+          id: 'ISLAND', name: 'Island', region: 'Test', mapImage,
+          mapWidth: 16, mapHeight: 16, encounters: [],
+          items: [{ id: 'ISLAND:item', name: 'Item', kind: 'Visible', icon: draft.areas[0].items[0].icon, x: 0, y: 0, quantity: 1 }],
+          resources: [], specialPokemon: [], entrances: []
+        }
+      );
+      return draft;
+    }
+  });
+
+  const fieldGuide = JSON.parse(await fs.readFile(path.join(webRoot, 'games/test/data/fieldguide.json')));
+  const outdoor = fieldGuide.areas.find(area => area.id === 'AREA_OUTDOOR');
+  assert.equal(fieldGuide.areas.some(area => area.id === 'HARBOR'), false);
+  assert.deepEqual(outdoor.entrances, []);
+  assert.deepEqual(outdoor.transports, [{
+    id: 'HARBOR:ferry', name: 'Ferry', x: 0, y: 0,
+    destinations: [{ id: 'island', name: 'Island', targetId: 'ISLAND', version: 'Both' }]
+  }]);
+});
+
+test('keeps a transport interior that owns checklist content', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await generatePackage({
+    gameId: 'test', webRoot, formatVersion: 3,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets);
+      const mapImage = draft.areas[0].mapImage;
+      draft.areas[0].entrances.push({
+        id: 'AREA_OUTDOOR:harbor', targetId: 'HARBOR', name: 'Harbor', x: 0, y: 0
+      });
+      draft.areas.push({
+        id: 'HARBOR', name: 'Harbor', region: 'Test', mapImage,
+        mapWidth: 16, mapHeight: 16, encounters: [], resources: [], specialPokemon: [],
+        items: [{ id: 'HARBOR:item', name: 'Ticket', kind: 'Event', icon: draft.areas[0].items[0].icon, x: -1, y: -1, quantity: 1 }],
+        entrances: [{ id: 'HARBOR:out', targetId: 'AREA_OUTDOOR', name: 'Outdoor', x: 0, y: 0 }],
+        transports: [{
+          id: 'HARBOR:ferry', name: 'Ferry', x: 0, y: 0,
+          destinations: [{ id: 'return', name: 'Outdoor', targetId: 'AREA_OUTDOOR', version: 'Both' }]
+        }]
+      });
+      return draft;
+    }
+  });
+
+  const fieldGuide = JSON.parse(await fs.readFile(path.join(webRoot, 'games/test/data/fieldguide.json')));
+  assert(fieldGuide.areas.some(area => area.id === 'HARBOR'));
+  assert.equal(fieldGuide.areas.find(area => area.id === 'AREA_OUTDOOR').transports.length, 0);
+});
+
+test('keeps a transport-only interior with ambiguous outdoor entrances', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await generatePackage({
+    gameId: 'test', webRoot, formatVersion: 3,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets), mapImage = draft.areas[0].mapImage;
+      const secondOutdoor = {
+        id: 'AREA_OUTDOOR_2', name: 'Second Outdoor', region: 'Test', mapImage,
+        mapWidth: 16, mapHeight: 16, encounters: [], items: [], resources: [], specialPokemon: [], entrances: []
+      };
+      const harbor = {
+        id: 'HARBOR', name: 'Harbor', region: 'Test', mapImage,
+        mapWidth: 16, mapHeight: 16, encounters: [], items: [], resources: [], specialPokemon: [], entrances: [],
+        transports: [{
+          id: 'HARBOR:ferry', name: 'Ferry', x: 0, y: 0,
+          destinations: [{ id: 'return', name: 'Outdoor', targetId: 'AREA_OUTDOOR', version: 'Both' }]
+        }]
+      };
+      draft.areas.push(secondOutdoor, harbor);
+      draft.areas[0].entrances.push({ id: 'AREA_OUTDOOR:harbor', targetId: 'HARBOR', name: 'Harbor', x: 0, y: 0 });
+      secondOutdoor.entrances.push({ id: 'AREA_OUTDOOR_2:harbor', targetId: 'HARBOR', name: 'Harbor', x: 0, y: 0 });
+      draft.worlds[0].width = 32;
+      draft.worlds[0].maps.push({ id: 'AREA_OUTDOOR_2', x: 16, y: 0, width: 16, height: 16 });
+      return draft;
+    }
+  });
+
+  const fieldGuide = JSON.parse(await fs.readFile(path.join(webRoot, 'games/test/data/fieldguide.json')));
+  assert(fieldGuide.areas.some(area => area.id === 'HARBOR'));
+  assert.equal(fieldGuide.areas.find(area => area.id === 'AREA_OUTDOOR').transports.length, 0);
+  assert.equal(fieldGuide.areas.find(area => area.id === 'AREA_OUTDOOR_2').transports.length, 0);
+});
+
 test('rejects a hidden world without an inbound transport path', async t => {
   const webRoot = await fixture();
   t.after(() => fs.rm(webRoot, { recursive: true, force: true }));

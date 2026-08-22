@@ -21,6 +21,73 @@ const relevant = area => area.includeInNavigation === true
   || area.encounters.length + area.items.length + (area.resources?.length ?? 0)
     + area.specialPokemon.length + (area.transports?.length ?? 0) > 0;
 
+const hasGuideContent = area => area.includeInNavigation === true
+  || area.encounters.length + area.items.length + (area.resources?.length ?? 0)
+    + area.specialPokemon.length > 0;
+
+const entranceClusters = entrances => {
+  const clusters = [], bySource = new Map();
+  for (const entry of entrances) {
+    if (!bySource.has(entry.source.id)) bySource.set(entry.source.id, []);
+    bySource.get(entry.source.id).push(entry);
+  }
+  for (const sourceGroup of bySource.values()) {
+    const remaining = [...sourceGroup];
+    while (remaining.length) {
+      const cluster = [remaining.shift()];
+      for (let index = 0; index < cluster.length; index++) {
+        for (let candidate = remaining.length - 1; candidate >= 0; candidate--) {
+          if (Math.abs(cluster[index].entrance.x - remaining[candidate].entrance.x) > 1
+            || Math.abs(cluster[index].entrance.y - remaining[candidate].entrance.y) > 1) continue;
+          cluster.push(remaining[candidate]);
+          remaining.splice(candidate, 1);
+        }
+      }
+      clusters.push(cluster);
+    }
+  }
+  return clusters;
+};
+
+function promoteTransportOnlyInteriors(draft) {
+  const normalize = id => draft.areaAliases?.[id] ?? id;
+  const areasById = new Map(draft.areas.map(area => [area.id, area]));
+  const outdoorIds = new Set(draft.worlds.flatMap(world => world.maps.map(placement => normalize(placement.id))));
+  for (const area of draft.areas) {
+    if (outdoorIds.has(area.id) || hasGuideContent(area) || (area.transports?.length ?? 0) !== 1) continue;
+    const leadsToRelevantInterior = area.entrances.some(entrance => {
+      const targetId = normalize(entrance.targetId), target = areasById.get(targetId);
+      return target && !outdoorIds.has(targetId) && relevant(target);
+    });
+    if (leadsToRelevantInterior) continue;
+
+    const incoming = [];
+    for (const source of draft.areas) {
+      if (!outdoorIds.has(source.id)) continue;
+      for (const entrance of source.entrances) {
+        if (normalize(entrance.targetId) === area.id) incoming.push({ source, entrance });
+      }
+    }
+    const clusters = entranceClusters(incoming);
+    if (clusters.length !== 1) continue;
+    const cluster = clusters[0], source = cluster[0].source, transport = area.transports[0];
+    source.transports ??= [];
+    if (source.transports.some(existing => existing.id === transport.id))
+      throw new Error(`Transport promotion would duplicate '${transport.id}' in ${source.id}.`);
+    source.transports.push({
+      ...transport,
+      x: Math.floor(cluster.reduce((sum, entry) => sum + entry.entrance.x, 0) / cluster.length),
+      y: Math.floor(cluster.reduce((sum, entry) => sum + entry.entrance.y, 0) / cluster.length)
+    });
+    area.transports = [];
+    for (const destinationArea of draft.areas) for (const candidate of destinationArea.transports ?? []) {
+      for (const destination of candidate.destinations ?? []) {
+        if (normalize(destination.targetId) === area.id) destination.targetId = source.id;
+      }
+    }
+  }
+}
+
 const blank = value => typeof value !== 'string' || value.trim().length === 0;
 
 function validateResourceRelationships(gameId, area, resource) {
@@ -237,6 +304,7 @@ export function finalizeDraft(game, draft, formatVersion = 2) {
     areasById.set(area.id, area);
   }
   if (formatVersion !== 2 && formatVersion !== 3) throw new Error(`${game.id}: unsupported package manifest version ${formatVersion}.`);
+  if (formatVersion === 3) promoteTransportOnlyInteriors(draft);
   assertAllAreasReachWorld(game, draft.areas, draft.worlds, draft.areaAliases, 'draft');
   const normalizeAreaId = id => draft.areaAliases?.[id] ?? id;
   const outdoorIds = new Set(draft.worlds.flatMap(world => world.maps.map(placement => normalizeAreaId(placement.id))));

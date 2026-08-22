@@ -146,7 +146,7 @@ just generate-emerald /path/to/pokeemerald
 
 Ruby/Sapphire and Emerald have separate public generators, builders, dependency locks, artifact tests, and installed packages. They share GBA tileset rendering, source parsing, encounter normalization, renewable Hoenn resources, Pokédex construction, and sprite processing through `tools/gen3/`. Package-specific code owns version aliases, acquisitions, source map-type names, transports, dynamic cave entrances, worlds, and exact audits.
 
-Both packages expose Hoenn and Underwater as visible world layers. Southern Island is a disconnected Hoenn placement. Ruby/Sapphire's Battle Tower and Emerald's Battle Frontier are hidden worlds reached through S.S. Tidal transport markers. Emerald's event islands are interior graphs reached from the Lilycove ferry. Transport requirements are informational and never become checklist entries.
+Both packages expose Hoenn and Underwater as visible world layers. Ruby/Sapphire's Battle Tower and Emerald's Battle Frontier are hidden worlds reached through S.S. Tidal transport markers. Emerald's event islands and Southern Island are interior graphs reached from the Lilycove ferry. Package finalization promotes that ferry from the empty Lilycove Harbor to its entrance on Lilycove City. Transport requirements are informational and never become checklist entries.
 
 The renderer uses each map's base palette and first animation frame and does not add weather effects. Route 130 uses the Mirage Island layout. Both Shoal Cave tide layouts remain navigable. Ruby uses manifest-v3 interior map overrides for its Cave of Origin B4F and Seafloor Cavern Room 9 layouts; Sapphire uses the source map layouts.
 

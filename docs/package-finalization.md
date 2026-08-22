@@ -2,7 +2,9 @@
 
 Package finalization turns one game adapter's draft into a checked game package. It gives every current and future adapter the same package contract without teaching the shared module how any source project stores maps, encounters, palettes, or scripts.
 
-Before contraction, finalization starts from catalog-visible worlds and follows directed entrance and transport edges. Entering a world exposes all of its placements. Every draft area must be reachable, and every hidden world must have an inbound transport path. Adapters must omit unused, beta, debug, and inaccessible maps instead of relying on contraction to discard them. After contraction, package validation repeats the traversal over every retained area. Transport edges never participate in entrance contraction or interior-floor grouping.
+Before contraction, finalization promotes a sole transport from an otherwise irrelevant interior to its unique outdoor entrance. It rewrites inbound transport destinations to the outdoor area and then contracts the empty interior. Finalization does not promote a transport when the host has other guide content, leads to a relevant interior, has multiple transports, or has an ambiguous outdoor entrance.
+
+Finalization then starts from catalog-visible worlds and follows directed entrance and transport edges. Entering a world exposes all of its placements. Every draft area must be reachable, and every hidden world must have an inbound transport path. Adapters must omit unused, beta, debug, and inaccessible maps instead of relying on contraction to discard them. After contraction, package validation repeats the traversal over every retained area. Transport edges do not participate in interior-floor grouping.
 
 Finalization trusts each adapter's world boundary. It cannot infer that a detached placement should have been an interior. Adapters must build worlds from declared cardinal roots, treat source outdoor categories as eligibility only, and test that no undeclared disconnected component appears in `worlds.json`.
 
@@ -67,6 +69,7 @@ Package finalization owns every package invariant:
 - unique area, checklist, world, and Pokédex IDs;
 - unique transport and destination IDs;
 - deterministic encounter merging;
+- unambiguous transport-only interior promotion;
 - empty entrance-chain contraction and explicit `includeInNavigation` retention;
 - junction retention across relevant branches of unequal length;
 - missing-target rejection;
@@ -93,7 +96,7 @@ If any extraction, rendering, transformation, or package check fails, package fi
 
 ## Tests
 
-`node --test tools/package-finalization.test.mjs` uses real temporary directories. The tests cover complete replacement, conditional encounter tables, per-version sprite retention, manifest-v3 area maps, transport retention, hidden-world reachability, explicit empty-map navigation, unequal branch lengths, missing-target rejection, map and crop rejection, unused staged-asset removal, and preservation of an installed package after extraction or finalization fails. `just check` runs these tests before it checks the installed packages.
+`node --test tools/package-finalization.test.mjs` uses real temporary directories. The tests cover complete replacement, conditional encounter tables, per-version sprite retention, manifest-v3 area maps, transport retention and promotion, hidden-world reachability, explicit empty-map navigation, unequal branch lengths, missing-target rejection, map and crop rejection, unused staged-asset removal, and preservation of an installed package after extraction or finalization fails. `just check` runs these tests before it checks the installed packages.
 
 ## Synthesis decision
 

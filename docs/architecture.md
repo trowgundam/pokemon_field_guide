@@ -112,7 +112,7 @@ Outdoor areas are those referenced by any loaded `GuideWorld`. The Game package 
 
 Interior reachability is graph-based. An outdoor marker opens the nearest interior that contains encounters, items, resources, special Pokémon, transports, or an explicit `IncludeInNavigation` value. Once open, every connected non-outdoor area with guide data becomes a selectable floor. Package finalization contracts empty transition chains but retains a junction when distinct branches lead to relevant interiors, even when the branches have different lengths. Complete and correct source entrance edges are therefore essential for rooms that are omitted from the final package.
 
-Transport edges are deliberate jumps, not physical adjacency. They contribute to package reachability and can open an outdoor world or an interior component, but they never participate in entrance contraction or the interior floor graph. Catalog regions seed navigation. A world omitted from the region list must have an inbound transport path.
+Transport edges are deliberate jumps, not physical adjacency. They contribute to package reachability and can open an outdoor world or an interior component, but they do not join the interior floor graph. Package finalization promotes a sole transport from an otherwise irrelevant interior to its unique outdoor entrance. The original interior then contracts like any other empty transition map. Catalog regions seed navigation. A world omitted from the region list must have an inbound transport path.
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
 
