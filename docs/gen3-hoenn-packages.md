@@ -14,6 +14,8 @@ Route 130 renders the useful Mirage Island state. Shoal Cave retains low- and hi
 
 Maps use the first animation frame, base palette, and no weather overlay. Emerald battle sprites retain their source animation strips; Ruby/Sapphire sprites use their static source fronts. The generator makes each sprite's border-connected background transparent. Emerald renders source-native bag item graphics with each item's table-selected palette. The pinned Ruby/Sapphire source does not expose standalone bag item graphics or an item-icon table, so that package uses the item fallback.
 
+Both generators format Technical Machines as `TM<number> - <Move Name>`. A shared resolver reads the authoritative 50-entry TM ordering from each source project, maps Ruby/Sapphire's numbered constants and Emerald's move-named constants to the same representation, and supplies Emerald's numeric item-icon table key. Neither package reads data or assets from the other package's source checkout.
+
 ## Encounters and acquisitions
 
 Underwater wild tables use the dedicated `Underwater` encounter type. Feebas appears as a 50-percent conditional table for each rod on the six save-dependent Route 119 tiles; the ordinary fishing table supplies the other 50 percent. Each mass outbreak is another independently normalized conditional grass table. Emerald's nine Altering Cave configurations are separate event-state tables.

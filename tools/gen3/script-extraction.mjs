@@ -1,4 +1,5 @@
 import { displayName } from './display-names.mjs';
+import { gen3ItemName } from './technical-machines.mjs';
 
 export function preprocessRubySapphire(text, sapphire) {
   const output = [], stack = [];
@@ -50,7 +51,7 @@ export function extractScriptAcquisitions(work, { rubySapphire = false } = {}) {
         requestedSpecies: null
       });
       for (const match of version.text.matchAll(/\b(?:giveitem|additem)\s+(ITEM_[A-Z0-9_]+)(?:,\s*(\d+))?/g)) items.push({
-        name: displayName(match[1]), kind: 'Event', version: version.id, icon: 'question_mark.png', sourceItemId: match[1],
+        name: gen3ItemName(work, match[1]), kind: 'Event', version: version.id, icon: 'question_mark.png', sourceItemId: match[1],
         x: -1, y: -1, quantity: Number(match[2] ?? 1)
       });
     }

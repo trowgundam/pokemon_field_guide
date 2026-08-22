@@ -9,18 +9,6 @@ const itemIconTable = text => new Map([...text.matchAll(
   /\[(ITEM_[A-Z0-9_]+)\]\s*=\s*\{\s*(gItemIcon_[A-Za-z0-9_]+),\s*(gItemIconPalette_[A-Za-z0-9_]+)\s*\}/g
 )].map(match => [match[1], { graphic: match[2], palette: match[3] }]));
 
-function tmHmAliases(source) {
-  const text = fs.readFileSync(path.join(source, 'include/constants/tms_hms.h'), 'utf8'), aliases = new Map();
-  for (const [kind, count] of [['TM', 50], ['HM', 8]]) {
-    const start = text.indexOf(`#define FOREACH_${kind}(F)`);
-    const end = text.indexOf('\n\n', start);
-    const names = [...text.slice(start, end).matchAll(/F\(([A-Z0-9_]+)\)/g)].map(match => match[1]);
-    if (names.length !== count) throw new Error(`Emerald ${kind} alias audit found ${names.length}; expected ${count}.`);
-    names.forEach((name, index) => aliases.set(`ITEM_${kind}_${name}`, `ITEM_${kind}${String(index + 1).padStart(2, '0')}`));
-  }
-  return aliases;
-}
-
 function pngPalette(buffer) {
   const signature = '89504e470d0a1a0a';
   if (buffer.subarray(0, 8).toString('hex') !== signature) throw new Error('Item icon is not a PNG file.');
@@ -66,10 +54,10 @@ export async function registerEmeraldItemSprites(work, areas, assets, sharp) {
   const graphicsText = fs.readFileSync(path.join(work.source, 'src/data/graphics/items.h'), 'utf8');
   const tableText = fs.readFileSync(path.join(work.source, 'src/data/item_icon_table.h'), 'utf8');
   const definitions = definitionMap(graphicsText), table = itemIconTable(tableText);
-  const aliases = tmHmAliases(work.source), registered = new Map();
+  const registered = new Map();
   for (const item of areas.flatMap(area => area.items)) {
     if (!item.sourceItemId) throw new Error(`Emerald item '${item.id}' lacks its source item ID.`);
-    const association = table.get(aliases.get(item.sourceItemId) ?? item.sourceItemId);
+    const association = table.get(work.machineItemIds.get(item.sourceItemId) ?? item.sourceItemId);
     if (!association) throw new Error(`Emerald item icon table lacks ${item.sourceItemId}.`);
     const graphic = definitions.get(association.graphic), palette = definitions.get(association.palette);
     if (!graphic || !palette) throw new Error(`Emerald item icon definitions are incomplete for ${item.sourceItemId}.`);

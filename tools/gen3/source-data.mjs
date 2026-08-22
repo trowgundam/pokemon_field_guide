@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { displayName } from './display-names.mjs';
+import { readMachineItemIds, readTechnicalMachines } from './technical-machines.mjs';
 
 const itemBallFile = source => [
   'data/item_ball_scripts.inc',
@@ -44,6 +45,9 @@ const initialBerryTrees = source => {
 };
 
 export function readGen3Source({ source, versions }) {
+  const technicalMachines = readTechnicalMachines(source);
+  const machineItemIds = readMachineItemIds(source, technicalMachines);
+  const itemName = itemId => technicalMachines.get(itemId)?.name ?? displayName(itemId);
   const layouts = JSON.parse(fs.readFileSync(path.join(source, 'data/layouts/layouts.json'))).layouts;
   const layoutsById = new Map(layouts.map(layout => [layout.id, layout]));
   const globalItemScripts = fs.readFileSync(itemBallFile(source), 'utf8');
@@ -85,7 +89,7 @@ export function readGen3Source({ source, versions }) {
         const item = scriptItem(event.script);
         if (item) area.items.push({
           id: `${map.id}:visible:${event.x}:${event.y}`,
-          name: displayName(item), kind: 'Visible', version: 'Both', icon: 'question_mark.png', sourceItemId: item,
+          name: itemName(item), kind: 'Visible', version: 'Both', icon: 'question_mark.png', sourceItemId: item,
           x: event.x, y: event.y, quantity: 1
         });
       }
@@ -101,7 +105,7 @@ export function readGen3Source({ source, versions }) {
     }
     for (const event of map.bg_events ?? []) if (event.type === 'hidden_item') area.items.push({
       id: `${map.id}:hidden:${event.x}:${event.y}`,
-      name: displayName(event.item), kind: 'Hidden', version: 'Both', icon: 'question_mark.png', sourceItemId: event.item,
+      name: itemName(event.item), kind: 'Hidden', version: 'Both', icon: 'question_mark.png', sourceItemId: event.item,
       x: event.x, y: event.y, quantity: event.quantity ?? 1
     });
     areas.set(map.id, area);
@@ -137,7 +141,7 @@ export function readGen3Source({ source, versions }) {
     }
   }
   for (const area of areas.values()) area.encounters = mergeVersionRows(area.encounters, versions);
-  return { source, versions, areas, sourceMaps, layouts, layoutsById };
+  return { source, versions, areas, sourceMaps, layouts, layoutsById, technicalMachines, machineItemIds };
 }
 
 export function addFeebasEncounters(work) {
