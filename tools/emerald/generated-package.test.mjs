@@ -37,11 +37,15 @@ test('Emerald exposes Hoenn, Underwater, and the transport-only Battle Frontier'
     'MAP_MT_PYRE_SUMMIT', 'MAP_SKY_PILLAR_OUTSIDE', 'MAP_SKY_PILLAR_TOP', 'MAP_SOOTOPOLIS_CITY',
     'MAP_SOUTHERN_ISLAND_EXTERIOR', 'MAP_SOUTHERN_ISLAND_INTERIOR', 'MAP_SAFARI_ZONE_SOUTH'
   ]) assert.equal(worldAreaIds('emerald-hoenn').has(id), false, `${id} belongs behind an entrance or transport`);
-  const destinations = areas.get('MAP_LILYCOVE_CITY_HARBOR').transports[0].destinations;
+  assert.equal(areas.has('MAP_LILYCOVE_CITY_HARBOR'), false);
+  const lilycoveTransport = areas.get('MAP_LILYCOVE_CITY').transports[0];
+  assert.deepEqual({ x: lilycoveTransport.x, y: lilycoveTransport.y }, { x: 12, y: 32 });
+  const destinations = lilycoveTransport.destinations;
   assert.deepEqual(destinations.map(destination => destination.name), [
     'Battle Frontier', 'Southern Island', 'Navel Rock', 'Birth Island', 'Faraway Island'
   ]);
   assert.equal(fieldGuide.areas.some(area => area.id.includes('PROTOTYPE')), false);
+  assert.equal(areas.get('MAP_SLATEPORT_CITY_HARBOR').transports.length, 1);
 });
 
 test('Emerald keeps disconnected source maps behind navigation markers', () => {

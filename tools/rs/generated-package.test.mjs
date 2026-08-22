@@ -32,8 +32,12 @@ test('Ruby/Sapphire exposes Hoenn, Underwater, and ferry-only worlds', () => {
     'MAP_SOUTHERN_ISLAND_EXTERIOR', 'MAP_SOUTHERN_ISLAND_INTERIOR', 'MAP_SAFARI_ZONE_SOUTHEAST'
   ]) assert.equal(worldAreaIds('rs-hoenn').has(id), false, `${id} belongs behind an entrance or transport`);
   assert.equal(worlds.find(world => world.id === 'rs-battle-tower').maps.length, 1);
-  assert(areas.get('MAP_LILYCOVE_CITY_HARBOR').transports[0].destinations
+  assert.equal(areas.has('MAP_LILYCOVE_CITY_HARBOR'), false);
+  const lilycoveTransport = areas.get('MAP_LILYCOVE_CITY').transports[0];
+  assert.deepEqual({ x: lilycoveTransport.x, y: lilycoveTransport.y }, { x: 12, y: 32 });
+  assert(lilycoveTransport.destinations
     .some(destination => destination.targetId === 'MAP_SOUTHERN_ISLAND_EXTERIOR' && destination.requirement === 'Eon Ticket'));
+  assert.equal(areas.get('MAP_SLATEPORT_CITY_HARBOR').transports.length, 1);
   assert.equal(fieldGuide.areas.some(area => area.id.includes('PROTOTYPE')), false);
 });
 

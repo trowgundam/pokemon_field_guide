@@ -26,9 +26,9 @@ Emerald's Battle Pike and Battle Pyramid rental or temporary encounters are excl
 
 ## Transports
 
-An S.S. Tidal marker opens a destination chooser. Ruby/Sapphire exposes the Battle Tower and Southern Island. Emerald exposes the Battle Frontier, Southern Island, Navel Rock, Birth Island, and Faraway Island. Each destination names its ticket or story requirement, but requirements do not lock navigation or create checklist entries. Every event destination includes its source return ferry.
+An S.S. Tidal marker on Lilycove City opens a destination chooser. Package finalization promotes it from the otherwise empty Lilycove Harbor to the city's harbor entrance. Ruby/Sapphire exposes the Battle Tower and Southern Island. Emerald exposes the Battle Frontier, Southern Island, Navel Rock, Birth Island, and Faraway Island. Each destination names its ticket or story requirement, but requirements do not lock navigation or create checklist entries. Every event destination includes its source return ferry.
 
-Transports contribute directed reachability without joining interior floor graphs or entrance contraction. Emerald's changing Terra Cave entrances remain physical entrance markers at all eight possible route coordinates. Marine Cave and Seafloor Cavern use explicit emerge or dive edges because the source implements those transitions dynamically rather than as ordinary map warps.
+Transports contribute directed reachability without joining interior floor graphs. Emerald's changing Terra Cave entrances remain physical entrance markers at all eight possible route coordinates. Marine Cave and Seafloor Cavern use explicit emerge or dive edges because the source implements those transitions dynamically rather than as ordinary map warps.
 
 ## Renewable resources
 
