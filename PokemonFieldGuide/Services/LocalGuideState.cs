@@ -71,7 +71,7 @@ internal interface IChecklistProfileRules
         var profile = storedVersion switch
         {
             1 => ChecklistProfileData.FromV1(source),
-            2 => ChecklistProfileData.FromV2(source),
+            >= 2 => ChecklistProfileData.FromV2(source),
             _ => throw new InvalidOperationException($"The {versionId} checklist profile uses unsupported version {storedVersion}.")
         };
 
@@ -80,6 +80,7 @@ internal interface IChecklistProfileRules
             profile = storedVersion switch
             {
                 1 => profile,
+                2 => MigrateFromVersion2(versionId, profile),
                 _ => throw new InvalidOperationException($"No migration exists for {versionId} checklist data from v{storedVersion} to v{storedVersion + 1}.")
             };
             storedVersion++;
@@ -87,11 +88,17 @@ internal interface IChecklistProfileRules
 
         return profile;
     }
+
+    ChecklistProfileData MigrateFromVersion2(string versionId, ChecklistProfileData profile) =>
+        throw new InvalidOperationException($"No migration exists for {versionId} checklist data from v2 to v3.");
 }
 
 internal sealed class GamePackageChecklistProfileRules(string packageId) : IChecklistProfileRules
 {
     public string PackageId { get; } = packageId;
+
+    public ChecklistProfileData MigrateFromVersion2(string versionId, ChecklistProfileData profile) =>
+        ChecklistProgressMigrations.FromVersion2(PackageId, profile);
 }
 
 internal sealed class LocalGuideStateModule(

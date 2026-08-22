@@ -307,11 +307,29 @@ public sealed class GamePackageTests
             "AREA",
             "Area",
             items: [Item("Potion", "Visible")],
-            resources: [new GuideMapResource { Name = "Blue Apricorn", Kind = "Weekly harvest", X = 4, Y = 6 }]));
+            resources:
+            [
+                new GuideMapResource
+                {
+                    Name = "Contest prize",
+                    Kind = "Weekly harvest",
+                    Comment = "Speak to the judge after the contest.",
+                    X = 4,
+                    Y = 6,
+                    Rewards =
+                    [
+                        new GuideResourceReward { Name = "Sun Stone", Quantity = 1, Comment = "First place." },
+                        new GuideResourceReward { Name = "Everstone", Quantity = 1, Comment = "Second place." }
+                    ]
+                }
+            ]));
         fixture.Worlds.Add(World("world", "AREA"));
         var package = await fixture.LoadAsync();
 
         var area = Assert.Single(package.SearchAreas("Weekly", "Red"));
+        Assert.Same(area, Assert.Single(package.SearchAreas("judge", "Red")));
+        Assert.Same(area, Assert.Single(package.SearchAreas("Sun Stone", "Red")));
+        Assert.Same(area, Assert.Single(package.SearchAreas("Second place", "Red")));
         var checklist = package.AreaChecklist(area, "Red");
 
         Assert.Equal(["item:Potion"], checklist.ItemIds);

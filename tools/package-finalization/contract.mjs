@@ -20,6 +20,41 @@ const walk = (value, visit) => {
 const relevant = area => area.includeInNavigation === true
   || area.encounters.length + area.items.length + (area.resources?.length ?? 0) + area.specialPokemon.length > 0;
 
+const blank = value => typeof value !== 'string' || value.trim().length === 0;
+
+function validateResourceRelationships(gameId, area, resource) {
+  const x = resource.x * 16 + 8, y = resource.y * 16 + 8;
+  if (Number.isInteger(resource.x) && Number.isInteger(resource.y)
+    && (x < 0 || y < 0 || x >= area.mapWidth || y >= area.mapHeight))
+    throw new Error(`${gameId}: ${area.id} map resource '${resource.name}' falls outside its area map.`);
+
+  const rewards = resource.rewards ?? [];
+  if (!Array.isArray(rewards)) return;
+  const weighted = rewards.filter(reward => reward.weight !== undefined && reward.weight !== null).length;
+  if (weighted > 0 && weighted < rewards.length)
+    throw new Error(`${gameId}: ${area.id} map resource '${resource.name}' mixes weighted and conditional rewards.`);
+  for (const reward of rewards) {
+    if (rewards.length && weighted === 0 && blank(reward.comment))
+      throw new Error(`${gameId}: ${area.id} map resource '${resource.name}' has a conditional reward without a comment.`);
+  }
+}
+
+const projectResource = resource => ({
+  name: resource.name,
+  kind: resource.kind,
+  x: resource.x,
+  y: resource.y,
+  ...(!Object.hasOwn(resource, 'comment') ? {} : { comment: resource.comment }),
+  ...(!Object.hasOwn(resource, 'rewards') ? {} : {
+    rewards: Array.isArray(resource.rewards) ? resource.rewards.map(reward => ({
+      name: reward.name,
+      quantity: reward.quantity,
+      ...(!Object.hasOwn(reward, 'weight') ? {} : { weight: reward.weight }),
+      ...(!Object.hasOwn(reward, 'comment') ? {} : { comment: reward.comment })
+    })) : resource.rewards
+  })
+});
+
 const assertAllAreasReachWorld = (gameId, areas, worlds, aliases, phase) => {
   const normalize = id => aliases?.[id] ?? id;
   const areasById = new Map(areas.map(area => [area.id, area]));
@@ -201,7 +236,10 @@ export function finalizeDraft(game, draft) {
       return { ...encounter };
     }),
     items: area.items.map(item => ({ ...item, icon: isAsset(item.icon, 'item') ? item.icon.fileName : item.icon })),
-    resources: (area.resources ?? []).map(resource => ({ ...resource })),
+    resources: (area.resources ?? []).map(resource => {
+      validateResourceRelationships(game.id, area, resource);
+      return projectResource(resource);
+    }),
     specialPokemon: area.specialPokemon.map(mon => {
       if (mon.version !== 'Both' && !versions.has(mon.version)) throw new Error(`${game.id}: invalid version '${mon.version}' in ${area.id}.`);
       return { ...mon };
@@ -291,11 +329,7 @@ export async function checkPackage(game, packageRoot) {
       checklistIds.add(row.id);
     }
     for (const resource of area.resources ?? []) {
-      if (!resource.name || !resource.kind) throw new Error(`${game.id}: ${area.id} has a map resource without a name or kind.`);
-      const x = resource.x * 16 + 8, y = resource.y * 16 + 8;
-      if (!Number.isInteger(resource.x) || !Number.isInteger(resource.y)
-        || x < 0 || y < 0 || x >= area.mapWidth || y >= area.mapHeight)
-        throw new Error(`${game.id}: ${area.id} map resource '${resource.name}' falls outside its area map.`);
+      validateResourceRelationships(game.id, area, resource);
     }
     for (const row of [...(area.encounters ?? []), ...(area.specialPokemon ?? [])])
       if (row.version !== 'Both' && !versions.has(row.version)) throw new Error(`${game.id}: invalid version '${row.version}' in ${area.id}.`);
