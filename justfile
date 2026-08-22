@@ -114,8 +114,13 @@ install-crystal-tools: install-schema-tools
 install-schema-tools:
     npm ci --prefix tools/package-schema
 
+# Check contributor documentation without restoring application dependencies.
+check-docs:
+    node --test tools/check-docs.test.mjs
+    node tools/check-docs.mjs
+
 # Check generator syntax and compile the application.
-check: install-schema-tools
+check: check-docs install-schema-tools
     dotnet run --project {{schema_project}} -- --check
     node --test tools/package-schema/validate.test.mjs
     node --test tools/package-finalization.test.mjs

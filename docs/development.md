@@ -4,8 +4,8 @@
 
 - The exact .NET SDK selected by `global.json`
 - `just` for the supported command shortcuts
-- A Node.js version compatible with `tools/frlg/package.json` when regenerating FRLG data
-- The locked Node dependencies installed by `npm ci` when rendering FRLG maps
+- Node.js 20.9 or later for documentation checks, generated-data validation, and package generation
+- The locked Node dependencies installed by each package-generation recipe when regenerating a package
 - A compatible `pret/pokefirered` checkout for FRLG regeneration
 - A compatible `pret/pokered` checkout for Red/Blue regeneration
 - A compatible `pret/pokeyellow` checkout for Yellow regeneration
@@ -24,6 +24,7 @@ just run
 just test
 just publish
 just check
+just check-docs
 just generate-schemas
 ```
 
@@ -31,9 +32,11 @@ Run `just --list` to see all supported recipes. The recipes deliberately restore
 
 Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `packages.lock.json` pins the complete NuGet graph, each Node tool has a package lock, and the deployment workflow pins actions by commit SHA. Node itself only has a minimum compatibility requirement; it is not locked to a particular release. Dependency upgrades should be isolated, reviewed changes that update the corresponding manifests and lock files together.
 
-Always build after changing Razor, C#, JavaScript, CSS, generated JSON, or deployment configuration.
+Run `just check` after changing Razor, C#, JavaScript, CSS, generated JSON, schemas, tooling, or deployment configuration. Run `just check-docs` for a documentation-only change.
 
-`just test` exercises Game package assembly and Local guide state behavior. The Local guide state tests cover migration, recovery, atomic writes, queued changes, backup v2, partial import, selective reset, and special-acquisition provenance. `just check` verifies schema drift, validates every generated JSON document, runs the package-finalization tests, and validates every registered package. The package checks cover configured paths, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, exact map and sprite use, and directed reachability from world warps for every area.
+`just check-docs` verifies local Markdown links and anchors, documentation-index coverage, documented `just` recipes, and package resource counts. It has no application or package-generation dependencies. Pull requests run this command even when the full validation is skipped for a documentation-only change.
+
+`just test` exercises Game package assembly and Local guide state behavior. The Local guide state tests cover migration, recovery, atomic writes, queued changes, backup v2, partial import, selective reset, and special-acquisition provenance. `just check` includes `just check-docs`, verifies schema drift, validates every generated JSON document, runs the package-finalization tests, and validates every registered package. The package checks cover configured paths, unique area, checklist, and Pokédex IDs, entrance and world references, version values, per-version availability, encounter-table probabilities, exact map and sprite use, and directed reachability from world warps for every area.
 
 `PokemonFieldGuide.Shared.Contracts` owns runtime JSON formats. After changing one of those C# types, run `just generate-schemas` and commit the schema diff. See [JSON contracts](json-contracts.md).
 
