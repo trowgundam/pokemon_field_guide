@@ -119,6 +119,7 @@ export function finishAreas(work, areas, mapAssets) {
     if (!area.mapImage) throw new Error(`${area.id} lacks rendered layout ${area.mapLayout}.`);
     area.specialPokemon = [...new Map(area.specialPokemon.map(pokemon => [pokemon.id, pokemon])).values()];
     area.items = [...new Map(area.items.map(item => [item.id, item])).values()];
+    for (const item of area.items) delete item.sourceItemId;
     delete area.mapLayout; delete area.scripts;
   }
   return areas.sort((left, right) => left.region.localeCompare(right.region) || left.name.localeCompare(right.name));

@@ -50,7 +50,7 @@ export function extractScriptAcquisitions(work, { rubySapphire = false } = {}) {
         requestedSpecies: null
       });
       for (const match of version.text.matchAll(/\b(?:giveitem|additem)\s+(ITEM_[A-Z0-9_]+)(?:,\s*(\d+))?/g)) items.push({
-        name: displayName(match[1]), kind: 'Event', version: version.id, icon: 'question_mark.png',
+        name: displayName(match[1]), kind: 'Event', version: version.id, icon: 'question_mark.png', sourceItemId: match[1],
         x: -1, y: -1, quantity: Number(match[2] ?? 1)
       });
     }

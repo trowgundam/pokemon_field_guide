@@ -5,6 +5,7 @@ import { addFeebasEncounters, addHoennRenewableResources, addMassOutbreaks, read
 import { renderGen3Maps } from '../gen3/map-rendering.mjs';
 import { addSpecial, extractScriptAcquisitions } from '../gen3/script-extraction.mjs';
 import { buildPokedex, finishAreas, registerPokemonSprites, selectReachableAreas } from '../gen3/package-building.mjs';
+import { registerEmeraldItemSprites } from '../gen3/item-sprites.mjs';
 import { realizeGen3Topology } from '../gen3/world-topology.mjs';
 
 const versions = [{ id: 'Emerald' }];
@@ -98,6 +99,7 @@ export async function buildEmeraldPackage({ source, assets, sharp }) {
     { id: 'emerald-battle-frontier', name: 'Battle Frontier', eligibleMapIds: [...frontierMaps], roots: [{ id: 'MAP_BATTLE_FRONTIER_OUTSIDE_WEST' }] }
   ], excluded);
   const areas = selectReachableAreas(work, worlds, excluded);
+  await registerEmeraldItemSprites(work, areas, assets, sharp);
   finishAreas(work, areas, rendered.mapAssets);
   const pokedex = buildPokedex(work, areas);
   const { pokemonSprites, pokemonFallback } = await registerPokemonSprites(work, pokedex, assets, sharp, true);
