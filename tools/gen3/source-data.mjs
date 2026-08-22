@@ -85,7 +85,7 @@ export function readGen3Source({ source, versions }) {
         const item = scriptItem(event.script);
         if (item) area.items.push({
           id: `${map.id}:visible:${event.x}:${event.y}`,
-          name: displayName(item), kind: 'Visible', version: 'Both', icon: 'question_mark.png',
+          name: displayName(item), kind: 'Visible', version: 'Both', icon: 'question_mark.png', sourceItemId: item,
           x: event.x, y: event.y, quantity: 1
         });
       }
@@ -101,7 +101,7 @@ export function readGen3Source({ source, versions }) {
     }
     for (const event of map.bg_events ?? []) if (event.type === 'hidden_item') area.items.push({
       id: `${map.id}:hidden:${event.x}:${event.y}`,
-      name: displayName(event.item), kind: 'Hidden', version: 'Both', icon: 'question_mark.png',
+      name: displayName(event.item), kind: 'Hidden', version: 'Both', icon: 'question_mark.png', sourceItemId: event.item,
       x: event.x, y: event.y, quantity: event.quantity ?? 1
     });
     areas.set(map.id, area);

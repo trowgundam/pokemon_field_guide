@@ -110,3 +110,17 @@ test('Emerald lists both valid outcomes of the roaming Eon choice', () => {
       .some(pokemon => pokemon.speciesId === speciesId && pokemon.kind === 'Static'));
   }
 });
+
+test('Emerald uses source-native item sprites and item-specific palettes', () => {
+  const items = fieldGuide.areas.flatMap(area => area.items);
+  const potion = items.find(item => item.name === 'Potion');
+  const hyperPotion = items.find(item => item.name === 'Hyper Potion');
+  assert(potion && hyperPotion);
+  assert.notEqual(potion.icon, 'question_mark.png');
+  assert.notEqual(hyperPotion.icon, 'question_mark.png');
+  assert.notEqual(potion.icon, hyperPotion.icon);
+  const spriteRoot = path.resolve('PokemonFieldGuide/wwwroot/games/emerald/sprites/items');
+  assert(fs.existsSync(path.join(spriteRoot, potion.icon)));
+  assert(fs.existsSync(path.join(spriteRoot, hyperPotion.icon)));
+  assert.notDeepEqual(fs.readFileSync(path.join(spriteRoot, potion.icon)), fs.readFileSync(path.join(spriteRoot, hyperPotion.icon)));
+});

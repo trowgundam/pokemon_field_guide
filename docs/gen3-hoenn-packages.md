@@ -12,7 +12,7 @@ Hoenn contains 49 placements rooted at Littleroot Town. Ruby/Sapphire's Underwat
 
 Route 130 renders the useful Mirage Island state. Shoal Cave retains low- and high-tide maps in its interior navigation graph. Ruby and Sapphire differ inside Cave of Origin B4F and Seafloor Cavern Room 9. Manifest v3 stores complete Ruby image descriptors for those two interiors while Sapphire uses each area's base descriptor. Outdoor version overrides remain prohibited because they would invalidate connected-world placement geometry.
 
-Maps use the first animation frame, base palette, and no weather overlay. Emerald battle sprites retain their source animation strips; Ruby/Sapphire sprites use their static source fronts. The generator makes each sprite's border-connected background transparent. Standalone bag item sprites are unavailable in these source projects, so both packages use the item fallback.
+Maps use the first animation frame, base palette, and no weather overlay. Emerald battle sprites retain their source animation strips; Ruby/Sapphire sprites use their static source fronts. The generator makes each sprite's border-connected background transparent. Emerald renders source-native bag item graphics with each item's table-selected palette. The pinned Ruby/Sapphire source does not expose standalone bag item graphics or an item-icon table, so that package uses the item fallback.
 
 ## Encounters and acquisitions
 

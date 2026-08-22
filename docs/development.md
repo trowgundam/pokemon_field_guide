@@ -148,6 +148,8 @@ Ruby/Sapphire and Emerald have separate public generators, builders, dependency 
 
 Both packages expose Hoenn and Underwater as visible world layers. Ruby/Sapphire's Battle Tower and Emerald's Battle Frontier are hidden worlds reached through S.S. Tidal transport markers. Emerald's event islands and Southern Island are interior graphs reached from the Lilycove ferry. Package finalization promotes that ferry from the empty Lilycove Harbor to its entrance on Lilycove City. Transport requirements are informational and never become checklist entries.
 
+Emerald renders bag item graphics with the palette selected by its source item-icon table. The pinned Ruby/Sapphire source does not expose standalone bag item graphics or the matching item-icon table, so Ruby/Sapphire retains the item fallback.
+
 The renderer uses each map's base palette and first animation frame and does not add weather effects. Route 130 uses the Mirage Island layout. Both Shoal Cave tide layouts remain navigable. Ruby uses manifest-v3 interior map overrides for its Cave of Origin B4F and Seafloor Cavern Room 9 layouts; Sapphire uses the source map layouts.
 
 The generators retain Feebas's six save-dependent tiles and mass outbreaks as conditional encounter tables. Emerald also retains all nine Altering Cave states. Berry plots, eight daily berry gifts, and eight tide-reset Shoal Salt or Shoal Shell pickups are resources rather than checklist items. Direct-distribution-only species have `Event distribution` Pokédex availability without a fabricated map location.
