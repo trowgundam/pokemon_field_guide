@@ -129,6 +129,8 @@ The storage key remains `frlg-field-guide-v1` for compatibility. Despite its his
 
 Checklist profiles are keyed as `<game-id>:<version-id>`, preventing collisions between packages with similarly named versions. Selected versions and Pokédex modes are remembered per package. Theme and sprite-animation preferences are global.
 
+Every installed catalog package has one `IChecklistProfileRules` registration in the startup service collection. Restore and portable backup import use this registration set to recognize installed profiles and apply package migrations. Tests compare the registration set with `games/catalog.json` so a newly installed package cannot omit this persistence wiring.
+
 The browser-local envelope remains format v1. Each profile has an independent schema version keyed by the same composite key. The catalog version's `progressVersion` declares the target. This lets one game evolve without forcing unrelated profiles or shared assets to change version. Unversioned data is unsupported.
 
 `LocalGuideSession` exposes an immutable snapshot and intent-named changes. It queues changes within one browser tab. Every change builds a proposed document, writes it through the browser storage adapter, and publishes the snapshot only after the write succeeds. A failed write leaves the page and browser storage on the prior state.
