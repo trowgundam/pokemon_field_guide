@@ -4,7 +4,7 @@ namespace PokemonFieldGuide.Services;
 
 public sealed class GamePackage
 {
-    private readonly PackageManifest manifest;
+    private readonly PackageManifestData manifest;
     private readonly IReadOnlyList<GuideArea> areas;
     private readonly IReadOnlyList<PokedexEntry> pokedex;
     private readonly IReadOnlyList<GuideWorld> worlds;
@@ -18,6 +18,16 @@ public sealed class GamePackage
         List<PokedexEntry> pokedex,
         List<GuideWorld> worlds,
         PackageManifest manifest)
+        : this(definition, fieldGuide, pokedex, worlds, PackageManifestData.From(manifest))
+    {
+    }
+
+    internal GamePackage(
+        GameDefinition definition,
+        FieldGuideData fieldGuide,
+        List<PokedexEntry> pokedex,
+        List<GuideWorld> worlds,
+        PackageManifestData manifest)
     {
         Definition = definition;
         if (definition.Versions.Any(version => version.ProgressVersion < 1))
@@ -28,10 +38,6 @@ public sealed class GamePackage
         areas = fieldGuide.Areas.AsReadOnly();
         this.pokedex = pokedex.AsReadOnly();
         this.worlds = worlds.AsReadOnly();
-        if (manifest.FormatVersion != 2)
-        {
-            throw new InvalidOperationException($"The {definition.Name} package manifest format v{manifest.FormatVersion} is not supported.");
-        }
         this.manifest = manifest;
         areasById = areas.ToDictionary(area => area.Id);
         worldsById = worlds.ToDictionary(world => world.Id);
@@ -52,6 +58,11 @@ public sealed class GamePackage
     public GuideArea? Area(string id) => areasById.GetValueOrDefault(NormalizeAreaId(id));
 
     public GuideWorld? World(string id) => worldsById.GetValueOrDefault(id);
+
+    public string WorldName(GuideWorld world) =>
+        world.Name
+        ?? Definition.Regions.FirstOrDefault(region => region.WorldId == world.Id)?.Name
+        ?? world.Id;
 
     public GuideWorld? WorldForArea(string areaId)
     {
@@ -77,14 +88,18 @@ public sealed class GamePackage
             .Where(area => area.MapImage is not null &&
                 (Matches(area.Name)
                  || Matches(area.Region)
-                 || area.Items.Any(item => Matches(item.Name) || Matches(item.Kind))
+                 || ItemsFor(area, versionId).Any(item => Matches(item.Name) || Matches(item.Kind))
                  || area.Resources.Any(resource => Matches(resource.Name)
                      || Matches(resource.Kind)
                      || Matches(resource.Comment)
                      || resource.Rewards.Any(reward => Matches(reward.Name) || Matches(reward.Comment)))
                  || EncountersFor(area, versionId).Any(encounter => Matches(encounter.Species) || Matches(encounter.Method))
                  || SpecialPokemonFor(area, versionId).Any(mon => Matches(mon.Species) || Matches(mon.Kind) || Matches(mon.RequestedSpecies))
-                 || area.Entrances.Any(entrance => Matches(entrance.Name))))
+                 || area.Entrances.Any(entrance => Matches(entrance.Name))
+                 || TransportsFor(area, versionId).Any(transport =>
+                     Matches(transport.Name)
+                     || transport.Destinations.Any(destination =>
+                         Matches(destination.Name) || Matches(destination.Requirement)))))
             .OrderBy(area => NaturalKey(area.Name))
             .ToList();
     }
@@ -181,8 +196,11 @@ public sealed class GamePackage
                 table.Encounters))
             .ToList();
 
-    public IReadOnlyList<ItemGroup> ItemGroups(GuideArea area) =>
-        area.Items
+    public IReadOnlyList<GuideItem> ItemsFor(GuideArea area, string versionId) =>
+        area.Items.Where(item => item.Version == "Both" || item.Version == versionId).ToList();
+
+    public IReadOnlyList<ItemGroup> ItemGroups(GuideArea area, string versionId) =>
+        ItemsFor(area, versionId)
             .GroupBy(item => item.Kind)
             .OrderBy(group => ItemGroupOrder(group.Key))
             .Select(group => new ItemGroup(group.Key, group.ToList()))
@@ -200,7 +218,38 @@ public sealed class GamePackage
             .Select(encounter => encounter.SpeciesId)
             .Concat(SpecialPokemonFor(area, versionId).Select(mon => mon.SpeciesId))
             .ToHashSet(),
-        area.Items.Select(item => item.Id).ToHashSet());
+        ItemsFor(area, versionId).Select(item => item.Id).ToHashSet());
+
+    public AreaMapDescriptor? AreaMap(GuideArea area, string versionId)
+    {
+        var areaId = NormalizeAreaId(area.Id);
+        if (manifest.AreaMapsByVersion.GetValueOrDefault(versionId)?.GetValueOrDefault(areaId) is { } versionMap)
+        {
+            return versionMap;
+        }
+
+        return area.MapImage is null
+            ? null
+            : new AreaMapDescriptor { Image = area.MapImage, Width = area.MapWidth, Height = area.MapHeight };
+    }
+
+    public IReadOnlyList<DisplayTransport> TransportsFor(GuideArea area, string versionId) =>
+        area.Transports
+            .Select(transport => new DisplayTransport(
+                transport.Id,
+                transport.Name,
+                transport.X,
+                transport.Y,
+                transport.Destinations
+                    .Where(destination => destination.Version == "Both" || destination.Version == versionId)
+                    .Select(destination => new DisplayTransportDestination(
+                        destination.Id,
+                        destination.Name,
+                        NormalizeAreaId(destination.TargetId),
+                        destination.Requirement))
+                    .ToList()))
+            .Where(transport => transport.Destinations.Count > 0)
+            .ToList();
 
     public IReadOnlyList<PokedexResult> SearchPokedex(string dexModeId, string versionId, string search)
     {
@@ -298,7 +347,8 @@ public sealed class GamePackage
     };
 
     private static bool IsRelevant(GuideArea area) =>
-        area.IncludeInNavigation || area.Items.Count + area.Resources.Count + area.SpecialPokemon.Count + area.Encounters.Count > 0;
+        area.IncludeInNavigation
+        || area.Items.Count + area.Resources.Count + area.SpecialPokemon.Count + area.Encounters.Count + area.Transports.Count > 0;
 
     private static IReadOnlyList<EncounterTable> CollapseEquivalentTimeTables(IEnumerable<Encounter> encounters)
     {
@@ -437,6 +487,13 @@ public sealed class GamePackage
 }
 
 public sealed record DisplayEntrance(string TargetId, string Name, double X, double Y);
+public sealed record DisplayTransport(
+    string Id,
+    string Name,
+    double X,
+    double Y,
+    IReadOnlyList<DisplayTransportDestination> Destinations);
+public sealed record DisplayTransportDestination(string Id, string Name, string TargetId, string? Requirement);
 public sealed record EncounterGroup(string Name, IReadOnlyList<Encounter> Encounters);
 public sealed record ItemGroup(string Kind, IReadOnlyList<GuideItem> Items);
 public sealed record SpecialPokemonGroup(string Kind, IReadOnlyList<SpecialPokemon> Pokemon);
@@ -451,12 +508,13 @@ public static class EncounterTypeExtensions
     {
         EncounterType.Random => new("Random encounters", 0),
         EncounterType.Surfing => new("Surfing", 1),
-        EncounterType.OldRod => new("Fishing · Old Rod", 2),
-        EncounterType.GoodRod => new("Fishing · Good Rod", 3),
-        EncounterType.SuperRod => new("Fishing · Super Rod", 4),
-        EncounterType.Roaming => new("Roaming encounters", 5),
-        EncounterType.RockSmash => new("Rock Smash", 6),
-        EncounterType.Headbutt => new("Headbutt", 7),
+        EncounterType.Underwater => new("Underwater", 2),
+        EncounterType.OldRod => new("Fishing · Old Rod", 3),
+        EncounterType.GoodRod => new("Fishing · Good Rod", 4),
+        EncounterType.SuperRod => new("Fishing · Super Rod", 5),
+        EncounterType.Roaming => new("Roaming encounters", 6),
+        EncounterType.RockSmash => new("Rock Smash", 7),
+        EncounterType.Headbutt => new("Headbutt", 8),
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "The encounter type has no presentation metadata.")
     };
 }

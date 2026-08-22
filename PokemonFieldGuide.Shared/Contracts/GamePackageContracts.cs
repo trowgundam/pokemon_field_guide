@@ -65,3 +65,21 @@ public sealed class PackageManifest
     public Dictionary<string, Dictionary<string, string>> PokemonSpritesByVersion { get; set; } = [];
     [JsonRequired] public Dictionary<string, string> AreaAliases { get; set; } = [];
 }
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class PackageManifestV3
+{
+    [JsonRequired, Range(3, 3)] public int FormatVersion { get; set; } = 3;
+    [JsonRequired] public Dictionary<string, string> PokemonSprites { get; set; } = [];
+    public Dictionary<string, Dictionary<string, string>> PokemonSpritesByVersion { get; set; } = [];
+    [JsonRequired] public Dictionary<string, string> AreaAliases { get; set; } = [];
+    [JsonRequired] public Dictionary<string, Dictionary<string, AreaMapDescriptor>> AreaMapsByVersion { get; set; } = [];
+}
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class AreaMapDescriptor
+{
+    [JsonRequired, MinLength(1)] public string Image { get; set; } = "";
+    [JsonRequired, Range(1, int.MaxValue)] public int Width { get; set; }
+    [JsonRequired, Range(1, int.MaxValue)] public int Height { get; set; }
+}

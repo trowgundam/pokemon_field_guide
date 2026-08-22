@@ -18,7 +18,8 @@ const walk = (value, visit) => {
 };
 
 const relevant = area => area.includeInNavigation === true
-  || area.encounters.length + area.items.length + (area.resources?.length ?? 0) + area.specialPokemon.length > 0;
+  || area.encounters.length + area.items.length + (area.resources?.length ?? 0)
+    + area.specialPokemon.length + (area.transports?.length ?? 0) > 0;
 
 const blank = value => typeof value !== 'string' || value.trim().length === 0;
 
@@ -55,28 +56,55 @@ const projectResource = resource => ({
   })
 });
 
-const assertAllAreasReachWorld = (gameId, areas, worlds, aliases, phase) => {
+const assertAllAreasReachWorld = (game, areas, worlds, aliases, phase) => {
   const normalize = id => aliases?.[id] ?? id;
   const areasById = new Map(areas.map(area => [area.id, area]));
-  const reachable = new Set(), queue = [];
-  for (const placement of worlds.flatMap(world => world.maps ?? [])) {
+  const worldById = new Map(worlds.map(world => [world.id, world]));
+  const worldsByArea = new Map();
+  for (const world of worlds) for (const placement of world.maps ?? []) {
     const id = normalize(placement.id);
-    if (!areasById.has(id)) throw new Error(`${gameId}: ${phase} world placement targets missing area ${id}.`);
-    if (!reachable.has(id)) { reachable.add(id); queue.push(id); }
+    if (!areasById.has(id)) throw new Error(`${game.id}: ${phase} world placement targets missing area ${id}.`);
+    if (!worldsByArea.has(id)) worldsByArea.set(id, []);
+    worldsByArea.get(id).push(world.id);
   }
   for (const area of areas) for (const entrance of area.entrances ?? []) if (entrance.targetId) {
     const targetId = normalize(entrance.targetId);
-    if (!areasById.has(targetId)) throw new Error(`${gameId}: ${phase} entrance ${area.id} '${entrance.id}' targets missing area ${targetId}.`);
+    if (!areasById.has(targetId)) throw new Error(`${game.id}: ${phase} entrance ${area.id} '${entrance.id}' targets missing area ${targetId}.`);
   }
+  for (const area of areas) for (const transport of area.transports ?? []) for (const destination of transport.destinations ?? []) {
+    const targetId = normalize(destination.targetId);
+    if (!areasById.has(targetId)) throw new Error(`${game.id}: ${phase} transport ${area.id} '${transport.id}' targets missing area ${targetId}.`);
+  }
+
+  const reachable = new Set(), reachableWorlds = new Set(), queue = [];
+  const enterWorld = worldId => {
+    if (reachableWorlds.has(worldId)) return;
+    const world = worldById.get(worldId);
+    if (!world) throw new Error(`${game.id}: ${phase} navigation targets missing world ${worldId}.`);
+    reachableWorlds.add(worldId);
+    for (const placement of world.maps ?? []) enqueueArea(normalize(placement.id), false);
+  };
+  const enqueueArea = (id, activateWorld) => {
+    if (!id || reachable.has(id)) return;
+    reachable.add(id);
+    queue.push(id);
+    if (activateWorld) for (const worldId of worldsByArea.get(id) ?? []) enterWorld(worldId);
+  };
+  const visibleWorldIds = new Set([game.defaultWorldId, ...(game.regions ?? []).map(region => region.worldId)]);
+  for (const worldId of visibleWorldIds) enterWorld(worldId);
   while (queue.length) {
     const area = areasById.get(queue.shift());
     for (const entrance of area.entrances ?? []) {
       const targetId = normalize(entrance.targetId);
-      if (targetId && !reachable.has(targetId)) { reachable.add(targetId); queue.push(targetId); }
+      enqueueArea(targetId, false);
     }
+    for (const transport of area.transports ?? []) for (const destination of transport.destinations ?? [])
+      enqueueArea(normalize(destination.targetId), true);
   }
+  const hidden = worlds.filter(world => !visibleWorldIds.has(world.id) && !reachableWorlds.has(world.id));
+  if (hidden.length) throw new Error(`${game.id}: ${phase} hidden world ${hidden.map(world => world.id).sort().join(', ')} has no inbound transport path.`);
   const unreachable = areas.map(area => area.id).filter(id => !reachable.has(id)).sort();
-  if (unreachable.length) throw new Error(`${gameId}: ${phase} areas are not reachable from a world warp: ${unreachable.join(', ')}.`);
+  if (unreachable.length) throw new Error(`${game.id}: ${phase} areas are not reachable from a world warp or transport: ${unreachable.join(', ')}.`);
 };
 
 const assetFileName = (gameId, kind, fileName) => {
@@ -199,7 +227,7 @@ const combineEncounters = encounters => {
   return [...combined.values()];
 };
 
-export function finalizeDraft(game, draft) {
+export function finalizeDraft(game, draft, formatVersion = 2) {
   if (!draft || !Array.isArray(draft.areas) || !Array.isArray(draft.worlds) || !Array.isArray(draft.pokedex))
     throw new Error(`${game.id}: game adapter returned an invalid package draft.`);
   const versions = new Set(game.versions.map(version => version.id));
@@ -208,8 +236,10 @@ export function finalizeDraft(game, draft) {
     if (!area?.id || areasById.has(area.id)) throw new Error(`${game.id}: duplicate or empty draft area ID '${area?.id ?? ''}'.`);
     areasById.set(area.id, area);
   }
-  assertAllAreasReachWorld(game.id, draft.areas, draft.worlds, draft.areaAliases, 'draft');
-  const outdoorIds = new Set(draft.worlds.flatMap(world => world.maps.map(placement => placement.id)));
+  if (formatVersion !== 2 && formatVersion !== 3) throw new Error(`${game.id}: unsupported package manifest version ${formatVersion}.`);
+  assertAllAreasReachWorld(game, draft.areas, draft.worlds, draft.areaAliases, 'draft');
+  const normalizeAreaId = id => draft.areaAliases?.[id] ?? id;
+  const outdoorIds = new Set(draft.worlds.flatMap(world => world.maps.map(placement => normalizeAreaId(placement.id))));
   for (const id of outdoorIds) if (!areasById.has(id)) throw new Error(`${game.id}: world placement targets missing draft area ${id}.`);
   const finalIds = new Set([...outdoorIds, ...draft.areas.filter(relevant).map(area => area.id)]);
   let retainedJunction = true;
@@ -235,7 +265,15 @@ export function finalizeDraft(game, draft) {
       if (encounter.version !== 'Both' && !versions.has(encounter.version)) throw new Error(`${game.id}: invalid version '${encounter.version}' in ${area.id}.`);
       return { ...encounter };
     }),
-    items: area.items.map(item => ({ ...item, icon: isAsset(item.icon, 'item') ? item.icon.fileName : item.icon })),
+    items: area.items.map(item => {
+      const version = item.version ?? 'Both';
+      if (version !== 'Both' && !versions.has(version)) throw new Error(`${game.id}: invalid version '${version}' in ${area.id}.`);
+      return {
+        ...item,
+        ...(formatVersion === 3 ? { version } : {}),
+        icon: isAsset(item.icon, 'item') ? item.icon.fileName : item.icon
+      };
+    }),
     resources: (area.resources ?? []).map(resource => {
       validateResourceRelationships(game.id, area, resource);
       return projectResource(resource);
@@ -249,6 +287,33 @@ export function finalizeDraft(game, draft) {
       const target = contractTarget(game.id, area, entrance, areasById, finalIds);
       return target ? { id: entrance.id, targetId: target.id, name: target.name, x: entrance.x, y: entrance.y } : null;
     }).filter(Boolean),
+    ...(formatVersion === 3 ? {
+      transports: (area.transports ?? []).map(transport => {
+        if (!Array.isArray(transport.destinations) || transport.destinations.length === 0)
+          throw new Error(`${game.id}: ${area.id} transport '${transport.id}' has no destinations.`);
+        return {
+          id: transport.id,
+          name: transport.name,
+          x: transport.x,
+          y: transport.y,
+          destinations: transport.destinations.map(destination => {
+            const version = destination.version ?? 'Both';
+            if (version !== 'Both' && !versions.has(version))
+              throw new Error(`${game.id}: invalid transport version '${version}' in ${area.id}.`);
+            const targetId = normalizeAreaId(destination.targetId);
+            if (!finalIds.has(targetId))
+              throw new Error(`${game.id}: ${area.id} transport '${transport.id}' targets unretained area ${targetId}.`);
+            return {
+              id: destination.id,
+              targetId,
+              name: destination.name,
+              version,
+              ...(!Object.hasOwn(destination, 'requirement') ? {} : { requirement: destination.requirement })
+            };
+          })
+        };
+      })
+    } : {}),
     mapImage: assetPath(game, 'map', area.mapImage),
     mapWidth: area.mapWidth,
     mapHeight: area.mapHeight
@@ -281,15 +346,37 @@ export function finalizeDraft(game, draft) {
   if (!isAsset(draft.pokemonFallback, 'pokemon') || draft.pokemonFallback.fileName !== 'question_mark.png')
     throw new Error(`${game.id}: Pokémon fallback question_mark.png is required.`);
 
+  if (formatVersion === 2 && Object.keys(draft.areaMapsByVersion ?? {}).length)
+    throw new Error(`${game.id}: version-specific area maps require package manifest v3.`);
+  const areaMapsByVersion = {};
+  for (const [version, areaMaps] of Object.entries(draft.areaMapsByVersion ?? {})) {
+    if (!versions.has(version)) throw new Error(`${game.id}: invalid area map version '${version}'.`);
+    areaMapsByVersion[version] = {};
+    for (const [rawAreaId, descriptor] of Object.entries(areaMaps)) {
+      const areaId = normalizeAreaId(rawAreaId);
+      if (!finalIds.has(areaId)) throw new Error(`${game.id}: ${version} area map references unknown or unretained area ${areaId}.`);
+      if (outdoorIds.has(areaId)) throw new Error(`${game.id}: ${version} area map override for outdoor area ${areaId} cannot change its connected-world image.`);
+      if (!Number.isInteger(descriptor.width) || descriptor.width <= 0
+        || !Number.isInteger(descriptor.height) || descriptor.height <= 0)
+        throw new Error(`${game.id}: ${version} area map for ${areaId} has invalid dimensions.`);
+      areaMapsByVersion[version][areaId] = {
+        image: assetPath(game, 'map', descriptor.image),
+        width: descriptor.width,
+        height: descriptor.height
+      };
+    }
+  }
+
   return {
     fieldGuide: { source: draft.source, generated: draft.generated, areas },
     pokedex: draft.pokedex.map(entry => ({ ...entry })),
     worlds,
     manifest: {
-      formatVersion: 2,
+      formatVersion,
       pokemonSprites,
       ...(Object.keys(pokemonSpritesByVersion).length ? { pokemonSpritesByVersion } : {}),
-      areaAliases: { ...(draft.areaAliases ?? {}) }
+      areaAliases: { ...(draft.areaAliases ?? {}) },
+      ...(formatVersion === 3 ? { areaMapsByVersion } : {})
     }
   };
 }
@@ -306,8 +393,10 @@ export async function checkPackage(game, packageRoot) {
   validateJson('fieldguide.schema.json', fieldGuide, `${game.id} fieldguide.json`);
   validateJson('pokedex.schema.json', pokedex, `${game.id} pokedex.json`);
   validateJson('worlds.schema.json', worlds, `${game.id} worlds.json`);
-  validateJson('package-manifest-v2.schema.json', manifest, `${game.id} package-manifest.json`);
-  if (manifest.formatVersion !== 2) throw new Error(`${game.id}: unsupported package manifest version ${manifest.formatVersion}.`);
+  const manifestSchema = manifest.formatVersion === 2 ? 'package-manifest-v2.schema.json'
+    : manifest.formatVersion === 3 ? 'package-manifest-v3.schema.json' : null;
+  if (!manifestSchema) throw new Error(`${game.id}: unsupported package manifest version ${manifest.formatVersion}.`);
+  validateJson(manifestSchema, manifest, `${game.id} package-manifest.json`);
   if (!Array.isArray(fieldGuide.areas)) throw new Error(`${game.id}: field guide areas must be an array.`);
   if (!Array.isArray(pokedex)) throw new Error(`${game.id}: Pokédex must be an array.`);
   if (!Array.isArray(worlds) || worlds.length === 0) throw new Error(`${game.id}: at least one world is required.`);
@@ -331,8 +420,27 @@ export async function checkPackage(game, packageRoot) {
     for (const resource of area.resources ?? []) {
       validateResourceRelationships(game.id, area, resource);
     }
-    for (const row of [...(area.encounters ?? []), ...(area.specialPokemon ?? [])])
-      if (row.version !== 'Both' && !versions.has(row.version)) throw new Error(`${game.id}: invalid version '${row.version}' in ${area.id}.`);
+    for (const row of [...(area.encounters ?? []), ...(area.items ?? []), ...(area.specialPokemon ?? [])]) {
+      const version = row.version ?? 'Both';
+      if (version !== 'Both' && !versions.has(version)) throw new Error(`${game.id}: invalid version '${version}' in ${area.id}.`);
+    }
+    const transportIds = new Set(), destinationIds = new Set();
+    for (const transport of area.transports ?? []) {
+      if (!transport.id || transportIds.has(transport.id)) throw new Error(`${game.id}: duplicate or empty transport ID '${transport.id}' in ${area.id}.`);
+      transportIds.add(transport.id);
+      const markerX = transport.x * 16 + 8, markerY = transport.y * 16 + 8;
+      if (markerX < 0 || markerY < 0 || markerX >= area.mapWidth || markerY >= area.mapHeight)
+        throw new Error(`${game.id}: ${area.id} transport '${transport.id}' falls outside its area map.`);
+      if (!transport.destinations?.length) throw new Error(`${game.id}: ${area.id} transport '${transport.id}' has no destinations.`);
+      for (const destination of transport.destinations) {
+        const destinationKey = `${transport.id}\0${destination.id}`;
+        if (!destination.id || destinationIds.has(destinationKey))
+          throw new Error(`${game.id}: duplicate or empty transport destination ID '${destination.id}' in ${area.id}.`);
+        destinationIds.add(destinationKey);
+        if (destination.version !== 'Both' && !versions.has(destination.version))
+          throw new Error(`${game.id}: invalid transport version '${destination.version}' in ${area.id}.`);
+      }
+    }
     for (const encounter of area.encounters ?? [])
       if (typeof encounter.chance !== 'number' || !Number.isFinite(encounter.chance) || encounter.chance <= 0 || encounter.chance > 100)
         throw new Error(`${game.id}: invalid encounter chance '${encounter.chance}' in ${area.id}.`);
@@ -345,8 +453,13 @@ export async function checkPackage(game, packageRoot) {
         throw new Error(`${game.id}: ${area.id} ${type}${condition ? ` (${condition})` : ''} encounter chances do not total 100 for ${version}.`);
     }
   }
-  for (const area of areaById.values()) for (const entrance of area.entrances ?? [])
-    if (entrance.targetId && !areaById.has(entrance.targetId)) throw new Error(`${game.id}: ${area.id} targets missing area ${entrance.targetId}.`);
+  for (const area of areaById.values()) {
+    for (const entrance of area.entrances ?? [])
+      if (entrance.targetId && !areaById.has(entrance.targetId)) throw new Error(`${game.id}: ${area.id} targets missing area ${entrance.targetId}.`);
+    for (const transport of area.transports ?? []) for (const destination of transport.destinations)
+      if (!areaById.has(manifest.areaAliases?.[destination.targetId] ?? destination.targetId))
+        throw new Error(`${game.id}: ${area.id} transport '${transport.id}' targets missing area ${destination.targetId}.`);
+  }
 
   const worldById = new Map();
   const placed = new Set();
@@ -374,6 +487,7 @@ export async function checkPackage(game, packageRoot) {
     const markers = [
       ...(area.items ?? []).filter(item => item.x >= 0 && item.y >= 0),
       ...(area.resources ?? []),
+      ...(area.transports ?? []),
       ...(area.entrances ?? []).filter(entrance => !placed.has(manifest.areaAliases?.[entrance.targetId] ?? entrance.targetId))
     ];
     for (const marker of markers) {
@@ -382,11 +496,35 @@ export async function checkPackage(game, packageRoot) {
         throw new Error(`${game.id}: visible marker ${marker.id} falls outside ${placement.id} placement.`);
     }
   }
+  const declaredAreaMaps = [];
+  for (const [version, areaMaps] of Object.entries(manifest.areaMapsByVersion ?? {})) {
+    if (!versions.has(version)) throw new Error(`${game.id}: manifest contains unknown area map version '${version}'.`);
+    for (const [rawAreaId, descriptor] of Object.entries(areaMaps)) {
+      const areaId = manifest.areaAliases?.[rawAreaId] ?? rawAreaId;
+      const area = areaById.get(areaId);
+      if (!area) throw new Error(`${game.id}: ${version} area map references missing area ${areaId}.`);
+      if (placed.has(areaId)) throw new Error(`${game.id}: ${version} area map override for outdoor area ${areaId} cannot change its connected-world image.`);
+      relativeInsidePackage(game, descriptor.image);
+      const markers = [
+        ...(area.items ?? []).filter(item => item.x >= 0 && item.y >= 0
+          && ((item.version ?? 'Both') === 'Both' || item.version === version)),
+        ...(area.resources ?? []),
+        ...(area.entrances ?? []),
+        ...(area.transports ?? []).filter(transport => transport.destinations.some(destination => destination.version === 'Both' || destination.version === version))
+      ];
+      for (const marker of markers) {
+        const x = marker.x * 16 + 8, y = marker.y * 16 + 8;
+        if (x < 0 || y < 0 || x >= descriptor.width || y >= descriptor.height)
+          throw new Error(`${game.id}: ${version} marker ${marker.id} falls outside ${areaId} area map override.`);
+      }
+      declaredAreaMaps.push(descriptor.image);
+    }
+  }
   if (!areaById.has(game.defaultAreaId)) throw new Error(`${game.id}: default area '${game.defaultAreaId}' does not exist.`);
   if (!worldById.has(game.defaultWorldId)) throw new Error(`${game.id}: default world '${game.defaultWorldId}' does not exist.`);
   for (const region of game.regions ?? []) if (!worldById.has(region.worldId)) throw new Error(`${game.id}: region '${region.id}' targets missing world ${region.worldId}.`);
 
-  assertAllAreasReachWorld(game.id, [...areaById.values()], worlds, manifest.areaAliases, 'final');
+  assertAllAreasReachWorld(game, [...areaById.values()], worlds, manifest.areaAliases, 'final');
 
   const normalizeAreaId = id => manifest.areaAliases?.[id] ?? id;
   const resolveRelevantTarget = (sourceId, targetId) => {
@@ -403,10 +541,8 @@ export async function checkPackage(game, packageRoot) {
     return null;
   };
   const navigableInteriors = new Set();
-  for (const outdoorId of placed) for (const entrance of areaById.get(outdoorId)?.entrances ?? []) {
-    const target = resolveRelevantTarget(outdoorId, entrance.targetId);
-    if (!target) continue;
-    const pending = [target.id], visited = new Set();
+  const addInteriorComponent = targetId => {
+    const pending = [targetId], visited = new Set();
     while (pending.length) {
       const id = pending.shift(), normalizedId = normalizeAreaId(id);
       if (visited.has(normalizedId) || placed.has(normalizedId)) continue;
@@ -416,7 +552,14 @@ export async function checkPackage(game, packageRoot) {
       if (relevant(area)) navigableInteriors.add(area.id);
       for (const exit of area.entrances ?? []) if (exit.targetId && !visited.has(normalizeAreaId(exit.targetId))) pending.push(exit.targetId);
     }
+  };
+  for (const outdoorId of placed) for (const entrance of areaById.get(outdoorId)?.entrances ?? []) {
+    const target = resolveRelevantTarget(outdoorId, entrance.targetId);
+    if (target) addInteriorComponent(target.id);
   }
+  for (const area of areaById.values()) for (const transport of area.transports ?? [])
+    for (const destination of transport.destinations) if (!placed.has(normalizeAreaId(destination.targetId)))
+      addInteriorComponent(destination.targetId);
   const unnavigable = [...areaById.values()].filter(area => relevant(area) && !placed.has(area.id) && !navigableInteriors.has(area.id));
   if (unnavigable.length)
     throw new Error(`${game.id}: relevant interior areas are not navigable from world markers: ${unnavigable.map(area => area.id).join(', ')}.`);
@@ -440,7 +583,8 @@ export async function checkPackage(game, packageRoot) {
 
   const expectedMaps = new Set([
     ...[...areaById.values()].filter(area => area.mapImage).map(area => path.join(packageRoot, relativeInsidePackage(game, area.mapImage))),
-    ...worlds.map(world => path.join(packageRoot, relativeInsidePackage(game, world.image)))
+    ...worlds.map(world => path.join(packageRoot, relativeInsidePackage(game, world.image))),
+    ...declaredAreaMaps.map(image => path.join(packageRoot, relativeInsidePackage(game, image)))
   ]);
   const pokemonDirectory = path.join(packageRoot, relativeInsidePackage(game, game.pokemonSpritePath));
   const itemDirectory = path.join(packageRoot, relativeInsidePackage(game, game.itemSpritePath));

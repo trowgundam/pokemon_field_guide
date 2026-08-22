@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pokemon-field-guide.local/schemas/package-manifest-v3.schema.json",
+  "type": "object",
+  "properties": {
+    "formatVersion": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 3,
+      "const": 3
+    },
+    "pokemonSprites": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "pokemonSpritesByVersion": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "areaAliases": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "areaMapsByVersion": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "image": {
+              "type": "string",
+              "minLength": 1
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          },
+          "required": [
+            "image",
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "required": [
+    "formatVersion",
+    "pokemonSprites",
+    "areaAliases",
+    "areaMapsByVersion"
+  ],
+  "additionalProperties": false
+}

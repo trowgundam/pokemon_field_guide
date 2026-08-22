@@ -26,7 +26,10 @@ const prunePngs = async (directory, expected) => {
 const pruneUnreferencedAssets = async (stageRoot, relative, finalized) => {
   const maps = new Set([
     ...finalized.fieldGuide.areas.filter(area => area.mapImage).map(area => path.posix.basename(area.mapImage)),
-    ...finalized.worlds.map(world => path.posix.basename(world.image))
+    ...finalized.worlds.map(world => path.posix.basename(world.image)),
+    ...Object.values(finalized.manifest.areaMapsByVersion ?? {})
+      .flatMap(areaMaps => Object.values(areaMaps))
+      .map(descriptor => path.posix.basename(descriptor.image))
   ]);
   const pokemon = new Set([
     'question_mark.png',
@@ -57,7 +60,7 @@ const replacePackage = async (target, staged) => {
   if (exists) await fs.rm(backup, { recursive: true, force: true });
 };
 
-export async function generatePackage({ gameId, build, webRoot = defaultWebRoot }) {
+export async function generatePackage({ gameId, build, formatVersion = 2, webRoot = defaultWebRoot }) {
   if (typeof build !== 'function') throw new Error(`${gameId}: package generation requires a build callback.`);
   webRoot = path.resolve(webRoot);
   const catalog = await loadCatalog(webRoot);
@@ -74,7 +77,7 @@ export async function generatePackage({ gameId, build, webRoot = defaultWebRoot 
 
   try {
     const draft = await build({ definition: game, assets });
-    const finalized = finalizeDraft(game, draft);
+    const finalized = finalizeDraft(game, draft, formatVersion);
     await Promise.all([
       writeJson(stageRoot, relative.fieldGuide, finalized.fieldGuide),
       writeJson(stageRoot, relative.pokedex, finalized.pokedex),

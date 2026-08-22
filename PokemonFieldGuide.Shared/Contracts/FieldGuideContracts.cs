@@ -22,6 +22,7 @@ public sealed class GuideArea
     public List<GuideMapResource> Resources { get; set; } = [];
     [JsonRequired] public List<SpecialPokemon> SpecialPokemon { get; set; } = [];
     [JsonRequired] public List<MapEntrance> Entrances { get; set; } = [];
+    public List<GuideTransport> Transports { get; set; } = [];
     public bool IncludeInNavigation { get; set; }
     public string? MapImage { get; set; }
     [JsonRequired, Range(0, int.MaxValue)] public int MapWidth { get; set; }
@@ -60,10 +61,31 @@ public sealed class MapEntrance
     [JsonRequired] public int Y { get; set; }
 }
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class GuideTransport
+{
+    [JsonRequired, MinLength(1)] public string Id { get; set; } = "";
+    [JsonRequired, MinLength(1)] public string Name { get; set; } = "";
+    [JsonRequired] public int X { get; set; }
+    [JsonRequired] public int Y { get; set; }
+    [JsonRequired] public List<GuideTransportDestination> Destinations { get; set; } = [];
+}
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class GuideTransportDestination
+{
+    [JsonRequired, MinLength(1)] public string Id { get; set; } = "";
+    [JsonRequired, MinLength(1)] public string TargetId { get; set; } = "";
+    [JsonRequired, MinLength(1)] public string Name { get; set; } = "";
+    [JsonRequired, MinLength(1)] public string Version { get; set; } = "Both";
+    [MinLength(1)] public string? Requirement { get; set; }
+}
+
 public enum EncounterType
 {
     Random,
     Surfing,
+    Underwater,
     OldRod,
     GoodRod,
     SuperRod,
@@ -92,6 +114,7 @@ public sealed class GuideItem
     [JsonRequired] public string Id { get; set; } = "";
     [JsonRequired] public string Name { get; set; } = "";
     [JsonRequired] public string Kind { get; set; } = "";
+    public string Version { get; set; } = "Both";
     [JsonRequired] public string Icon { get; set; } = "question_mark.png";
     [JsonRequired] public int X { get; set; }
     [JsonRequired] public int Y { get; set; }
@@ -124,6 +147,7 @@ public sealed class PokedexEntry
 public sealed class GuideWorld
 {
     [JsonRequired] public string Id { get; set; } = "";
+    [MinLength(1)] public string? Name { get; set; }
     [JsonRequired] public string Image { get; set; } = "";
     [JsonRequired, Range(1, int.MaxValue)] public int Width { get; set; }
     [JsonRequired, Range(1, int.MaxValue)] public int Height { get; set; }

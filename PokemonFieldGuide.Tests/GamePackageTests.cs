@@ -30,6 +30,96 @@ public sealed class GamePackageTests
     }
 
     [Fact]
+    public async Task Item_queries_apply_the_selected_version_everywhere()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.Add(Area(
+            "AREA",
+            "Area",
+            items:
+            [
+                Item("Shared Potion", "Visible"),
+                Item("Red Orb", "Visible", "Red"),
+                Item("Blue Orb", "Hidden", "Blue")
+            ]));
+        fixture.Worlds.Add(World("world", "AREA"));
+        var package = await fixture.LoadAsync();
+        var area = package.Area("AREA")!;
+
+        Assert.Equal(["Shared Potion", "Red Orb"], package.ItemsFor(area, "Red").Select(item => item.Name));
+        Assert.Equal(["Visible"], package.ItemGroups(area, "Red").Select(group => group.Kind));
+        Assert.Empty(package.SearchAreas("Blue Orb", "Red"));
+        Assert.Single(package.SearchAreas("Blue Orb", "Blue"));
+        Assert.Equal(["item:Red Orb", "item:Shared Potion"], package.AreaChecklist(area, "Red").ItemIds.Order());
+    }
+
+    [Fact]
+    public async Task AreaMap_prefers_a_version_override_and_falls_back_to_the_area_map()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.Add(Area("AREA", "Area"));
+        fixture.Worlds.Add(World("world", "AREA"));
+        fixture.ManifestV3 = new PackageManifestV3
+        {
+            PokemonSprites = fixture.Manifest.PokemonSprites,
+            AreaMapsByVersion = new()
+            {
+                ["Red"] = new()
+                {
+                    ["AREA"] = new AreaMapDescriptor
+                    {
+                        Image = "games/test/maps/AREA_RED.png",
+                        Width = 32,
+                        Height = 48
+                    }
+                }
+            }
+        };
+        var package = await fixture.LoadAsync();
+
+        var redMap = package.AreaMap(package.Area("AREA")!, "Red");
+        var blueMap = package.AreaMap(package.Area("AREA")!, "Blue");
+
+        Assert.Equal(("games/test/maps/AREA_RED.png", 32, 48), (redMap!.Image, redMap.Width, redMap.Height));
+        Assert.Equal(("games/test/maps/AREA.png", 16, 16), (blueMap!.Image, blueMap.Width, blueMap.Height));
+    }
+
+    [Fact]
+    public async Task Transports_filter_destinations_without_joining_interior_floor_graphs()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.AddRange([
+            Area("OUT", "Harbor", transports:
+            [
+                new GuideTransport
+                {
+                    Id = "OUT:ferry",
+                    Name = "Ferry",
+                    X = 8,
+                    Y = 10,
+                    Destinations =
+                    [
+                        new() { Id = "southern", Name = "Southern Island", TargetId = "ISLAND", Version = "Both", Requirement = "Eon Ticket" },
+                        new() { Id = "frontier", Name = "Battle Frontier", TargetId = "FRONTIER", Version = "Blue" }
+                    ]
+                }
+            ]),
+            Area("ISLAND", "Southern Island"),
+            Area("FRONTIER", "Battle Frontier")
+        ]);
+        fixture.Worlds.AddRange([World("world", "OUT"), World("hidden", "FRONTIER")]);
+        var package = await fixture.LoadAsync();
+
+        var redTransport = Assert.Single(package.TransportsFor(package.Area("OUT")!, "Red"));
+        Assert.Equal(["Southern Island"], redTransport.Destinations.Select(destination => destination.Name));
+        Assert.Equal("Eon Ticket", redTransport.Destinations[0].Requirement);
+        var blueTransport = Assert.Single(package.TransportsFor(package.Area("OUT")!, "Blue"));
+        Assert.Equal(["Southern Island", "Battle Frontier"], blueTransport.Destinations.Select(destination => destination.Name));
+        Assert.Equal("hidden", package.WorldForArea(blueTransport.Destinations[1].TargetId)!.Id);
+        Assert.Empty(package.InteriorFloors("OUT"));
+    }
+
+    [Fact]
     public async Task RelevantEntrances_traverses_empty_areas_and_clusters_adjacent_warps()
     {
         var fixture = PackageFixture.Create();
@@ -114,7 +204,7 @@ public sealed class GamePackageTests
         var area = package.Area("AREA")!;
 
         Assert.Equal(["Random encounters", "Surfing"], package.EncounterGroups(area, "Red").Select(group => group.Name));
-        Assert.Equal(["Visible", "Hidden"], package.ItemGroups(area).Select(group => group.Kind));
+        Assert.Equal(["Visible", "Hidden"], package.ItemGroups(area, "Red").Select(group => group.Kind));
         Assert.Equal(["Gift", "Trade"], package.SpecialPokemonGroups(area, "Red").Select(group => group.Kind));
 
         var regional = Assert.Single(package.SearchPokedex("Kanto", "Red", "12"));
@@ -355,7 +445,8 @@ public sealed class GamePackageTests
         List<GuideItem>? items = null,
         List<SpecialPokemon>? special = null,
         List<MapEntrance>? entrances = null,
-        List<GuideMapResource>? resources = null) => new()
+        List<GuideMapResource>? resources = null,
+        List<GuideTransport>? transports = null) => new()
         {
             Id = id,
             Name = name,
@@ -367,7 +458,8 @@ public sealed class GamePackageTests
             Items = items ?? [],
             Resources = resources ?? [],
             SpecialPokemon = special ?? [],
-            Entrances = entrances ?? []
+            Entrances = entrances ?? [],
+            Transports = transports ?? []
         };
 
     private static Encounter Encounter(string species, string speciesId, string method, string version, string? condition = null) => new()
@@ -388,11 +480,12 @@ public sealed class GamePackageTests
         }
     };
 
-    private static GuideItem Item(string name, string kind) => new()
+    private static GuideItem Item(string name, string kind, string version = "Both") => new()
     {
         Id = $"item:{name}",
         Name = name,
         Kind = kind,
+        Version = version,
         Icon = "question_mark.png"
     };
 
@@ -457,6 +550,7 @@ public sealed class GamePackageTests
             FormatVersion = 2,
             PokemonSprites = new() { ["SPECIES_MR_MIME"] = "mr.mime.png" }
         };
+        public PackageManifestV3? ManifestV3 { get; set; }
 
         public static PackageFixture Create() => new();
 
@@ -467,7 +561,7 @@ public sealed class GamePackageTests
                 [Definition.DataPath] = FieldGuide,
                 [Definition.PokedexPath] = Pokedex,
                 [Definition.WorldsPath] = Worlds,
-                ["games/test/data/package-manifest.json"] = Manifest
+                ["games/test/data/package-manifest.json"] = ManifestV3 ?? (object)Manifest
             };
             var http = new HttpClient(new JsonHandler(responses)) { BaseAddress = new Uri("https://field-guide.test/") };
             return await new GamePackageLoader(http).LoadAsync(Definition);
