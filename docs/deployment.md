@@ -2,7 +2,7 @@
 
 ## GitHub Pages
 
-The repository includes `.github/workflows/deploy-pages.yml`. Pushes to `main` and manual workflow dispatches publish the Blazor WebAssembly application.
+The repository includes `.github/workflows/deploy-pages.yml`. Pushes to `main` and manual workflow dispatches publish the Blazor WebAssembly application. A push that changes only root Markdown files or files under `docs/` skips deployment because those files are not part of the published site.
 
 Pull requests targeting `main` run the separate `.github/workflows/validate.yml` build without deploying. Configure the `Validate / build` check as required in the `main` branch ruleset if merges should be blocked until the release build succeeds.
 
