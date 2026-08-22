@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { displayName } from './display-names.mjs';
 import { gen3ItemName } from './technical-machines.mjs';
 
@@ -59,15 +62,42 @@ export function extractScriptAcquisitions(work, { rubySapphire = false } = {}) {
       row => [row.speciesId, row.level, row.kind].join('|')));
     area.items.push(...mergeRows(items, work.versions,
       row => [row.name, row.quantity, row.kind].join('|')));
-    area.specialPokemon = [...new Map(area.specialPokemon.map((row, index) => {
-      const key = [row.kind, row.speciesId, row.level, row.version].join('|');
-      return [key, { ...row, id: `${area.id}:${row.kind}:${row.speciesId}:${row.version}:${index}` }];
-    })).values()];
+    area.specialPokemon = area.specialPokemon.map((row, index) => ({
+      ...row,
+      id: row.id ?? `${area.id}:${row.kind}:${row.speciesId}:${row.version}:${index}`
+    }));
     area.items = [...new Map(area.items.map((row, index) => {
       const key = [row.kind, row.name, row.x, row.y, row.version].join('|');
       return [key, { ...row, id: row.id ?? `${area.id}:${row.kind.toLowerCase()}:${row.name.replaceAll(' ', '_')}:${row.version}:${index}` }];
     })).values()];
   }
+}
+
+const scriptBlock = (text, label) => {
+  const match = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}::[^\\n]*\\n([\\s\\S]*?)(?=^[A-Za-z0-9_]+::|^__END__::)`, 'm')
+    .exec(`${text}\n__END__::\n`);
+  return match?.[1] ?? null;
+};
+
+export function addDeclaredStaticPokemon(work, declaration) {
+  const area = work.areas.get(declaration.areaId), sourceMap = work.sourceMaps.get(declaration.areaId);
+  if (!area || !sourceMap) throw new Error(`Declared static Pokémon targets missing area ${declaration.areaId}.`);
+  const sourceEvent = (sourceMap.object_events ?? []).find(event => event.script === declaration.objectScriptLabel);
+  if (!sourceEvent) throw new Error(`${declaration.areaId} lacks object script ${declaration.objectScriptLabel}.`);
+  const sourceText = fs.readFileSync(path.join(work.source, declaration.sourceFile), 'utf8');
+  if (!scriptBlock(sourceText, declaration.objectScriptLabel))
+    throw new Error(`${declaration.sourceFile} lacks ${declaration.objectScriptLabel}.`);
+  const battleLabel = declaration.battleScriptLabel ?? declaration.objectScriptLabel;
+  const battle = scriptBlock(sourceText, battleLabel);
+  const command = battle?.match(/\bsetwildbattle\s+(SPECIES_[A-Z0-9_]+),\s*(\d+)/);
+  if (!command || command[1] !== declaration.speciesId || Number(command[2]) !== declaration.level)
+    throw new Error(`${declaration.sourceFile} ${battleLabel} does not declare ${declaration.speciesId} at level ${declaration.level}.`);
+  const version = declaration.version ?? 'Both';
+  area.specialPokemon.push({
+    id: `${area.id}:Static:${declaration.speciesId}:${version}:${declaration.objectScriptLabel}`,
+    species: displayName(declaration.speciesId), speciesId: declaration.speciesId,
+    level: declaration.level, kind: 'Static', version, requestedSpecies: null
+  });
 }
 
 export function addSpecial(area, speciesId, level, kind = 'Gift', version = 'Both', requestedSpecies = null) {

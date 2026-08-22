@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { addFeebasEncounters, addHoennRenewableResources, addMassOutbreaks, readGen3Source } from '../gen3/source-data.mjs';
 import { renderGen3Maps } from '../gen3/map-rendering.mjs';
-import { addSpecial, extractScriptAcquisitions } from '../gen3/script-extraction.mjs';
+import { addDeclaredStaticPokemon, addSpecial, extractScriptAcquisitions } from '../gen3/script-extraction.mjs';
 import { buildPokedex, finishAreas, registerPokemonSprites, selectReachableAreas } from '../gen3/package-building.mjs';
 import { registerEmeraldItemSprites } from './item-sprites.mjs';
 import { realizeGen3Topology } from '../gen3/world-topology.mjs';
@@ -59,6 +59,16 @@ function addDynamicCaveEntrances(work) {
 
 function addEmeraldContent(work) {
   extractScriptAcquisitions(work);
+  requireArea(work, 'MAP_ROUTE110_TRICK_HOUSE_ENTRANCE').items = requireArea(work, 'MAP_ROUTE110_TRICK_HOUSE_ENTRANCE').items
+    .filter(item => item.kind !== 'Event');
+  for (const [areaId, prefix, count] of [
+    ['MAP_ROUTE119', 'Route119', 2],
+    ['MAP_ROUTE120', 'Route120', 5]
+  ]) for (let number = 1; number <= count; number++) addDeclaredStaticPokemon(work, {
+    areaId, sourceFile: 'data/scripts/kecleon.inc',
+    objectScriptLabel: `${prefix}_EventScript_Kecleon${number}`,
+    battleScriptLabel: 'EventScript_BattleKecleon', speciesId: 'SPECIES_KECLEON', level: 30
+  });
   addFeebasEncounters(work);
   addMassOutbreaks(work);
   addHoennRenewableResources(work);

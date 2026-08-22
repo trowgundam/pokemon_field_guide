@@ -58,12 +58,12 @@ test('Emerald keeps disconnected source maps behind navigation markers', () => {
   assert.deepEqual(areas.get('MAP_UNDERWATER_SOOTOPOLIS_CITY').entrances
     .find(entrance => entrance.targetId === 'MAP_SOOTOPOLIS_CITY'), {
     id: 'MAP_UNDERWATER_SOOTOPOLIS_CITY:dive:MAP_SOOTOPOLIS_CITY',
-    targetId: 'MAP_SOOTOPOLIS_CITY', name: 'Sootopolis City', x: 9, y: 6
+    targetId: 'MAP_SOOTOPOLIS_CITY', name: 'Sootopolis City', x: 9, y: 6, version: 'Both'
   });
   assert.deepEqual(areas.get('MAP_SOOTOPOLIS_CITY').entrances
     .find(entrance => entrance.targetId === 'MAP_UNDERWATER_SOOTOPOLIS_CITY'), {
     id: 'MAP_SOOTOPOLIS_CITY:dive:MAP_UNDERWATER_SOOTOPOLIS_CITY',
-    targetId: 'MAP_UNDERWATER_SOOTOPOLIS_CITY', name: 'Underwater Sootopolis City', x: 29, y: 53
+    targetId: 'MAP_UNDERWATER_SOOTOPOLIS_CITY', name: 'Underwater Sootopolis City', x: 29, y: 53, version: 'Both'
   });
 });
 
@@ -109,6 +109,24 @@ test('Emerald lists both valid outcomes of the roaming Eon choice', () => {
     assert(areas.get('MAP_SOUTHERN_ISLAND_INTERIOR').specialPokemon
       .some(pokemon => pokemon.speciesId === speciesId && pokemon.kind === 'Static'));
   }
+});
+
+test('Emerald keeps every distinct scripted static encounter', () => {
+  const count = (areaId, speciesId) => areas.get(areaId).specialPokemon
+    .filter(pokemon => pokemon.speciesId === speciesId).length;
+  assert.equal(count('MAP_NEW_MAUVILLE_INSIDE', 'SPECIES_VOLTORB'), 3);
+  assert.equal(count('MAP_AQUA_HIDEOUT_B1F', 'SPECIES_ELECTRODE'), 2);
+  assert.equal(count('MAP_ROUTE119', 'SPECIES_KECLEON'), 2);
+  assert.equal(count('MAP_ROUTE120', 'SPECIES_KECLEON'), 6);
+});
+
+test('Emerald omits Trick House bag-full reward retries', () => {
+  const eventNames = areaId => areas.get(areaId).items
+    .filter(item => item.kind === 'Event').map(item => item.name);
+  assert.deepEqual(eventNames('MAP_ROUTE110_TRICK_HOUSE_ENTRANCE'), []);
+  assert.deepEqual(eventNames('MAP_ROUTE110_TRICK_HOUSE_END'), [
+    'Rare Candy', 'Timer Ball', 'Hard Stone', 'Smoke Ball', 'TM12 - Taunt', 'Magnet', 'PP Max'
+  ]);
 });
 
 test('Emerald uses source-native item sprites and item-specific palettes', () => {

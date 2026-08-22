@@ -51,12 +51,12 @@ test('Ruby/Sapphire keeps disconnected source maps behind navigation markers', (
   assert.deepEqual(areas.get('MAP_UNDERWATER_SOOTOPOLIS_CITY').entrances
     .find(entrance => entrance.targetId === 'MAP_SOOTOPOLIS_CITY'), {
     id: 'MAP_UNDERWATER_SOOTOPOLIS_CITY:dive:MAP_SOOTOPOLIS_CITY',
-    targetId: 'MAP_SOOTOPOLIS_CITY', name: 'Sootopolis City', x: 9, y: 6
+    targetId: 'MAP_SOOTOPOLIS_CITY', name: 'Sootopolis City', x: 9, y: 6, version: 'Both'
   });
   assert.deepEqual(areas.get('MAP_SOOTOPOLIS_CITY').entrances
     .find(entrance => entrance.targetId === 'MAP_UNDERWATER_SOOTOPOLIS_CITY'), {
     id: 'MAP_SOOTOPOLIS_CITY:dive:MAP_UNDERWATER_SOOTOPOLIS_CITY',
-    targetId: 'MAP_UNDERWATER_SOOTOPOLIS_CITY', name: 'Underwater Sootopolis City', x: 29, y: 53
+    targetId: 'MAP_UNDERWATER_SOOTOPOLIS_CITY', name: 'Underwater Sootopolis City', x: 29, y: 53, version: 'Both'
   });
 });
 
@@ -96,6 +96,38 @@ test('Ruby/Sapphire records gifts, trades, roamers, and event-island Pokémon', 
     ['SPECIES_MAKUHITA', 'Trade', 'Both']
   ]) assert(specials.some(pokemon => pokemon.speciesId === expected[0]
     && pokemon.kind === expected[1] && pokemon.version === expected[2]), expected.join(' / '));
+});
+
+test('Ruby/Sapphire keeps every distinct scripted static encounter', () => {
+  const count = (areaId, speciesId) => areas.get(areaId).specialPokemon
+    .filter(pokemon => pokemon.speciesId === speciesId).length;
+  assert.equal(count('MAP_NEW_MAUVILLE_INSIDE', 'SPECIES_VOLTORB'), 3);
+  assert.equal(count('MAP_ROUTE119', 'SPECIES_KECLEON'), 2);
+  assert.equal(count('MAP_ROUTE120', 'SPECIES_KECLEON'), 6);
+  assert.equal(count('MAP_MAGMA_HIDEOUT_B1F', 'SPECIES_ELECTRODE'), 2);
+  assert.equal(count('MAP_AQUA_HIDEOUT_B1F', 'SPECIES_ELECTRODE'), 2);
+  assert(areas.get('MAP_MAGMA_HIDEOUT_B1F').specialPokemon
+    .filter(pokemon => pokemon.speciesId === 'SPECIES_ELECTRODE').every(pokemon => pokemon.version === 'Ruby'));
+  assert(areas.get('MAP_AQUA_HIDEOUT_B1F').specialPokemon
+    .filter(pokemon => pokemon.speciesId === 'SPECIES_ELECTRODE').every(pokemon => pokemon.version === 'Sapphire'));
+});
+
+test('Ruby/Sapphire versions expose only their usable Lilycove hideout entrance', () => {
+  const entrances = areas.get('MAP_LILYCOVE_CITY').entrances
+    .filter(entrance => entrance.targetId.includes('HIDEOUT_B1F'));
+  assert.deepEqual(entrances.map(entrance => [entrance.targetId, entrance.version]).sort(), [
+    ['MAP_AQUA_HIDEOUT_B1F', 'Sapphire'],
+    ['MAP_MAGMA_HIDEOUT_B1F', 'Ruby']
+  ]);
+});
+
+test('Ruby/Sapphire omits Trick House bag-full reward retries', () => {
+  const eventNames = areaId => areas.get(areaId).items
+    .filter(item => item.kind === 'Event').map(item => item.name);
+  assert.deepEqual(eventNames('MAP_ROUTE110_TRICK_HOUSE_ENTRANCE'), []);
+  assert.deepEqual(eventNames('MAP_ROUTE110_TRICK_HOUSE_END'), [
+    'Rare Candy', 'Timer Ball', 'Hard Stone', 'Smoke Ball', 'TM12 - Taunt', 'Magnet', 'PP Max'
+  ]);
 });
 
 test('Ruby/Sapphire labels TMs with their number and move', () => {
