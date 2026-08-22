@@ -22,6 +22,10 @@ Underwater wild tables use the dedicated `Underwater` encounter type. Feebas app
 
 The package-specific builders add source aliases and non-literal acquisitions that the shared script parser cannot infer, including starters, roamers, NPC trades, and Ruby/Sapphire's version-selected legendary aliases. Emerald includes locally obtainable event-island Pokémon. A species obtainable only by direct external distribution has Pokédex availability `Event distribution` and no invented area.
 
+Distinct scripted objects remain distinct checklist entries even when they use the same species and level. Both packages include all three New Mauville Voltorb, both Route 119 Kecleon, and six Route 120 Kecleon. Emerald includes both Aqua Hideout Electrode. Ruby includes both Magma Hideout Electrode, while Sapphire includes both Aqua Hideout Electrode. Package-owned declarations verify global source labels and give those interactions stable IDs; the shared extractor preserves repeated map-local commands instead of deduplicating by species.
+
+Ruby and Sapphire share both hideout maps in the source project, but Lilycove collision changes expose only one entrance per version. The generated Aqua entrance is Sapphire-only and the Magma entrance is Ruby-only. Runtime reachability keeps the inaccessible component out of search and interior navigation. Trick House rewards appear only in the end room. The matching entrance scripts are bag-full retry paths and do not create additional checklist entries.
+
 Emerald lists both Latios and Latias as valid roaming outcomes and as valid Southern Island outcomes. The television choice selects one species as the roamer, and the opposite species appears on Southern Island. The guide lists both mutually exclusive possibilities at each source because either assignment is legitimate for an Emerald save.
 
 Emerald's Battle Pike and Battle Pyramid rental or temporary encounters are excluded. They cannot be collected and do not come from the normal wild-encounter group.

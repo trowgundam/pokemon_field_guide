@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { addFeebasEncounters, addHoennRenewableResources, addMassOutbreaks, readGen3Source } from '../gen3/source-data.mjs';
 import { renderGen3Maps } from '../gen3/map-rendering.mjs';
-import { addSpecial, extractScriptAcquisitions } from '../gen3/script-extraction.mjs';
+import { addDeclaredStaticPokemon, addSpecial, extractScriptAcquisitions } from '../gen3/script-extraction.mjs';
 import { buildPokedex, finishAreas, registerPokemonSprites, selectReachableAreas } from '../gen3/package-building.mjs';
 import { realizeGen3Topology } from '../gen3/world-topology.mjs';
 
@@ -24,6 +24,28 @@ function addTransport(area, id, name, x, y, destinations) {
 
 function addRubySapphireContent(work) {
   extractScriptAcquisitions(work, { rubySapphire: true });
+  requireArea(work, 'MAP_ROUTE110_TRICK_HOUSE_ENTRANCE').items = requireArea(work, 'MAP_ROUTE110_TRICK_HOUSE_ENTRANCE').items
+    .filter(item => item.kind !== 'Event');
+  const lilycoveEntrances = requireArea(work, 'MAP_LILYCOVE_CITY').entrances;
+  lilycoveEntrances.find(entrance => entrance.targetId === 'MAP_AQUA_HIDEOUT_1F').version = 'Sapphire';
+  lilycoveEntrances.find(entrance => entrance.targetId === 'MAP_MAGMA_HIDEOUT_1F').version = 'Ruby';
+
+  for (const [areaId, prefix, count] of [
+    ['MAP_ROUTE119', 'Route119', 2],
+    ['MAP_ROUTE120', 'Route120', 5]
+  ]) for (let number = 1; number <= count; number++) addDeclaredStaticPokemon(work, {
+    areaId, sourceFile: 'data/scripts/static_pokemon.inc',
+    objectScriptLabel: `${prefix}_EventScript_Kecleon${number}`,
+    battleScriptLabel: 'EventScript_BattleKecleon', speciesId: 'SPECIES_KECLEON', level: 30
+  });
+  for (const [areaId, version] of [
+    ['MAP_MAGMA_HIDEOUT_B1F', 'Ruby'],
+    ['MAP_AQUA_HIDEOUT_B1F', 'Sapphire']
+  ]) for (let number = 1; number <= 2; number++) addDeclaredStaticPokemon(work, {
+    areaId, sourceFile: 'data/scripts/static_pokemon.inc', version,
+    objectScriptLabel: `Hideout_B1F_EventScript_Electrode${number}`,
+    speciesId: 'SPECIES_ELECTRODE', level: 30
+  });
   addFeebasEncounters(work);
   addMassOutbreaks(work);
   addHoennRenewableResources(work);
