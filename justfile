@@ -17,6 +17,63 @@ restore:
 generate-schemas:
     dotnet run --project {{schema_project}}
 
+# Clone a pret source repository unless the expected checkout already exists.
+[private]
+_clone-source root repository:
+    #!/usr/bin/env sh
+    set -eu
+    clone_root="{{root}}"
+    repository="{{repository}}"
+    target="$clone_root/$repository"
+    expected_url="https://github.com/pret/$repository.git"
+    mkdir -p "$clone_root"
+    if [ -e "$target" ]; then
+        if [ ! -d "$target/.git" ]; then
+            echo "$target exists but is not a Git checkout." >&2
+            exit 1
+        fi
+        origin="$(git -C "$target" remote get-url origin 2>/dev/null || true)"
+        case "$origin" in
+            "https://github.com/pret/$repository"|"https://github.com/pret/$repository.git"|"git@github.com:pret/$repository.git")
+                echo "Using existing $target"
+                ;;
+            *)
+                echo "$target has unexpected origin '$origin'." >&2
+                exit 1
+                ;;
+        esac
+    else
+        git clone "$expected_url" "$target"
+    fi
+
+# Clone the FireRed/LeafGreen source repository.
+clone-frlg root:
+    just _clone-source "{{root}}" pokefirered
+
+# Clone the Red/Blue source repository.
+clone-rb root:
+    just _clone-source "{{root}}" pokered
+
+# Clone the Yellow source repository.
+clone-yellow root:
+    just _clone-source "{{root}}" pokeyellow
+
+# Clone the Gold/Silver source repository.
+clone-gs root:
+    just _clone-source "{{root}}" pokegold
+
+# Clone the Crystal source repository.
+clone-crystal root:
+    just _clone-source "{{root}}" pokecrystal
+
+# Clone every source repository below one directory.
+clone-all root:
+    just clone-rb "{{root}}"
+    just clone-yellow "{{root}}"
+    just clone-gs "{{root}}"
+    just clone-crystal "{{root}}"
+    just clone-frlg "{{root}}"
+
 # Build the application.
 build: restore
     dotnet build {{project}} --no-restore
@@ -64,11 +121,15 @@ check: install-schema-tools
     node --test tools/package-finalization.test.mjs
     node --test tools/gen2/generated-package.test.mjs
     node --test tools/crystal/generated-package.test.mjs
+    node --test tools/frlg/generated-package.test.mjs
     node --check tools/frlg/generate-fieldguide.mjs
+    node --check tools/frlg/audit-renewable-hidden-items.mjs
+    node --check tools/frlg/renewable-hidden-items.mjs
     node --check tools/frlg/render-maps.mjs
     node --check tools/rb/generate-fieldguide.mjs
     node --check tools/yellow/generate-fieldguide.mjs
     node --check tools/gen2/build-package.mjs
+    node --check tools/gen2/renewable-resources.mjs
     node --check tools/gen2/connected-world.mjs
     node --check tools/gen2/display-names.mjs
     node --check tools/gen2/map-layouts.mjs
@@ -102,3 +163,11 @@ generate-gs source: install-gs-tools
 # Regenerate the complete Crystal package from a pokecrystal checkout.
 generate-crystal source: install-crystal-tools
     node tools/crystal/generate-fieldguide.mjs "{{source}}"
+
+# Regenerate every package from conventionally named source checkouts.
+generate-all root:
+    just generate-rb "{{root}}/pokered"
+    just generate-yellow "{{root}}/pokeyellow"
+    just generate-gs "{{root}}/pokegold"
+    just generate-crystal "{{root}}/pokecrystal"
+    just generate-frlg "{{root}}/pokefirered"
