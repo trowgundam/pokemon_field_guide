@@ -18,6 +18,8 @@ Underwater wild tables use the dedicated `Underwater` encounter type. Feebas app
 
 The package-specific builders add source aliases and non-literal acquisitions that the shared script parser cannot infer, including starters, roamers, NPC trades, and Ruby/Sapphire's version-selected legendary aliases. Emerald includes locally obtainable event-island Pokémon. A species obtainable only by direct external distribution has Pokédex availability `Event distribution` and no invented area.
 
+Emerald lists both Latios and Latias as valid roaming outcomes and as valid Southern Island outcomes. The television choice selects one species as the roamer, and the opposite species appears on Southern Island. The guide lists both mutually exclusive possibilities at each source because either assignment is legitimate for an Emerald save.
+
 Emerald's Battle Pike and Battle Pyramid rental or temporary encounters are excluded. They cannot be collected and do not come from the normal wild-encounter group.
 
 ## Transports

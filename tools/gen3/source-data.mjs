@@ -124,12 +124,14 @@ export function readGen3Source({ source, versions }) {
           const groupName = Object.entries(fishingGroups).find(([, slots]) => slots.includes(index))?.[0];
           method = displayName(groupName ?? 'Fishing');
         }
+        const displayMethod = sourceMap.map_type === 'MAP_TYPE_UNDERWATER' && method === 'Surf'
+          ? 'Underwater' : method;
         const condition = encounterSet.map === 'MAP_ALTERING_CAVE'
           ? `Altering Cave state: ${displayName(block.mons[0].species)}` : null;
         area.encounters.push({
           species: displayName(mon.species), speciesId: mon.species,
           minLevel: mon.min_level, maxLevel: mon.max_level, chance: rates[key][index],
-          method, condition, type: encounterType(sourceMap, method), version
+          method: displayMethod, condition, type: encounterType(sourceMap, method), version
         });
       });
     }

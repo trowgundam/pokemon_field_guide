@@ -44,7 +44,7 @@ test('Emerald models conditional wild tables and both Shoal Cave states', () => 
   assert(encounters.some(encounter => encounter.condition === 'Mass outbreak: Nuzleaf'));
   assert(encounters.some(encounter => encounter.speciesId === 'SPECIES_FEEBAS'
     && encounter.condition === 'Six save-dependent Feebas tiles' && encounter.chance === 50));
-  assert(encounters.some(encounter => encounter.type === 'Underwater'));
+  assert(encounters.some(encounter => encounter.type === 'Underwater' && encounter.method === 'Underwater'));
   assert(areas.has('MAP_SHOAL_CAVE_HIGH_TIDE_ENTRANCE_ROOM'));
   assert(areas.has('MAP_SHOAL_CAVE_HIGH_TIDE_INNER_ROOM'));
 });
@@ -56,4 +56,13 @@ test('Emerald audits renewable sources and four NPC trades', () => {
   assert.equal(resources.filter(resource => resource.kind === 'Tide-reset pickup').length, 8);
   assert.equal(fieldGuide.areas.flatMap(area => area.specialPokemon)
     .filter(pokemon => pokemon.kind === 'Trade').length, 4);
+});
+
+test('Emerald lists both valid outcomes of the roaming Eon choice', () => {
+  const specials = fieldGuide.areas.flatMap(area => area.specialPokemon);
+  for (const speciesId of ['SPECIES_LATIOS', 'SPECIES_LATIAS']) {
+    assert(specials.some(pokemon => pokemon.speciesId === speciesId && pokemon.kind === 'Roaming'));
+    assert(areas.get('MAP_SOUTHERN_ISLAND_INTERIOR').specialPokemon
+      .some(pokemon => pokemon.speciesId === speciesId && pokemon.kind === 'Static'));
+  }
 });

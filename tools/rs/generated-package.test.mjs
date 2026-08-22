@@ -35,7 +35,7 @@ test('Ruby/Sapphire models conditional encounters and renewable sources', () => 
   assert(feebas.every(encounter => encounter.chance === 50 && encounter.condition === 'Six save-dependent Feebas tiles'));
   assert(encounters.some(encounter => encounter.condition === 'Mass outbreak: Surskit'));
   assert(encounters.some(encounter => encounter.condition === 'Mass outbreak: Skitty'));
-  assert(encounters.some(encounter => encounter.type === 'Underwater'));
+  assert(encounters.some(encounter => encounter.type === 'Underwater' && encounter.method === 'Underwater'));
 
   const resources = fieldGuide.areas.flatMap(area => area.resources);
   assert.equal(resources.filter(resource => resource.kind.startsWith('Renewable berry tree')).length, 88);
