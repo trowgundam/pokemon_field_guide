@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 
-const repositoryRoot = path.resolve(import.meta.dirname, '../..');
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const schemaRoot = path.join(repositoryRoot, 'schemas');
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const schemaNames = [
