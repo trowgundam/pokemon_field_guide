@@ -35,8 +35,11 @@ public sealed class InstalledJsonContractTests
     public void Frlg_owns_a_stable_unown_sprite()
     {
         var root = RepositoryRoot();
+        var webRoot = Path.Combine(root, "PokemonFieldGuide", "wwwroot");
+        var catalog = Deserialize<GameCatalog>(Path.Combine(webRoot, "games", "catalog.json"));
+        var game = Assert.Single(catalog.Games, game => game.Id == "frlg");
         var packageRoot = Path.Combine(root, "PokemonFieldGuide", "wwwroot", "games", "frlg");
-        var manifest = Deserialize<PackageManifest>(Path.Combine(packageRoot, "data", "package-manifest.json"));
+        var manifest = DeserializeManifest(game, Path.Combine(packageRoot, "data", "package-manifest.json"));
 
         Assert.Equal("unown.png", manifest.PokemonSprites["SPECIES_UNOWN"]);
         Assert.True(File.Exists(Path.Combine(packageRoot, "sprites", "pokemon", "unown.png")));
@@ -54,7 +57,7 @@ public sealed class InstalledJsonContractTests
             Deserialize<FieldGuideData>(Path.Combine(webRoot, game.DataPath)),
             Deserialize<List<PokedexEntry>>(Path.Combine(webRoot, game.PokedexPath)),
             Deserialize<List<GuideWorld>>(Path.Combine(webRoot, game.WorldsPath)),
-            Deserialize<PackageManifest>(Path.Combine(dataDirectory, "package-manifest.json")));
+            DeserializeManifest(game, Path.Combine(dataDirectory, "package-manifest.json")));
 
         var burnedTowerGroups = package.EncounterGroups(package.Area("MAP_BURNED_TOWER_1F")!, "Crystal");
         Assert.Equal("Random encounters", Assert.Single(burnedTowerGroups, group => group.Name.StartsWith("Random encounters", StringComparison.Ordinal)).Name);
@@ -68,6 +71,12 @@ public sealed class InstalledJsonContractTests
     private static T Deserialize<T>(string path) =>
         JsonSerializer.Deserialize<T>(File.ReadAllText(path), PokemonFieldGuideJson.Options)
         ?? throw new InvalidOperationException($"{path} deserialized to null.");
+
+    private static PackageManifestData DeserializeManifest(GameDefinition game, string path)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        return GamePackageLoader.ReadManifest(game, document.RootElement);
+    }
 
     private static string RepositoryRoot()
     {

@@ -36,13 +36,13 @@ export function addGen2RenewableResources({ read, maps }) {
   });
 
   const sunday = maps.get('MAP_GOLDENROD_DEPT_STORE_5F');
-  removeItems(sunday, ['TM Return', 'TM Frustration'], 2);
+  removeItems(sunday, ['TM27 - Return', 'TM21 - Frustration'], 2);
   sunday.resources.push({
     name: 'Sunday TM reward', kind: 'Weekly happiness reward', x: 7, y: 5,
     comment: 'Available once each Sunday.',
     rewards: [
-      { name: 'TM Return', quantity: 1, comment: 'Lead Pokémon happiness is at least 150.' },
-      { name: 'TM Frustration', quantity: 1, comment: 'Lead Pokémon happiness is below 50.' }
+      { name: 'TM27 - Return', quantity: 1, comment: 'Lead Pokémon happiness is at least 150.' },
+      { name: 'TM21 - Frustration', quantity: 1, comment: 'Lead Pokémon happiness is below 50.' }
     ]
   });
 

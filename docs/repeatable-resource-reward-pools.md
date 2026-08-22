@@ -92,8 +92,8 @@ Condition-based pools omit weights. For example:
 	"y": 5,
 	"comment": "Available once each Sunday.",
 	"rewards": [
-		{ "name": "TM Return", "quantity": 1, "comment": "Lead Pokémon happiness is at least 150." },
-		{ "name": "TM Frustration", "quantity": 1, "comment": "Lead Pokémon happiness is below 50." }
+		{ "name": "TM27 - Return", "quantity": 1, "comment": "Lead Pokémon happiness is at least 150." },
+		{ "name": "TM21 - Frustration", "quantity": 1, "comment": "Lead Pokémon happiness is below 50." }
 	]
 }
 ```

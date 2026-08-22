@@ -19,12 +19,13 @@ import { generatePackage } from '../package-finalization/index.mjs';
 
 await generatePackage({
   gameId: 'yellow',
+  formatVersion: 3,
   build: ({ definition, assets }) =>
     buildYellowDraft({ sourceRoot, definition, assets })
 });
 ```
 
-Pass `formatVersion: 3` when a package emits transport markers or `areaMapsByVersion`. Existing generators omit it and continue to emit manifest v2.
+Pass `formatVersion: 3` for installed packages. All current generators use v3. The loader retains v2 support for previously generated or external compatible packages.
 
 The build callback performs source-specific extraction, rendering, and audits. It returns draft areas, worlds, Pokédex entries, and Pokémon sprite associations in memory. Renderers write PNGs through the managed asset workspace. They never receive the installed package path.
 

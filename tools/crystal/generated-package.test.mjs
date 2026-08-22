@@ -61,7 +61,7 @@ test('Crystal tracks phone registration instead of renewable phone gifts', () =>
     assert.deepEqual(registration, {
       id: `${areaId}:event:REGISTER_${trainer.toUpperCase()}`,
       name: `Register ${trainer}`,
-      kind: 'Event', icon: 'question_mark.png', x, y, quantity: 1
+      kind: 'Event', icon: 'question_mark.png', x, y, quantity: 1, version: 'Both'
     });
     assert.equal(areas.get(areaId).items.some(item => item.kind === 'Event' && giftNames.includes(item.name)), false,
       `${trainer}'s renewable gifts remain checklist items`);

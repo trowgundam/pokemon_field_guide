@@ -7,6 +7,7 @@ import { formatPackageReport, generatePackage } from '../package-finalization/in
 const source = path.resolve(process.argv[2] ?? '/tmp/pokegold-fieldguide');
 const report = await generatePackage({
   gameId: 'gs',
+  formatVersion: 3,
   build: ({ assets }) => buildGoldSilverPackage({ source, assets, sharp })
 });
 console.log(formatPackageReport(report));

@@ -9,7 +9,7 @@ import { readRenewableHiddenItems } from './renewable-hidden-items.mjs';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const source = path.resolve(process.argv[2] ?? '/tmp/pokefirered-fieldguide');
-const report = await generatePackage({ gameId: 'frlg', build: async ({ assets }) => {
+const report = await generatePackage({ gameId: 'frlg', formatVersion: 3, build: async ({ assets }) => {
 const renewableHiddenItems = readRenewableHiddenItems(source);
 const title = value => value
   .replace(/^MAP_/, '').replace(/^SPECIES_/, '').replace(/^ITEM_/, '')
@@ -25,6 +25,13 @@ const title = value => value
   .replace(/\bOaks\b/g, "Oak's").replace(/\bRivals\b/g, "Rival's").replace(/\bPlayers\b/g, "Player's").replace(/\bWardens\b/g, "Warden's")
   .replace(/\bCopycats\b/g, "Copycat's").replace(/\bLoreleis\b/g, "Lorelei's").replace(/\bDigletts\b/g, "Diglett's").replace(/\bMr Psychics\b/g, "Mr. Psychic's")
   .replace(/\bMt Moon\b/g, 'Mt. Moon').replace(/\bHo Oh\b/g, 'Ho-Oh').replace(/\bPoke\b/g, 'Poké').replace(/\bMr Mime\b/g, 'Mr. Mime').replace(/\bFarfetchd\b/g, "Farfetch’d").replace(/Pokemon/g, 'Pokémon');
+const tmAliases = [...fs.readFileSync(path.join(source, 'include/constants/items.h'), 'utf8')
+  .matchAll(/^#define\s+(ITEM_TM(\d{2})_([A-Z0-9_]+))\s+ITEM_TM\2\s*$/gm)];
+if (tmAliases.length !== 50) throw new Error(`FRLG TM source audit failed: expected 50 aliases, found ${tmAliases.length}.`);
+const technicalMachines = new Map(tmAliases.map(match => [
+  `ITEM_TM${match[2]}`, `TM${match[2]} - ${title(match[3])}`
+]));
+const itemName = item => technicalMachines.get(item) ?? title(item);
 
 const wild = JSON.parse(fs.readFileSync(path.join(source, 'src/data/wild_encounters.json')));
 const mapRoot = path.join(source, 'data/maps');
@@ -43,7 +50,7 @@ const trades = {
 const areas = new Map();
 const sourceObjectsByMap = new Map();
 const area = id => {
-  if (!areas.has(id)) areas.set(id, { id, name: title(id), region: regionFor(id), encounters: [], items: [], resources: [], specialPokemon: [], entrances: [] });
+  if (!areas.has(id)) areas.set(id, { id, name: title(id), region: regionFor(id), encounters: [], items: [], resources: [], specialPokemon: [], entrances: [], transports: [] });
   return areas.get(id);
 };
 function regionFor(id) {
@@ -118,7 +125,7 @@ for (const dir of fs.readdirSync(mapRoot)) {
   for (const event of map.object_events ?? []) {
     if (event.graphics_id !== 'OBJ_EVENT_GFX_ITEM_BALL') continue;
     const item = scriptItem(event.script);
-    if (item) a.items.push({ id: `${id}:visible:${event.x}:${event.y}`, name: title(item), kind: 'Visible', icon: itemIcons.get(item) ?? 'question_mark.png', x: event.x, y: event.y, quantity: 1 });
+    if (item) a.items.push({ id: `${id}:visible:${event.x}:${event.y}`, name: itemName(item), kind: 'Visible', icon: itemIcons.get(item) ?? 'question_mark.png', x: event.x, y: event.y, quantity: 1 });
   }
   for (const event of map.bg_events ?? []) {
     if (event.type === 'hidden_item') {
@@ -130,7 +137,7 @@ for (const dir of fs.readdirSync(mapRoot)) {
         continue;
       }
       const isCoins = event.item === 'ITEM_NONE' && /GAME_CORNER_COINS/.test(event.flag ?? '');
-      a.items.push({ id: `${id}:hidden:${event.x}:${event.y}`, name: isCoins ? 'Coins' : title(event.item), kind: 'Hidden', icon: isCoins ? 'coin_case.png' : itemIcons.get(event.item) ?? 'question_mark.png', x: event.x, y: event.y, quantity: event.quantity ?? 1 });
+      a.items.push({ id: `${id}:hidden:${event.x}:${event.y}`, name: isCoins ? 'Coins' : itemName(event.item), kind: 'Hidden', icon: isCoins ? 'coin_case.png' : itemIcons.get(event.item) ?? 'question_mark.png', x: event.x, y: event.y, quantity: event.quantity ?? 1 });
     }
   }
   for (const match of scripts.matchAll(/\b(?:setwildbattle|seteventmon|givemon)\s+(SPECIES_[A-Z0-9_]+),\s*(\d+)/g)) {
@@ -140,7 +147,7 @@ for (const dir of fs.readdirSync(mapRoot)) {
     a.specialPokemon.push({ id: `${id}:${kind}:${match[1]}:${match.index}`, species: title(match[1]), speciesId: match[1], level: Number(match[2]), kind, version: /LEAF_GREEN/.test(before) ? 'LeafGreen' : /FIRE_RED/.test(before) ? 'FireRed' : 'Both' });
   }
   for (const match of scripts.matchAll(/\b(?:giveitem|giveitem_msg\s+[^,]+,|additem)\s+(ITEM_[A-Z0-9_]+)(?:,\s*(\d+))?/g)) {
-    a.items.push({ id: `${id}:event:${match.index}`, name: title(match[1]), kind: 'Event', icon: itemIcons.get(match[1]) ?? 'question_mark.png', x: -1, y: -1, quantity: Number(match[2] ?? 1) });
+    a.items.push({ id: `${id}:event:${match.index}`, name: itemName(match[1]), kind: 'Event', icon: itemIcons.get(match[1]) ?? 'question_mark.png', x: -1, y: -1, quantity: Number(match[2] ?? 1) });
   }
   for (const match of scripts.matchAll(/setvar\s+VAR_0x8008,\s*(INGAME_TRADE_[A-Z0-9_]+)/g)) {
     const pair = trades[match[1]];
@@ -205,6 +212,47 @@ const displacedRewards = [
 if (allResources.length !== 64 || renewableHiddenCount !== 61 || displacedRewards.length !== 0)
   throw new Error(`FRLG resource audit found ${allResources.length} resources, ${renewableHiddenCount} renewable hidden items, and ${displacedRewards.length} displaced rewards.`);
 
+const ferryStops = [
+  ['one-island', 'MAP_ONE_ISLAND_HARBOR', 'One Island', 'Tri-Pass'],
+  ['two-island', 'MAP_TWO_ISLAND_HARBOR', 'Two Island', 'Tri-Pass'],
+  ['three-island', 'MAP_THREE_ISLAND_HARBOR', 'Three Island', 'Tri-Pass'],
+  ['four-island', 'MAP_FOUR_ISLAND_HARBOR', 'Four Island', 'Rainbow Pass'],
+  ['five-island', 'MAP_FIVE_ISLAND_HARBOR', 'Five Island', 'Rainbow Pass'],
+  ['six-island', 'MAP_SIX_ISLAND_HARBOR', 'Six Island', 'Rainbow Pass'],
+  ['seven-island', 'MAP_SEVEN_ISLAND_HARBOR', 'Seven Island', 'Rainbow Pass']
+];
+const ferryDestination = ([id, targetId, name, requirement]) => ({ id, targetId, name, version: 'Both', requirement });
+const earlyFerryStops = new Set(['one-island', 'two-island', 'three-island']);
+area('MAP_VERMILION_CITY').transports.push({
+  id: 'MAP_VERMILION_CITY:seagallop-ferry', name: 'Seagallop Ferry', x: 24, y: 33,
+  destinations: [
+    ...ferryStops.map(ferryDestination),
+    ferryDestination(['navel-rock', 'MAP_NAVEL_ROCK_HARBOR', 'Navel Rock', 'Mystic Ticket']),
+    ferryDestination(['birth-island', 'MAP_BIRTH_ISLAND_HARBOR', 'Birth Island', 'Aurora Ticket'])
+  ]
+});
+for (const stop of ferryStops) {
+  const [originId, mapId] = stop;
+  const routeDestination = destination => ferryDestination([
+    ...destination.slice(0, 3),
+    earlyFerryStops.has(originId) && earlyFerryStops.has(destination[0]) ? 'Tri-Pass' : 'Rainbow Pass'
+  ]);
+  area(mapId).transports.push({
+    id: `${mapId}:seagallop-ferry`, name: 'Seagallop Ferry', x: 8, y: 6,
+    destinations: [
+      ferryDestination(['vermilion-city', 'MAP_VERMILION_CITY', 'Vermilion City', earlyFerryStops.has(originId) ? 'Tri-Pass' : 'Rainbow Pass']),
+      ...ferryStops.filter(([id]) => id !== originId).map(routeDestination)
+    ]
+  });
+}
+for (const [mapId, id, requirement] of [
+  ['MAP_NAVEL_ROCK_HARBOR', 'navel-rock', 'Mystic Ticket'],
+  ['MAP_BIRTH_ISLAND_HARBOR', 'birth-island', 'Aurora Ticket']
+]) area(mapId).transports.push({
+  id: `${mapId}:return-ferry`, name: 'Return ferry', x: 8, y: 6,
+  destinations: [ferryDestination(['vermilion-city', 'MAP_VERMILION_CITY', 'Vermilion City', requirement])]
+});
+
 // Item and special-Pokémon deduplication is source-specific. Package finalization
 // combines equivalent encounter rows for every game package.
 for (const a of areas.values()) {
@@ -212,7 +260,7 @@ for (const a of areas.values()) {
   a.specialPokemon = [...new Map(a.specialPokemon.map(p => [[p.kind,p.speciesId,p.version].join('|'),p])).values()];
 }
 const excludedMaps = /(?:PROTOTYPE|UNUSED)|^MAP_(?:BATTLE_COLOSSEUM_[24]P|RECORD_CORNER|TRADE_CENTER|UNION_ROOM)$/;
-const hasRelevantData = a => a.encounters.length || a.items.length || a.resources.length || a.specialPokemon.length;
+const hasRelevantData = a => a.encounters.length || a.items.length || a.resources.length || a.specialPokemon.length || a.transports.length;
 const areaAliases = { MAP_SAFFRON_CITY_CONNECTION: 'MAP_SAFFRON_CITY' };
 const { worlds, mapAssets } = await renderFrlgMaps(source, assets, areaAliases);
 const rawAreas = [...areas.values()].filter(a => !excludedMaps.test(a.id) && !(a.id in areaAliases));

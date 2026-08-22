@@ -119,6 +119,8 @@ check: check-docs install-schema-tools
     dotnet run --project {{schema_project}} -- --check
     node --test tools/package-schema/validate.test.mjs
     node --test tools/package-finalization.test.mjs
+    node --test tools/rb/generated-package.test.mjs
+    node --test tools/yellow/generated-package.test.mjs
     node --test tools/gen2/generated-package.test.mjs
     node --test tools/crystal/generated-package.test.mjs
     node --test tools/frlg/generated-package.test.mjs
@@ -134,6 +136,7 @@ check: check-docs install-schema-tools
     node --check tools/gen2/renewable-resources.mjs
     node --check tools/gen2/connected-world.mjs
     node --check tools/gen2/display-names.mjs
+    node --check tools/rgbds-technical-machines.mjs
     node --check tools/gen2/map-layouts.mjs
     node --check tools/gen2/map-rendering.mjs
     node --check tools/gen2/sprite-rendering.mjs

@@ -30,7 +30,7 @@ internal sealed class GamePackageLoader(HttpClient http)
             manifest);
     }
 
-    private static PackageManifestData ReadManifest(GameDefinition definition, JsonElement root)
+    internal static PackageManifestData ReadManifest(GameDefinition definition, JsonElement root)
     {
         if (!root.TryGetProperty("formatVersion", out var versionProperty)
             || !versionProperty.TryGetInt32(out var formatVersion))

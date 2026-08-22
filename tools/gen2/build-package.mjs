@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { registerQuestionMarkSprites } from '../package-finalization/assets.mjs';
+import { readRgbdsTechnicalMachines } from '../rgbds-technical-machines.mjs';
 import { displayNameFromConstant, speciesId } from './display-names.mjs';
 import { blockPaths } from './map-layouts.mjs';
 import { renderMaps } from './map-rendering.mjs';
@@ -98,7 +99,7 @@ function parseMaps(read) {
     if (['LANDMARK_ROUTE_26', 'LANDMARK_ROUTE_27', 'LANDMARK_TOHJO_FALLS', 'LANDMARK_ROUTE_28', 'LANDMARK_SILVER_CAVE'].includes(definition.landmark)) region = 'Kanto';
     maps.set(id, {
       id, ...constant, ...definition, region, excluded: constant.key.endsWith('_BETA'), name: displayNameFromConstant(id),
-      connections: [], encounters: [], items: [], resources: [], specialPokemon: [], entrances: []
+      connections: [], encounters: [], items: [], resources: [], specialPokemon: [], entrances: [], transports: []
     });
   });
 
@@ -264,7 +265,7 @@ function fruitTreeItems(read) {
   return new Map(constants.map((constant, index) => [constant, items[index]]));
 }
 
-function parseMapContent(read, maps, versions) {
+function parseMapContent(read, maps, versions, itemName) {
   const treeItems = fruitTreeItems(read), seenTrees = new Set();
   for (const area of maps.values()) {
     if (area.excluded) continue;
@@ -281,11 +282,11 @@ function parseMapContent(read, maps, versions) {
     }
     for (const match of commonText.matchAll(/^\s*object_event\s+(\d+),\s*(\d+),[^\n]*OBJECTTYPE_ITEMBALL,\s*0,\s*([A-Za-z0-9_]+),/gm)) {
       const item = scriptBody(commonText, match[3]).match(/^\s*itemball\s+([A-Z0-9_]+)(?:,\s*(\d+))?/m);
-      if (item) area.items.push({ id: `${area.id}:visible:${match[1]}:${match[2]}:${item[1]}`, name: displayNameFromConstant(item[1]), kind: 'Visible', icon: 'question_mark.png', x: +match[1], y: +match[2], quantity: +(item[2] ?? 1) });
+      if (item) area.items.push({ id: `${area.id}:visible:${match[1]}:${match[2]}:${item[1]}`, name: itemName(item[1]), kind: 'Visible', icon: 'question_mark.png', x: +match[1], y: +match[2], quantity: +(item[2] ?? 1) });
     }
     for (const match of commonText.matchAll(/^\s*bg_event\s+(\d+),\s*(\d+),\s*BGEVENT_ITEM,\s*([A-Za-z0-9_]+)/gm)) {
       const item = scriptBody(commonText, match[3]).match(/^\s*hiddenitem\s+([A-Z0-9_]+)/m);
-      if (item) area.items.push({ id: `${area.id}:hidden:${match[1]}:${match[2]}:${item[1]}`, name: displayNameFromConstant(item[1]), kind: 'Hidden', icon: 'question_mark.png', x: +match[1], y: +match[2], quantity: 1 });
+      if (item) area.items.push({ id: `${area.id}:hidden:${match[1]}:${match[2]}:${item[1]}`, name: itemName(item[1]), kind: 'Hidden', icon: 'question_mark.png', x: +match[1], y: +match[2], quantity: 1 });
     }
     for (const match of commonText.matchAll(/^\s*object_event\s+(\d+),\s*(\d+),\s*SPRITE_FRUIT_TREE,[^\n]*OBJECTTYPE_SCRIPT,\s*0,\s*([A-Za-z0-9_]+),/gm)) {
       const tree = scriptBody(commonText, match[3]).match(/^\s*fruittree\s+(FRUITTREE_[A-Z0-9_]+)/m)?.[1];
@@ -303,7 +304,7 @@ function parseMapContent(read, maps, versions) {
       const key = `${match[1]}:${match.index}`;
       if (eventSeen.has(key)) continue;
       eventSeen.add(key);
-      area.items.push({ id: `${area.id}:event:${match[1]}:${match.index}`, name: displayNameFromConstant(match[1]), kind: 'Event', icon: 'question_mark.png', x: -1, y: -1, quantity: +(match[2] ?? 1) });
+      area.items.push({ id: `${area.id}:event:${match[1]}:${match.index}`, name: itemName(match[1]), kind: 'Event', icon: 'question_mark.png', x: -1, y: -1, quantity: +(match[2] ?? 1) });
     }
     const specials = [];
     for (const { version, text } of versionTexts) {
@@ -388,6 +389,8 @@ export async function prepareGen2Package({ source, sourceName, versions, assets,
   const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
   read.root = root;
   if (!fs.existsSync(path.join(root, 'constants/map_constants.asm'))) throw new Error(`${root} is not a compatible ${sourceName} checkout.`);
+  const technicalMachines = readRgbdsTechnicalMachines(read('constants/item_constants.asm'), displayNameFromConstant);
+  const itemName = item => technicalMachines.get(item) ?? displayNameFromConstant(item);
   const maps = parseMaps(read);
   for (const version of versions) {
     for (const file of ['johto_grass.asm', 'kanto_grass.asm']) {
@@ -405,8 +408,37 @@ export async function prepareGen2Package({ source, sourceName, versions, assets,
   parseTreeEncounters(read, maps, versions);
   parseBugContest(read, maps);
   for (const area of maps.values()) area.encounters = mergeVersions(area.encounters, versions);
-  parseMapContent(read, maps, versions);
+  parseMapContent(read, maps, versions, itemName);
   addGen2RenewableResources({ read, maps });
+  const addTransport = (areaId, id, name, x, y, destinations) => maps.get(areaId).transports.push({
+    id: `${areaId}:${id}`, name, x, y, destinations
+  });
+  const removeEntrance = (areaId, targetId) => {
+    const mapArea = maps.get(areaId);
+    mapArea.entrances = mapArea.entrances.filter(entrance => entrance.targetId !== targetId);
+  };
+  removeEntrance('MAP_GOLDENROD_CITY', 'MAP_GOLDENROD_MAGNET_TRAIN_STATION');
+  removeEntrance('MAP_SAFFRON_CITY', 'MAP_SAFFRON_MAGNET_TRAIN_STATION');
+  addTransport('MAP_GOLDENROD_CITY', 'magnet-train', 'Magnet Train', 9, 13, [
+    { id: 'saffron-city', targetId: 'MAP_SAFFRON_CITY', name: 'Saffron City', version: 'Both', requirement: 'Rail Pass; power restored to Kanto' }
+  ]);
+  addTransport('MAP_SAFFRON_CITY', 'magnet-train', 'Magnet Train', 8, 3, [
+    { id: 'goldenrod-city', targetId: 'MAP_GOLDENROD_CITY', name: 'Goldenrod City', version: 'Both', requirement: 'Rail Pass; power restored to Kanto' }
+  ]);
+  maps.get('MAP_GOLDENROD_MAGNET_TRAIN_STATION').excluded = true;
+  maps.get('MAP_SAFFRON_MAGNET_TRAIN_STATION').excluded = true;
+  removeEntrance('MAP_OLIVINE_PORT', 'MAP_FAST_SHIP_1F');
+  removeEntrance('MAP_VERMILION_PORT', 'MAP_FAST_SHIP_1F');
+  addTransport('MAP_OLIVINE_PORT', 'ss-aqua', 'S.S. Aqua', 7, 23, [
+    { id: 'ss-aqua', targetId: 'MAP_FAST_SHIP_1F', name: 'S.S. Aqua', version: 'Both', requirement: 'S.S. Ticket; Monday or Friday (first voyage any day)' }
+  ]);
+  addTransport('MAP_VERMILION_PORT', 'ss-aqua', 'S.S. Aqua', 7, 17, [
+    { id: 'ss-aqua', targetId: 'MAP_FAST_SHIP_1F', name: 'S.S. Aqua', version: 'Both', requirement: 'S.S. Ticket; Wednesday or Sunday' }
+  ]);
+  addTransport('MAP_FAST_SHIP_1F', 'exit', 'S.S. Aqua exit', 25, 2, [
+    { id: 'olivine-city', targetId: 'MAP_OLIVINE_PORT', name: 'Olivine City', version: 'Both', requirement: 'Chosen when the voyage began in Vermilion City.' },
+    { id: 'vermilion-city', targetId: 'MAP_VERMILION_PORT', name: 'Vermilion City', version: 'Both', requirement: 'Chosen when the voyage began in Olivine City.' }
+  ]);
   maps.get('MAP_NATIONAL_PARK')?.entrances.push({
     id: 'MAP_NATIONAL_PARK:bug-contest', targetId: 'MAP_NATIONAL_PARK_BUG_CONTEST', name: 'National Park Bug Contest', x: 10, y: 47
   });
@@ -417,6 +449,7 @@ export async function prepareGen2Package({ source, sourceName, versions, assets,
     area.resources = [];
     area.specialPokemon = [];
     area.entrances = [];
+    area.transports = [];
   }
   await renderMaps(read, maps, assets, sharp, tilesetGraphics);
   const species = parseSpecies(read);

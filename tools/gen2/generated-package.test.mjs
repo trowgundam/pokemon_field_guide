@@ -18,6 +18,41 @@ const interiorWorldMaps = new Set([
 
 const json = file => JSON.parse(fs.readFileSync(file, 'utf8'));
 
+for (const game of packages) test(`${game} uses package format 3 and standardized TM names`, () => {
+  const manifest = json(path.join(webRoot, `games/${game}/data/package-manifest.json`));
+  const fieldguide = json(path.join(webRoot, `games/${game}/data/fieldguide.json`));
+  assert.equal(manifest.formatVersion, 3);
+  const tms = fieldguide.areas.flatMap(area => area.items).filter(item => item.name.startsWith('TM'));
+  assert(tms.length > 0);
+  for (const item of tms) assert.match(item.name, /^TM\d{2} - .+$/);
+  assert(tms.some(item => item.name === 'TM24 - Dragonbreath'));
+});
+
+for (const game of packages) test(`${game} models the Magnet Train and S.S. Aqua as transport`, () => {
+  const fieldguide = json(path.join(webRoot, `games/${game}/data/fieldguide.json`));
+  const areas = new Map(fieldguide.areas.map(area => [area.id, area]));
+  const destination = (areaId, transportName, destinationName) => areas.get(areaId).transports
+    .find(transport => transport.name === transportName).destinations.find(entry => entry.name === destinationName);
+
+  assert.deepEqual(destination('MAP_GOLDENROD_CITY', 'Magnet Train', 'Saffron City'), {
+    id: 'saffron-city', targetId: 'MAP_SAFFRON_CITY', name: 'Saffron City', version: 'Both',
+    requirement: 'Rail Pass; power restored to Kanto'
+  });
+  assert.deepEqual(destination('MAP_SAFFRON_CITY', 'Magnet Train', 'Goldenrod City'), {
+    id: 'goldenrod-city', targetId: 'MAP_GOLDENROD_CITY', name: 'Goldenrod City', version: 'Both',
+    requirement: 'Rail Pass; power restored to Kanto'
+  });
+  assert.equal(areas.get('MAP_GOLDENROD_CITY').entrances.some(entry => entry.targetId === 'MAP_SAFFRON_CITY'), false);
+  assert.equal(areas.get('MAP_SAFFRON_CITY').entrances.some(entry => entry.targetId === 'MAP_GOLDENROD_CITY'), false);
+
+  assert.equal(destination('MAP_OLIVINE_PORT', 'S.S. Aqua', 'S.S. Aqua').targetId, 'MAP_FAST_SHIP_1F');
+  assert.equal(destination('MAP_VERMILION_PORT', 'S.S. Aqua', 'S.S. Aqua').targetId, 'MAP_FAST_SHIP_1F');
+  assert.deepEqual(areas.get('MAP_FAST_SHIP_1F').transports[0].destinations.map(({ name, requirement }) => ({ name, requirement })), [
+    { name: 'Olivine City', requirement: 'Chosen when the voyage began in Vermilion City.' },
+    { name: 'Vermilion City', requirement: 'Chosen when the voyage began in Olivine City.' }
+  ]);
+});
+
 function decodePng(file) {
   const png = fs.readFileSync(file);
   assert.equal(png.toString('hex', 0, 8), '89504e470d0a1a0a');
@@ -126,8 +161,8 @@ for (const game of packages) test(`${game} exposes every renewable item source a
     ]);
   assert.deepEqual(areas.get('MAP_GOLDENROD_DEPT_STORE_5F').resources.find(resource => resource.name === 'Sunday TM reward').rewards,
     [
-      { name: 'TM Return', quantity: 1, comment: 'Lead Pokémon happiness is at least 150.' },
-      { name: 'TM Frustration', quantity: 1, comment: 'Lead Pokémon happiness is below 50.' }
+      { name: 'TM27 - Return', quantity: 1, comment: 'Lead Pokémon happiness is at least 150.' },
+      { name: 'TM21 - Frustration', quantity: 1, comment: 'Lead Pokémon happiness is below 50.' }
     ]);
   const recordPrize = areas.get('MAP_LAKE_OF_RAGE_MAGIKARP_HOUSE').resources.find(resource => resource.kind === 'Repeatable size record');
   assert.equal(recordPrize.name, game === 'gs' ? 'Ether' : 'Elixer');
@@ -135,7 +170,7 @@ for (const game of packages) test(`${game} exposes every renewable item source a
   for (const [areaId, names] of [
     ['MAP_MOUNT_MOON_SQUARE', ['Moon Stone']],
     ['MAP_ROUTE_36_NATIONAL_PARK_GATE', ['Sun Stone', 'Everstone', 'Gold Berry', 'Berry']],
-    ['MAP_GOLDENROD_DEPT_STORE_5F', ['TM Return', 'TM Frustration']],
+    ['MAP_GOLDENROD_DEPT_STORE_5F', ['TM27 - Return', 'TM21 - Frustration']],
     ['MAP_LAKE_OF_RAGE_MAGIKARP_HOUSE', [game === 'gs' ? 'Ether' : 'Elixer']]
   ]) assert.equal(areas.get(areaId).items.some(item => names.includes(item.name)), false, `${areaId} retains a renewable checklist item`);
   assert.equal(areas.get('MAP_RADIO_TOWER_1F').items.some(item => ['Master Ball', 'Exp Share'].includes(item.name)), false,
