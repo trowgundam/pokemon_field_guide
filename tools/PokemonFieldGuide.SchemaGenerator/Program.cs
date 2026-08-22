@@ -21,6 +21,7 @@ var contracts = new Dictionary<string, Type>
     ["pokedex.schema.json"] = typeof(List<PokedexEntry>),
     ["worlds.schema.json"] = typeof(List<GuideWorld>),
     ["package-manifest-v2.schema.json"] = typeof(PackageManifest),
+    ["package-manifest-v3.schema.json"] = typeof(PackageManifestV3),
     ["local-guide-state-v1.schema.json"] = typeof(LocalGuideStateEnvelopeV1),
     ["checklist-profile-v1.schema.json"] = typeof(ChecklistProfileV1),
     ["checklist-profile-v2.schema.json"] = typeof(ChecklistProfileV2),
@@ -110,6 +111,8 @@ static void ApplyContractConstants(string fileName, JsonObject schema)
     if (schema["properties"] is not JsonObject properties) return;
     if (fileName is "package-manifest-v2.schema.json" or "portable-backup-v2.schema.json")
         properties["formatVersion"]!["const"] = 2;
+    if (fileName is "package-manifest-v3.schema.json")
+        properties["formatVersion"]!["const"] = 3;
     if (fileName is "local-guide-state-v1.schema.json" or "portable-backup-v1.schema.json")
         properties["formatVersion"]!["const"] = 1;
     if (fileName is "portable-backup-v1.schema.json" or "portable-backup-v2.schema.json")

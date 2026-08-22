@@ -435,3 +435,85 @@ test('leaves the installed package unchanged when draft finalization fails', asy
 
   assert.equal(await fs.readFile(path.join(packageRoot, 'sentinel.txt'), 'utf8'), 'old package');
 });
+
+test('writes manifest v3 and retains version-specific area maps', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await generatePackage({
+    gameId: 'test', webRoot, formatVersion: 3,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets);
+      const versionMap = await assets.map('AREA_TEST.png', target => fs.writeFile(target, png));
+      draft.areas[0].entrances.push({ id: 'AREA_OUTDOOR:room', name: 'Room', targetId: 'ROOM', x: 0, y: 0 });
+      draft.areas.push({
+        id: 'ROOM', name: 'Room', region: 'Test', mapImage: draft.areas[0].mapImage,
+        mapWidth: 16, mapHeight: 16, encounters: [], items: [], specialPokemon: [], includeInNavigation: true,
+        entrances: [{ id: 'ROOM:out', name: 'Outdoor', targetId: 'AREA_OUTDOOR', x: 0, y: 0 }]
+      });
+      draft.areaMapsByVersion = {
+        Test: { ROOM: { image: versionMap, width: 32, height: 48 } }
+      };
+      return draft;
+    }
+  });
+
+  const packageRoot = path.join(webRoot, 'games/test');
+  const manifest = JSON.parse(await fs.readFile(path.join(packageRoot, 'data/package-manifest.json')));
+  assert.equal(manifest.formatVersion, 3);
+  assert.deepEqual(manifest.areaMapsByVersion.Test.ROOM, {
+    image: 'games/test/maps/AREA_TEST.png', width: 32, height: 48
+  });
+  assert.equal((await fs.stat(path.join(packageRoot, 'maps/AREA_TEST.png'))).isFile(), true);
+});
+
+test('retains transport destinations without contracting them into entrances', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await generatePackage({
+    gameId: 'test', webRoot, formatVersion: 3,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets);
+      const hiddenWorld = await assets.map('WORLD_HIDDEN.png', target => fs.writeFile(target, png));
+      draft.areas[0].transports = [{
+        id: 'AREA_OUTDOOR:ferry', name: 'Ferry', x: 0, y: 0,
+        destinations: [{ id: 'frontier', name: 'Frontier', targetId: 'FRONTIER', version: 'Both', requirement: 'Invitation' }]
+      }];
+      draft.areas.push({
+        id: 'FRONTIER', name: 'Frontier', region: 'Test', mapImage: draft.areas[0].mapImage,
+        mapWidth: 16, mapHeight: 16, encounters: [], items: [], specialPokemon: [], entrances: [],
+        transports: [{ id: 'FRONTIER:return', name: 'Return ferry', x: 0, y: 0,
+          destinations: [{ id: 'return', name: 'Outdoor', targetId: 'AREA_OUTDOOR', version: 'Both' }] }],
+        includeInNavigation: true
+      });
+      draft.worlds.push({ id: 'hidden-world', name: 'Frontier', image: hiddenWorld, width: 16, height: 16,
+        maps: [{ id: 'FRONTIER', x: 0, y: 0, width: 16, height: 16 }] });
+      return draft;
+    }
+  });
+
+  const fieldGuide = JSON.parse(await fs.readFile(path.join(webRoot, 'games/test/data/fieldguide.json')));
+  assert.deepEqual(fieldGuide.areas.find(area => area.id === 'AREA_OUTDOOR').entrances, []);
+  assert.equal(fieldGuide.areas.find(area => area.id === 'AREA_OUTDOOR').transports[0].destinations[0].targetId, 'FRONTIER');
+});
+
+test('rejects a hidden world without an inbound transport path', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await assert.rejects(generatePackage({
+    gameId: 'test', webRoot, formatVersion: 3,
+    build: async ({ assets }) => {
+      const draft = await validDraft(assets);
+      const hiddenWorld = await assets.map('WORLD_HIDDEN.png', target => fs.writeFile(target, png));
+      draft.areas.push({
+        id: 'FRONTIER', name: 'Frontier', region: 'Test', mapImage: draft.areas[0].mapImage,
+        mapWidth: 16, mapHeight: 16, encounters: [], items: [], specialPokemon: [], entrances: [], includeInNavigation: true
+      });
+      draft.worlds.push({ id: 'hidden-world', name: 'Frontier', image: hiddenWorld, width: 16, height: 16,
+        maps: [{ id: 'FRONTIER', x: 0, y: 0, width: 16, height: 16 }] });
+      return draft;
+    }
+  }), /hidden world.*hidden-world.*inbound transport/i);
+});

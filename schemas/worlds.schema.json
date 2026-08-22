@@ -8,6 +8,13 @@
       "id": {
         "type": "string"
       },
+      "name": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "minLength": 1
+      },
       "image": {
         "type": "string"
       },

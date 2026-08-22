@@ -70,6 +70,7 @@ An area has this shape:
   "resources": [],
   "specialPokemon": [],
   "entrances": [],
+  "transports": [],
   "mapImage": "games/example/maps/ROUTE_1.png",
   "mapWidth": 384,
   "mapHeight": 640
@@ -112,6 +113,7 @@ Use the optional `condition` field when one method has independently normalized 
   "id": "MAP_EXAMPLE_ROUTE_1:hidden:8:12",
   "name": "Potion",
   "kind": "Hidden",
+  "version": "ExampleRed",
   "icon": "potion.png",
   "x": 8,
   "y": 12,
@@ -119,7 +121,7 @@ Use the optional `condition` field when one method has independently normalized 
 }
 ```
 
-Item IDs are checklist keys and must be stable. Coordinate-bearing items use tile coordinates. Event items without a map tile conventionally use `-1` for both coordinates and are listed without a map marker. The rules implementation controls group ordering, but generators should use consistent kinds such as `Visible`, `Hidden`, and `Event`.
+Item IDs are checklist keys and must be stable. Use `Both` for an item shared by every package version, otherwise use an exact catalog version ID. Coordinate-bearing items use tile coordinates. Event items without a map tile conventionally use `-1` for both coordinates and are listed without a map marker. The rules implementation controls group ordering, but generators should use consistent kinds such as `Visible`, `Hidden`, and `Event`.
 
 ### Renewable map resources
 
@@ -192,7 +194,31 @@ Represent locally repeatable encounters as encounters and one-time choices or in
 
 Include both directions where the game supports returning. Preserve edges through empty gates, stairwells, elevators, and transition rooms because interior discovery traverses the entrance graph. Outdoor-to-outdoor gates do not need a checklist entrance marker; the runtime stops traversal when it reaches an outdoor area.
 
-Treat reachability as a generated-data invariant. Starting from every outdoor world placement, follow entrance edges in their declared direction and fail generation if any draft area cannot be reached. Run the same traversal over the retained package after contraction. Do not return unused, beta, debug, or inaccessible maps in the draft. Also follow the runtime navigation rule and confirm that every interior belongs to a component opened by a world marker. Do not expose linear empty transition rooms as selectable interiors. Set `includeInNavigation` only when an otherwise empty map has visual or navigational value that the player should be able to inspect. Retain an empty junction when separate branches lead to relevant interiors, including branches of different lengths. Also verify that every non-empty entrance target resolves to an included area. Do not filter a missing target to conceal incomplete extraction.
+### Transports
+
+Use a transport when one map marker offers a deliberate jump to one or more destinations, such as a ferry attendant:
+
+```json
+{
+  "id": "MAP_EXAMPLE_HARBOR:ferry",
+  "name": "Ferry",
+  "x": 8,
+  "y": 10,
+  "destinations": [
+    {
+      "id": "event-island",
+      "targetId": "MAP_EXAMPLE_EVENT_ISLAND",
+      "name": "Event Island",
+      "version": "Both",
+      "requirement": "Event Ticket"
+    }
+  ]
+}
+```
+
+Requirements are informational. The chooser always lists every destination available to the selected version. Do not turn tickets or story conditions into checklist entries. Include a return transport when the game provides one. Transport targets must be retained areas; transports do not contract empty chains and do not join interior floor graphs.
+
+Treat reachability as a generated-data invariant. Start from catalog-visible worlds and follow entrance and transport edges in their declared direction. Entering a world exposes all of its placements. Run the traversal before and after entrance contraction and fail if any area is unreachable. A world omitted from catalog regions is hidden navigation state and must have an inbound transport path. Do not return unused, beta, debug, or inaccessible maps in the draft. Also confirm that every interior belongs to a component opened by a world or transport marker. Do not expose linear empty transition rooms as selectable interiors. Set `includeInNavigation` only when an otherwise empty map has visual or navigational value that the player should be able to inspect. Retain an empty junction when separate branches lead to relevant interiors, including branches of different lengths. Verify every entrance and transport target instead of filtering a missing target to conceal incomplete extraction.
 
 ## 4. Generate `worlds.json`
 
@@ -202,6 +228,7 @@ Create one record per connected outdoor canvas:
 [
   {
     "id": "example-region",
+    "name": "Example Region",
     "image": "games/example/maps/WORLD_EXAMPLE_REGION.png",
     "width": 4096,
     "height": 3072,
@@ -220,7 +247,7 @@ Create one record per connected outdoor canvas:
 
 World placement coordinates and dimensions are pixels in the connected image. Placement IDs must resolve to areas after the package manifest applies its `areaAliases`. The world image must align exactly with every placement because markers add the area's tile coordinates to the placement origin.
 
-Disconnected landmasses may either become separate worlds/region tabs or be arranged on one composite canvas, as appropriate for the game.
+Disconnected landmasses may either become separate worlds/region tabs or be arranged on one composite canvas, as appropriate for the game. A transport-only world may be omitted from catalog `regions`; give it a `name` so the toolbar can identify it.
 
 ## 5. Generate `pokedex.json`
 
@@ -284,6 +311,7 @@ Every draft encounter must include its raw source method and a normalized `type`
 
 - `Random`
 - `Surfing`
+- `Underwater`
 - `OldRod`
 - `GoodRod`
 - `SuperRod`

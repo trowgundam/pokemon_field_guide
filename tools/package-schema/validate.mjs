@@ -12,6 +12,7 @@ const schemaNames = [
   'pokedex.schema.json',
   'worlds.schema.json',
   'package-manifest-v2.schema.json',
+  'package-manifest-v3.schema.json',
   'local-guide-state-v1.schema.json',
   'checklist-profile-v1.schema.json',
   'checklist-profile-v2.schema.json',

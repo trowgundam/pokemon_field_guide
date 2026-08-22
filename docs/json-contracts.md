@@ -10,7 +10,7 @@ The `schemas/` directory contains JSON Schema Draft 2020-12 documents for:
 - field-guide data;
 - Pokédex data;
 - worlds;
-- package manifest v2;
+- package manifests v2 and v3;
 - Local guide state v1;
 - Checklist profile v1 and v2;
 - portable backup v1 and v2.

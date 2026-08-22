@@ -72,13 +72,14 @@ Build-time tooling follows the same ownership boundary. Scripts under `tools/<ga
 `FieldGuideData` contains areas. Each `GuideArea` can contain:
 
 - wild `Encounter` rows, filtered by version;
-- visible, hidden, or event `GuideItem` rows;
+- visible, hidden, or event `GuideItem` rows, filtered by version;
 - renewable, non-checklist `GuideMapResource` rows with optional comments and reward outcomes;
 - static, gift, or trade `SpecialPokemon` rows;
 - `MapEntrance` edges to other areas;
+- `GuideTransport` markers with selectable, version-aware destinations;
 - an optional rendered map and its pixel dimensions.
 
-`GuideWorld` describes one connected outdoor canvas. Its `WorldMapPlacement` records use pixel coordinates and dimensions. Item, entrance, and resource coordinates use game-map tile coordinates. The current renderer places their markers at the center of a 16-pixel tile.
+`GuideWorld` describes one connected outdoor canvas. Its `WorldMapPlacement` records use pixel coordinates and dimensions. A world may have a display name without appearing as a visible catalog region; transport-only destinations use that form. Item, entrance, transport, and resource coordinates use game-map tile coordinates. The current renderer places their markers at the center of a 16-pixel tile.
 
 A fixed-output resource uses the item name as its marker name. A multi-outcome resource has reward rows with a name and quantity. Random pools use positive integer weights, while conditional pools omit weights and explain each outcome in its comment. Package finalization rejects a pool that mixes the two forms.
 
@@ -99,7 +100,7 @@ Paths are URLs relative to `wwwroot` and must not start with `/`. This makes the
 
 ## Package variability
 
-The package manifest is the runtime authority for area aliases and Pokémon sprite filenames. Package finalization writes manifest format v2 and validates the same document that `GamePackageLoader` reads. Every sprite is a file owned by its Game package. Runtime code contains no embedded image data.
+The package manifest is the runtime authority for area aliases and Pokémon sprite filenames. Manifest v2 remains the frozen format for existing packages. Manifest v3 adds complete image, width, and height overrides keyed by version and area. `GamePackageLoader` dispatches on `formatVersion` and normalizes either format for `GamePackage`. Every referenced image is owned by its Game package. Runtime code contains no embedded image data.
 
 Each `Encounter` retains its source `Method` and has a normalized `EncounterType`. A Game adapter must classify every source method. Package generation fails when a method is not classified. C# owns encounter-group labels and ordering through an exhaustive mapping from `EncounterType`.
 
@@ -109,11 +110,13 @@ Each `Encounter` retains its source `Method` and has a normalized `EncounterType
 
 Outdoor areas are those referenced by any loaded `GuideWorld`. The Game package indexes those placements during assembly. `NormalizeAreaId` allows a rendered placement to resolve to a differently named guide area when source data requires it.
 
-Interior reachability is graph-based. An outdoor marker opens the nearest interior that contains encounters, items, resources, special Pokémon, or an explicit `IncludeInNavigation` value. Once open, every connected non-outdoor area with guide data becomes a selectable floor. Package finalization contracts empty transition chains but retains a junction when distinct branches lead to relevant interiors, even when the branches have different lengths. Complete and correct source entrance edges are therefore essential for rooms that are omitted from the final package.
+Interior reachability is graph-based. An outdoor marker opens the nearest interior that contains encounters, items, resources, special Pokémon, transports, or an explicit `IncludeInNavigation` value. Once open, every connected non-outdoor area with guide data becomes a selectable floor. Package finalization contracts empty transition chains but retains a junction when distinct branches lead to relevant interiors, even when the branches have different lengths. Complete and correct source entrance edges are therefore essential for rooms that are omitted from the final package.
+
+Transport edges are deliberate jumps, not physical adjacency. They contribute to package reachability and can open an outdoor world or an interior component, but they never participate in entrance contraction or the interior floor graph. Catalog regions seed navigation. A world omitted from the region list must have an inbound transport path.
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
 
-An area checklist contains each version-available Pokémon species once, across both encounters and special acquisitions, plus every item in the area. Renewable resources are informational markers and never enter checklist state. The page compares the checklist with the active Checklist profile to calculate the displayed percentage.
+An area checklist contains each version-available Pokémon species once, across both encounters and special acquisitions, plus every version-available item in the area. Renewable resources and transport requirements are informational and never enter checklist state. The page compares the checklist with the active Checklist profile to calculate the displayed percentage.
 
 ## Local guide state
 
