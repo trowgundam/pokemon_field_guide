@@ -20,10 +20,14 @@ public sealed class InstalledJsonContractTests
             Deserialize<FieldGuideData>(Path.Combine(webRoot, game.DataPath));
             Deserialize<List<PokedexEntry>>(Path.Combine(webRoot, game.PokedexPath));
             Deserialize<List<GuideWorld>>(Path.Combine(webRoot, game.WorldsPath));
-            var manifest = Deserialize<PackageManifest>(Path.Combine(
+            var manifestPath = Path.Combine(
                 Path.GetDirectoryName(Path.Combine(webRoot, game.DataPath))!,
-                "package-manifest.json"));
-            Assert.Equal(2, manifest.FormatVersion);
+                "package-manifest.json");
+            using var manifestDocument = JsonDocument.Parse(File.ReadAllText(manifestPath));
+            var formatVersion = manifestDocument.RootElement.GetProperty("formatVersion").GetInt32();
+            if (formatVersion == 2) Deserialize<PackageManifest>(manifestPath);
+            else if (formatVersion == 3) Deserialize<PackageManifestV3>(manifestPath);
+            else Assert.Fail($"{game.Id} uses unsupported package manifest v{formatVersion}.");
         }
     }
 

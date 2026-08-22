@@ -50,6 +50,14 @@ _clone-source root repository:
 clone-frlg root:
     just _clone-source "{{root}}" pokefirered
 
+# Clone the Ruby/Sapphire source repository.
+clone-rs root:
+    just _clone-source "{{root}}" pokeruby
+
+# Clone the Emerald source repository.
+clone-emerald root:
+    just _clone-source "{{root}}" pokeemerald
+
 # Clone the Red/Blue source repository.
 clone-rb root:
     just _clone-source "{{root}}" pokered
@@ -72,7 +80,9 @@ clone-all root:
     just clone-yellow "{{root}}"
     just clone-gs "{{root}}"
     just clone-crystal "{{root}}"
+    just clone-rs "{{root}}"
     just clone-frlg "{{root}}"
+    just clone-emerald "{{root}}"
 
 # Build the application.
 build: restore
@@ -110,6 +120,14 @@ install-gs-tools: install-schema-tools
 install-crystal-tools: install-schema-tools
     npm ci --prefix tools/crystal
 
+# Install the pinned Ruby/Sapphire generator dependencies.
+install-rs-tools: install-schema-tools
+    npm ci --prefix tools/rs
+
+# Install the pinned Emerald generator dependencies.
+install-emerald-tools: install-schema-tools
+    npm ci --prefix tools/emerald
+
 # Install the pinned JSON Schema validator.
 install-schema-tools:
     npm ci --prefix tools/package-schema
@@ -127,6 +145,8 @@ check: check-docs install-schema-tools
     node --test tools/gen2/generated-package.test.mjs
     node --test tools/crystal/generated-package.test.mjs
     node --test tools/frlg/generated-package.test.mjs
+    node --test tools/rs/generated-package.test.mjs
+    node --test tools/emerald/generated-package.test.mjs
     node --check tools/frlg/generate-fieldguide.mjs
     node --check tools/frlg/audit-renewable-hidden-items.mjs
     node --check tools/frlg/renewable-hidden-items.mjs
@@ -144,6 +164,16 @@ check: check-docs install-schema-tools
     node --check tools/gs/generate-fieldguide.mjs
     node --check tools/crystal/build-package.mjs
     node --check tools/crystal/generate-fieldguide.mjs
+    node --check tools/gen3/display-names.mjs
+    node --check tools/gen3/map-rendering.mjs
+    node --check tools/gen3/package-building.mjs
+    node --check tools/gen3/script-extraction.mjs
+    node --check tools/gen3/source-data.mjs
+    node --check tools/gen3/sprite-rendering.mjs
+    node --check tools/rs/build-package.mjs
+    node --check tools/rs/generate-fieldguide.mjs
+    node --check tools/emerald/build-package.mjs
+    node --check tools/emerald/generate-fieldguide.mjs
     node tools/validate-generated-data.mjs
     dotnet restore {{test_project}} --locked-mode
     dotnet test {{test_project}} --no-restore
@@ -169,10 +199,20 @@ generate-gs source: install-gs-tools
 generate-crystal source: install-crystal-tools
     node tools/crystal/generate-fieldguide.mjs "{{source}}"
 
+# Regenerate the complete Ruby/Sapphire package from a pokeruby checkout.
+generate-rs source: install-rs-tools
+    node tools/rs/generate-fieldguide.mjs "{{source}}"
+
+# Regenerate the complete Emerald package from a pokeemerald checkout.
+generate-emerald source: install-emerald-tools
+    node tools/emerald/generate-fieldguide.mjs "{{source}}"
+
 # Regenerate every package from conventionally named source checkouts.
 generate-all root:
     just generate-rb "{{root}}/pokered"
     just generate-yellow "{{root}}/pokeyellow"
     just generate-gs "{{root}}/pokegold"
     just generate-crystal "{{root}}/pokecrystal"
+    just generate-rs "{{root}}/pokeruby"
     just generate-frlg "{{root}}/pokefirered"
+    just generate-emerald "{{root}}/pokeemerald"

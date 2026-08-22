@@ -1,10 +1,10 @@
 # Pokemon Field Guide
 
-An extensible, Google Maps-style completion guide for Pokémon games. Current packages cover Red/Blue, Yellow, Gold/Silver, Crystal, and FireRed/LeafGreen.
+An extensible, Google Maps-style completion guide for Pokémon games. Current packages cover Red/Blue, Yellow, Gold/Silver, Crystal, Ruby/Sapphire, FireRed/LeafGreen, and Emerald.
 
 ## Features
 
-- Connected Kanto, Johto, and Sevii Islands maps with zooming and panning
+- Connected Kanto, Johto, Hoenn, Underwater, and Sevii Islands maps with zooming and panning
 - Navigable interior maps and floor selection
 - Visible, hidden, and event item checklists
 - Renewable resource markers for repeatable pickups and rewards
@@ -21,4 +21,4 @@ Technical and contributor documentation begins at [docs/README.md](docs/README.m
 
 ## Attribution
 
-Game data and graphical assets originate from the [pret/pokered](https://github.com/pret/pokered), [pret/pokeyellow](https://github.com/pret/pokeyellow), [pret/pokegold](https://github.com/pret/pokegold), [pret/pokecrystal](https://github.com/pret/pokecrystal), and [pret/pokefirered](https://github.com/pret/pokefirered) decompilation projects. Pokémon and related names and imagery are trademarks and copyrights of their respective owners. This is an unofficial fan project.
+Game data and graphical assets originate from the [pret/pokered](https://github.com/pret/pokered), [pret/pokeyellow](https://github.com/pret/pokeyellow), [pret/pokegold](https://github.com/pret/pokegold), [pret/pokecrystal](https://github.com/pret/pokecrystal), [pret/pokeruby](https://github.com/pret/pokeruby), [pret/pokefirered](https://github.com/pret/pokefirered), and [pret/pokeemerald](https://github.com/pret/pokeemerald) decompilation projects. Pokémon and related names and imagery are trademarks and copyrights of their respective owners. This is an unofficial fan project.

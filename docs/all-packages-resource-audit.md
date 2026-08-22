@@ -2,7 +2,7 @@
 
 ## Conclusion
 
-The five installed packages contain the following renewable item resources:
+The seven installed packages contain the following renewable item resources:
 
 <!-- check:package-resource-counts -->
 | Package | Package ID | Resources | Current representation |
@@ -11,7 +11,9 @@ The five installed packages contain the following renewable item resources:
 | Yellow | `yellow` | 0 | No qualifying sources |
 | Gold/Silver | `gs` | 34 | 30 fruit trees and four recurring world or event rewards |
 | Crystal | `crystal` | 35 | Gold/Silver resources plus the Battle Tower prize |
+| Ruby/Sapphire | `rs` | 104 | 88 berry plots, eight daily berry gifts, and eight Shoal Cave pickups |
 | FireRed/LeafGreen | `frlg` | 64 | 61 hidden pickups, Selphy, and two size judges |
+| Emerald | `emerald` | 104 | 88 berry plots, eight daily berry gifts, and eight Shoal Cave pickups |
 
 The target counts follow one boundary: a resource is a free, location-bound item pickup or event reward that the player can obtain repeatedly. A resource has no checklist state. Shops, currency or item exchanges, crafting services, multiplayer activities, global delivery systems, repeatable Pokémon encounters, and OT-ID lotteries are outside this model.
 
@@ -23,7 +25,9 @@ This audit uses these source revisions:
 - [`pret/pokeyellow` at `e6ba569`](https://github.com/pret/pokeyellow/tree/e6ba56989b0f2694f393e6924820be11dcc1fbb8)
 - [`pret/pokegold` at `656583c`](https://github.com/pret/pokegold/tree/656583c939d30f920a316177311a502dd222b57c)
 - [`pret/pokecrystal` at `7a7881d`](https://github.com/pret/pokecrystal/tree/7a7881d0d62e0ddbd82dcf10e7116807487ac651)
+- [`pret/pokeruby` at `63a8cbf`](https://github.com/pret/pokeruby/tree/63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1)
 - [`pret/pokefirered` at `c75f352`](https://github.com/pret/pokefirered/tree/c75f352304d529f6ba92d4f74b9cf8b5c3810788)
+- [`pret/pokeemerald` at `201378b`](https://github.com/pret/pokeemerald/tree/201378bdc09692df7ba3530c9fe68b4c8efe1c00)
 
 ## Resource inventory
 
@@ -39,12 +43,15 @@ Each row below represents one marker, except the fruit-tree and renewable-hidden
 | Gold/Silver | Lake of Rage Magikarp House `(2, 3)` | Ether | Every new personal Magikarp length record | Ether x1 |
 | Crystal | Lake of Rage Magikarp House `(2, 3)` | Elixer | Every new personal Magikarp length record | Elixer x1 |
 | Crystal | Battle Tower 1F `(7, 6)` | Battle Tower prize | Every completed seven-win challenge | Five of one selected vitamin |
+| Ruby/Sapphire and Emerald | 88 coordinates | Berry plots | Replantable growth cycle | The currently planted berry; 80 plots begin seeded |
+| Ruby/Sapphire and Emerald | Eight NPC coordinates | Berry gifts | Daily reset | One or two fixed, random, or condition-selected berries |
+| Ruby/Sapphire and Emerald | Eight Shoal Cave coordinates | Shoal Salt or Shoal Shell | Tide cycle resets collected pickup flags | One fixed item per coordinate |
 | FireRed/LeafGreen | 61 coordinates on 15 maps | Renewable hidden items | 1,500 steps followed by an eligible map entry | One fixed item at each possible location, subject to the map's reroll tier |
 | FireRed/LeafGreen | Resort Gorgeous House `(4, 4)` | Selphy's reward | Every completed Pokémon request | One item selected from Selphy's pool |
 | FireRed/LeafGreen | Route 12 Fishing House `(4, 4)` | Net Ball | Every new personal Magikarp size record | Net Ball x1 |
 | FireRed/LeafGreen | Water Path House 1 `(3, 4)` | Nest Ball | Every new personal Heracross size record | Nest Ball x1 |
 
-Gold/Silver therefore has 34 resources, Crystal has 35, and FireRed/LeafGreen has 64.
+Gold/Silver therefore has 34 resources, Crystal has 35, Ruby/Sapphire and Emerald each have 104, and FireRed/LeafGreen has 64.
 
 ## Red/Blue and Yellow
 
@@ -85,6 +92,12 @@ The generator replaces the possible gift checklist rows with ten `Event` checkli
 
 Crystal's Lucky Number Show is excluded for the same reason as Gold/Silver's OT-ID lottery.
 
+## Ruby/Sapphire and Emerald
+
+Both Hoenn packages emit the same 104 location-bound renewable resources. The generators derive all 88 berry-tree coordinates from map object events and their initial state from the new-game berry assignments. Eight plots start empty. Eight daily NPC gifts use daily-reset flags, and eight Shoal Cave pickups return when the tide cycle resets their collection flags. See [Generation III Hoenn packages](gen3-hoenn-packages.md#renewable-resources) for the package boundary and representation rules.
+
+The five one-time special-phrase rewards from the Berry Master's wife remain checklist items. Her later random daily fallback is one resource at the same NPC. The Berry Blender, Battle Point exchange, Lilycove lottery, Pickup, and multiplayer activities are excluded by the common resource boundary.
+
 ## FireRed/LeafGreen
 
 The FireRed/LeafGreen generator emits 64 resources for both versions:
@@ -119,6 +132,7 @@ The current generators enforce these rules:
 3. Crystal generation replaces phone-gift outcomes with ten coordinate-bearing phone-registration checklist events.
 4. FireRed/LeafGreen generation asserts 64 resource markers.
 5. Red/Blue and Yellow generation retains zero resources.
+6. Ruby/Sapphire and Emerald artifact tests assert 88 berry plots, eight daily berry gifts, and eight tide-reset pickups.
 
 The generators derive membership and outcomes from source flags, tables, scripts, and map objects. Manual lists have exact count and absence assertions so a source update cannot silently change package behavior.
 
@@ -127,7 +141,7 @@ The generators derive membership and outcomes from source flags, tables, scripts
 These commands reproduce the installed-package counts and the broad source scans used during the audit:
 
 ```sh
-for game in rb yellow gs crystal frlg; do
+for game in rb yellow gs crystal rs frlg emerald; do
   jq -r --arg game "$game" '[.areas[].items[]] as $items | [.areas[].resources[]?] as $resources | "\($game) items=\($items|length) resources=\($resources|length)"' \
     "PokemonFieldGuide/wwwroot/games/$game/data/fieldguide.json"
 done

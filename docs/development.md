@@ -11,6 +11,8 @@
 - A compatible `pret/pokeyellow` checkout for Yellow regeneration
 - A compatible `pret/pokegold` checkout for Gold/Silver regeneration
 - A compatible `pret/pokecrystal` checkout for Crystal regeneration
+- A compatible `pret/pokeruby` checkout for Ruby/Sapphire regeneration
+- A compatible `pret/pokeemerald` checkout for Emerald regeneration
 
 No ROM is required or permitted in the repository.
 
@@ -48,13 +50,13 @@ Checklist IDs are persistent data. Changing item or special-Pokémon IDs can inv
 
 ## Clone and regenerate every package
 
-Clone all five source repositories below one directory:
+Clone all seven source repositories below one directory:
 
 ```sh
 just clone-all /tmp
 ```
 
-This command creates `/tmp/pokered`, `/tmp/pokeyellow`, `/tmp/pokegold`, `/tmp/pokecrystal`, and `/tmp/pokefirered`. If a target already has the expected `pret` checkout, the clone recipe keeps it unchanged. The recipe fails when a target exists with a different Git origin.
+This command creates `/tmp/pokered`, `/tmp/pokeyellow`, `/tmp/pokegold`, `/tmp/pokecrystal`, `/tmp/pokeruby`, `/tmp/pokefirered`, and `/tmp/pokeemerald`. If a target already has the expected `pret` checkout, the clone recipe keeps it unchanged. The recipe fails when a target exists with a different Git origin.
 
 Regenerate every package from those directory names:
 
@@ -69,13 +71,17 @@ just clone-rb /tmp
 just clone-yellow /tmp
 just clone-gs /tmp
 just clone-crystal /tmp
+just clone-rs /tmp
 just clone-frlg /tmp
+just clone-emerald /tmp
 
 just generate-rb /tmp/pokered
 just generate-yellow /tmp/pokeyellow
 just generate-gs /tmp/pokegold
 just generate-crystal /tmp/pokecrystal
+just generate-rs /tmp/pokeruby
 just generate-frlg /tmp/pokefirered
+just generate-emerald /tmp/pokeemerald
 ```
 
 ## Regenerating FRLG
@@ -130,6 +136,21 @@ The builders extract time-of-day and swarm tables as separate encounter conditio
 Gold/Silver registers distinct per-version battle sprites when the source provides them. Crystal extracts the first native battle frame from each animated front-sprite sheet. The adapter makes each battle sprite's dominant border-connected background transparent without removing enclosed light details. Generation II does not provide standalone bag item icons, so both packages use the required item fallback.
 
 The public generators install a package only after schema, probability, reachability, reference, and asset-use checks pass. Source records marked as beta are excluded.
+
+## Regenerating Generation III Hoenn
+
+```sh
+just generate-rs /path/to/pokeruby
+just generate-emerald /path/to/pokeemerald
+```
+
+Ruby/Sapphire and Emerald have separate public generators, builders, dependency locks, artifact tests, and installed packages. They share GBA tileset rendering, source parsing, encounter normalization, renewable Hoenn resources, Pokédex construction, and sprite processing through `tools/gen3/`. Package-specific code owns version aliases, acquisitions, source map-type names, transports, dynamic cave entrances, worlds, and exact audits.
+
+Both packages expose Hoenn and Underwater as visible world layers. Southern Island is a disconnected Hoenn placement. Ruby/Sapphire's Battle Tower and Emerald's Battle Frontier are hidden worlds reached through S.S. Tidal transport markers. Emerald's event islands are interior graphs reached from the Lilycove ferry. Transport requirements are informational and never become checklist entries.
+
+The renderer uses each map's base palette and first animation frame and does not add weather effects. Route 130 uses the Mirage Island layout. Both Shoal Cave tide layouts remain navigable. Ruby uses manifest-v3 interior map overrides for its Cave of Origin B4F and Seafloor Cavern Room 9 layouts; Sapphire uses the source map layouts.
+
+The generators retain Feebas's six save-dependent tiles and mass outbreaks as conditional encounter tables. Emerald also retains all nine Altering Cave states. Berry plots, eight daily berry gifts, and eight tide-reset Shoal Salt or Shoal Shell pickups are resources rather than checklist items. Direct-distribution-only species have `Event distribution` Pokédex availability without a fabricated map location.
 
 ## Regression expectations
 
