@@ -62,6 +62,7 @@ tools/
 ├── README.md                   Tooling ownership conventions
 ├── package-finalization/       Shared package transforms, checks, and replacement
 ├── package-finalization.test.mjs
+├── gen4/                       Shared Nintendo DS extraction and map baking
 └── <game-id>/                  Package-specific extraction and rendering
 ```
 

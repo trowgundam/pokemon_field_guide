@@ -1,0 +1,10 @@
+{
+  "name": "pokemon-field-guide-gen4-tools",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20.9.0" },
+  "dependencies": {
+    "sharp": "0.35.3",
+    "three": "0.185.1"
+  }
+}
