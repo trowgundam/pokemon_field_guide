@@ -44,12 +44,20 @@ test('source lock covers every clone and generation recipe', () => {
   assert.equal(new Set(lockedRepositories).size, lockedRepositories.length);
 
   const justfile = fs.readFileSync(path.join(repositoryRoot, 'justfile'), 'utf8');
-  const cloneRepositories = [...justfile.matchAll(/just _clone-source "\{\{root\}\}" ([a-z]+)/g)]
-    .map(match => match[1]).sort();
-  const generationRepositories = [...justfile.matchAll(/source-lock\.sh check sources\.lock ([a-z]+)/g)]
-    .map(match => match[1]).sort();
+  const cloneRepositories = [...new Set([...justfile.matchAll(/just _clone-source "\{\{root\}\}" ([a-z]+)/g)]
+    .map(match => match[1])
+    .concat([...justfile.matchAll(/source-lock\.sh clone sources\.lock ([a-z]+)/g)].map(match => match[1])))].sort();
+  const generationRepositories = [...new Set([...justfile.matchAll(/source-lock\.sh check sources\.lock ([a-z]+)/g)]
+    .map(match => match[1]))].sort();
   assert.deepEqual(lockedRepositories, cloneRepositories);
   assert.deepEqual(lockedRepositories, generationRepositories);
+});
+
+test('Generation IV builds Apicula from its locked dependency graph', () => {
+  const justfile = fs.readFileSync(path.join(repositoryRoot, 'justfile'), 'utf8');
+  const builds = [...justfile.matchAll(/^\s*cargo build .*apicula.*$/gm)].map(match => match[0]);
+  assert.equal(builds.length, 2);
+  assert.ok(builds.every(command => command.includes('--locked')));
 });
 
 test('clones only the locked source revision', t => {

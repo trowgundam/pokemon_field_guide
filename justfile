@@ -34,6 +34,18 @@ clone-rs root:
 clone-emerald root:
     just _clone-source "{{root}}" pokeemerald
 
+# Clone the Diamond/Pearl source repository.
+clone-dp root:
+    just _clone-source "{{root}}" pokediamond
+
+# Clone the Platinum source repository.
+clone-platinum root:
+    just _clone-source "{{root}}" pokeplatinum
+
+# Clone the pinned Nintendo DS model converter.
+clone-apicula root:
+    tools/source-lock.sh clone sources.lock apicula "{{root}}/apicula" https://github.com/scurest/apicula.git
+
 # Clone the Red/Blue source repository.
 clone-rb root:
     just _clone-source "{{root}}" pokered
@@ -59,6 +71,9 @@ clone-all root:
     just clone-rs "{{root}}"
     just clone-frlg "{{root}}"
     just clone-emerald "{{root}}"
+    just clone-dp "{{root}}"
+    just clone-platinum "{{root}}"
+    just clone-apicula "{{root}}"
 
 # Build the application.
 build: restore
@@ -104,6 +119,10 @@ install-rs-tools: install-schema-tools
 install-emerald-tools: install-schema-tools
     npm ci --prefix tools/emerald
 
+# Install the pinned Generation IV rendering dependencies.
+install-gen4-tools:
+    npm ci --prefix tools/gen4
+
 # Install the pinned JSON Schema validator.
 install-schema-tools:
     npm ci --prefix tools/package-schema
@@ -114,8 +133,8 @@ check-docs:
     node tools/check-docs.mjs
 
 # Check generator syntax and compile the application.
-check: check-docs install-schema-tools
-    node --test tools/source-lock.test.mjs
+check: check-docs install-schema-tools install-gen4-tools
+    node --test tools/source-lock.test.mjs tools/service-worker.test.mjs tools/world-layer-residency.test.mjs tools/world-map-rendering.test.mjs tools/gen4/image-assets.test.mjs
     dotnet run --project {{schema_project}} -- --check
     node --test tools/package-schema/validate.test.mjs tools/package-finalization.test.mjs tools/*/generated-package.test.mjs
     node --check tools/frlg/generate-fieldguide.mjs
@@ -149,6 +168,26 @@ check: check-docs install-schema-tools
     node --check tools/rs/generate-fieldguide.mjs
     node --check tools/emerald/build-package.mjs
     node --check tools/emerald/generate-fieldguide.mjs
+    node --check tools/gen4/display-names.mjs
+    node --check tools/gen4/alpha-outline.mjs
+    node --check tools/gen4/image-assets.mjs
+    node --check tools/gen4/layered-world.mjs
+    node --check tools/gen4/navigation.mjs
+    node --check tools/gen4/render-layout.mjs
+    node --check tools/gen4/rendering.mjs
+    node --check tools/gen4/bake-maps.mjs
+    node --check tools/gen4/scripted-items.mjs
+    node --check tools/gen4/special-encounters.mjs
+    node --check tools/dp/build-package.mjs
+    node --check tools/dp/generate-fieldguide.mjs
+    node --check tools/dp/render-maps.mjs
+    node --check tools/dp/scripted-items.mjs
+    node --check tools/dp/source.mjs
+    node --check tools/platinum/build-package.mjs
+    node --check tools/platinum/generate-fieldguide.mjs
+    node --check tools/platinum/render-maps.mjs
+    node --check tools/platinum/scripted-items.mjs
+    node --check tools/platinum/source.mjs
     node tools/validate-generated-data.mjs
     dotnet restore {{test_project}} --locked-mode
     dotnet test {{test_project}} --no-restore
@@ -189,6 +228,21 @@ generate-emerald source: install-emerald-tools
     tools/source-lock.sh check sources.lock pokeemerald "{{source}}"
     node tools/emerald/generate-fieldguide.mjs "{{source}}"
 
+# Regenerate Diamond/Pearl from pinned source checkouts.
+generate-dp source platinum apicula: install-gen4-tools
+    tools/source-lock.sh check sources.lock pokediamond "{{source}}"
+    tools/source-lock.sh check sources.lock pokeplatinum "{{platinum}}"
+    tools/source-lock.sh check sources.lock apicula "{{apicula}}" https://github.com/scurest/apicula.git
+    cargo build --release --locked --manifest-path "{{apicula}}/Cargo.toml"
+    node tools/dp/generate-fieldguide.mjs "{{source}}" "{{platinum}}" "{{apicula}}/target/release/apicula"
+
+# Regenerate Platinum from pinned source checkouts.
+generate-platinum source apicula: install-gen4-tools
+    tools/source-lock.sh check sources.lock pokeplatinum "{{source}}"
+    tools/source-lock.sh check sources.lock apicula "{{apicula}}" https://github.com/scurest/apicula.git
+    cargo build --release --locked --manifest-path "{{apicula}}/Cargo.toml"
+    node tools/platinum/generate-fieldguide.mjs "{{source}}" "{{apicula}}/target/release/apicula"
+
 # Regenerate every package from conventionally named source checkouts.
 generate-all root:
     just generate-rb "{{root}}/pokered"
@@ -198,3 +252,5 @@ generate-all root:
     just generate-rs "{{root}}/pokeruby"
     just generate-frlg "{{root}}/pokefirered"
     just generate-emerald "{{root}}/pokeemerald"
+    just generate-dp "{{root}}/pokediamond" "{{root}}/pokeplatinum" "{{root}}/apicula"
+    just generate-platinum "{{root}}/pokeplatinum" "{{root}}/apicula"

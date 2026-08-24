@@ -5,6 +5,8 @@
 - The exact .NET SDK selected by `global.json`
 - `just` for the supported command shortcuts
 - Node.js 20.9 or later for documentation checks, generated-data validation, and package generation
+- Rust 1.73 or later and Cargo for the Generation IV Apicula build
+- Google Chrome or Chromium for the Generation IV fixed-angle map bake
 - The locked Node dependencies installed by each package-generation recipe when regenerating a package
 - A clean checkout of the source revision recorded in `sources.lock` for each package that you regenerate
 
@@ -26,7 +28,7 @@ just generate-schemas
 
 Run `just --list` to see all supported recipes. The recipes deliberately restore NuGet packages in locked mode and install Node dependencies with `npm ci`. Their underlying commands remain visible in the `justfile` for environments where `just` is unavailable.
 
-Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `packages.lock.json` pins the complete NuGet graph, each Node tool has a package lock, and the deployment workflow pins actions by commit SHA. Node itself only has a minimum compatibility requirement; it is not locked to a particular release. Dependency upgrades should be isolated, reviewed changes that update the corresponding manifests and lock files together.
+Dependency versions are intentionally exact. `global.json` pins the .NET SDK, `packages.lock.json` pins the complete NuGet graph, each Node tool has a package lock, Apicula has a Cargo lock file in its pinned checkout, and the deployment workflow pins actions by commit SHA. The Generation IV recipes pass `--locked` to Cargo. Node and Rust have minimum compatibility requirements rather than repository-wide version pins. Dependency upgrades should be isolated, reviewed changes that update the corresponding manifests and lock files together.
 
 Run `just check` after changing Razor, C#, JavaScript, CSS, generated JSON, schemas, tooling, or deployment configuration. Run `just check-docs` for a documentation-only change.
 
@@ -44,13 +46,13 @@ Checklist IDs are persistent data. Changing item or special-Pokémon IDs can inv
 
 ## Clone and regenerate every package
 
-Clone all seven source repositories below one directory:
+Clone all nine game source repositories and the Apicula tool below one directory:
 
 ```sh
 just clone-all /tmp
 ```
 
-This command creates shallow, detached clones at `/tmp/pokered`, `/tmp/pokeyellow`, `/tmp/pokegold`, `/tmp/pokecrystal`, `/tmp/pokeruby`, `/tmp/pokefirered`, and `/tmp/pokeemerald`. Each clone contains only the revision recorded in `sources.lock`. If a target exists, the clone recipe verifies its origin, `HEAD`, and clean working tree. It does not change an existing checkout.
+This command also creates `/tmp/pokediamond`, `/tmp/pokeplatinum`, and `/tmp/apicula`. Each clone contains only the revision recorded in `sources.lock`. If a target exists, the clone recipe verifies its origin, `HEAD`, and clean working tree. It does not change an existing checkout.
 
 The generation recipes repeat the same source validation before they run. To update a source, change its full commit SHA in `sources.lock`, clone that revision into a fresh directory, regenerate the affected package, and commit the lock change with the generator and generated output changes. Run a generator script directly only when evaluating a source revision before updating the lock.
 
@@ -70,6 +72,9 @@ just clone-crystal /tmp
 just clone-rs /tmp
 just clone-frlg /tmp
 just clone-emerald /tmp
+just clone-dp /tmp
+just clone-platinum /tmp
+just clone-apicula /tmp
 
 just generate-rb /tmp/pokered
 just generate-yellow /tmp/pokeyellow
@@ -78,6 +83,8 @@ just generate-crystal /tmp/pokecrystal
 just generate-rs /tmp/pokeruby
 just generate-frlg /tmp/pokefirered
 just generate-emerald /tmp/pokeemerald
+just generate-dp /tmp/pokediamond /tmp/pokeplatinum /tmp/apicula
+just generate-platinum /tmp/pokeplatinum /tmp/apicula
 ```
 
 ## Regenerating FRLG
