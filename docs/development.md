@@ -161,6 +161,17 @@ The renderer uses each map's base palette and first animation frame and does not
 
 The generators retain Feebas's six save-dependent tiles and mass outbreaks as conditional encounter tables. Emerald also retains all nine Altering Cave states. Berry plots, eight daily berry gifts, and eight tide-reset Shoal Salt or Shoal Shell pickups are resources rather than checklist items. Direct-distribution-only species have `Event distribution` Pokédex availability without a fabricated map location.
 
+## Regenerating Generation IV Sinnoh
+
+```sh
+just generate-dp /path/to/pokediamond /path/to/pokeplatinum /path/to/apicula
+just generate-platinum /path/to/pokeplatinum /path/to/apicula
+```
+
+Both recipes verify the pinned source revisions and build Apicula from its checkout. The generators convert the Nintendo DS models, bake fixed-angle transparent PNGs in a headless browser, assemble the layered Sinnoh world, and project markers against the terrain. Set `GEN4_CHROME` when the browser executable is not `/usr/bin/google-chrome-stable`. Set `GEN4_RENDER_ROOT` when you need a persistent intermediate cache for repeated generator runs.
+
+Diamond/Pearl needs the pinned Platinum checkout to resolve item identities whose global script table is not decoded in the pinned Diamond/Pearl source. The Diamond/Pearl event coordinates remain the filter. See [Generation IV Sinnoh packages](gen4-sinnoh-packages.md) for the source and scope rules.
+
 ## Regression expectations
 
 At minimum, verify:

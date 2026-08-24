@@ -1,10 +1,10 @@
 # Pokemon Field Guide
 
-An extensible, Google Maps-style completion guide for Pokémon games. Current packages cover Red/Blue, Yellow, Gold/Silver, Crystal, Ruby/Sapphire, FireRed/LeafGreen, and Emerald.
+An extensible, Google Maps-style completion guide for Pokémon games. Current packages cover Red/Blue, Yellow, Gold/Silver, Crystal, Ruby/Sapphire, FireRed/LeafGreen, Emerald, Diamond/Pearl, and Platinum.
 
 ## Features
 
-- Connected Kanto, Johto, Hoenn, Underwater, and Sevii Islands maps with zooming and panning
+- Connected Kanto, Johto, Hoenn, Sinnoh, Underwater, and Sevii Islands maps with zooming and panning
 - Navigable interior maps and floor selection
 - Visible, hidden, and event item checklists
 - Renewable resource markers for repeatable pickups and rewards
@@ -30,5 +30,7 @@ Game data and graphical assets originate from these decompilation projects:
 - [pret/pokeruby](https://github.com/pret/pokeruby)
 - [pret/pokefirered](https://github.com/pret/pokefirered)
 - [pret/pokeemerald](https://github.com/pret/pokeemerald)
+- [pret/pokediamond](https://github.com/pret/pokediamond)
+- [pret/pokeplatinum](https://github.com/pret/pokeplatinum)
 
 Pokémon and related names and imagery are trademarks and copyrights of their respective owners. This is an unofficial fan project.
