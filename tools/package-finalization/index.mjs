@@ -19,18 +19,22 @@ const writeJson = async (root, relative, value) => {
 };
 
 const prunePngs = async (directory, expected) => {
-  for (const file of await fs.readdir(directory))
+  const files = await fs.readdir(directory).catch(error => error.code === 'ENOENT' ? [] : Promise.reject(error));
+  for (const file of files)
     if (file.endsWith('.png') && !expected.has(file)) await fs.rm(path.join(directory, file));
 };
 
 const pruneUnreferencedAssets = async (stageRoot, relative, finalized) => {
+  const worlds = Array.isArray(finalized.worlds) ? finalized.worlds : finalized.worlds.worlds;
   const maps = new Set([
     ...finalized.fieldGuide.areas.filter(area => area.mapImage).map(area => path.posix.basename(area.mapImage)),
-    ...finalized.worlds.map(world => path.posix.basename(world.image)),
+    ...worlds.map(world => path.posix.basename(world.image ?? world.rendering?.overviewImage)),
     ...Object.values(finalized.manifest.areaMapsByVersion ?? {})
       .flatMap(areaMaps => Object.values(areaMaps))
       .map(descriptor => path.posix.basename(descriptor.image))
   ]);
+  const worldLayers = new Set(worlds.flatMap(world => world.rendering?.layers ?? [])
+    .map(layer => path.posix.basename(layer.image)));
   const pokemon = new Set([
     'question_mark.png',
     ...Object.values(finalized.manifest.pokemonSprites),
@@ -39,6 +43,7 @@ const pruneUnreferencedAssets = async (stageRoot, relative, finalized) => {
   const items = new Set(['question_mark.png', ...finalized.fieldGuide.areas.flatMap(area => area.items.map(item => item.icon))]);
   await Promise.all([
     prunePngs(path.join(stageRoot, relative.mapDirectory), maps),
+    prunePngs(path.join(stageRoot, relative.worldLayerDirectory), worldLayers),
     prunePngs(path.join(stageRoot, relative.pokemonDirectory), pokemon),
     prunePngs(path.join(stageRoot, relative.itemDirectory), items)
   ]);
@@ -71,6 +76,7 @@ export async function generatePackage({ gameId, build, formatVersion = 2, webRoo
   const relative = packageRelativePaths(game);
   const assets = createAssetWorkspace(stageRoot, {
     map: relative.mapDirectory,
+    'world-layer': relative.worldLayerDirectory,
     pokemon: relative.pokemonDirectory,
     item: relative.itemDirectory
   });

@@ -9,7 +9,7 @@ The `schemas/` directory contains JSON Schema Draft 2020-12 documents for:
 - the Game catalog;
 - field-guide data;
 - Pokédex data;
-- worlds;
+- legacy worlds and layered worlds v2;
 - package manifests v2 and v3;
 - Local guide state v1;
 - Checklist profile v1 and v2;
@@ -36,6 +36,8 @@ Package generation validates the catalog and every staged Game package document 
 JSON Schema owns document shape, required fields, enum strings, scalar constraints, and unknown-property rejection. Package finalization owns facts that span documents or files, including unique IDs, references, chance totals, reachability, and exact asset use.
 
 Manifest-v3 field-guide entrances may include `version`. The value is `Both` or an exact catalog version ID. Older package documents omit the property and deserialize as `Both`.
+
+`worlds-v2.schema.json` covers the versioned layered-world root. `GamePackageLoader` accepts either the legacy world array or this root and normalizes both into one runtime model. `FieldGuideData` can also contain projected `mapAnchors`, and an entrance can set `showMarker` to `false` without removing its navigation edge.
 
 ## External JSON
 

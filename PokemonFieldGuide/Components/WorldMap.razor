@@ -1,0 +1,108 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="map-viewport" @ref="viewport">
+    <div class="map-world @(Model.Rendering is LayeredWorldRenderingModel ? "layered-world" : "")"
+         style="width:@(Model.Rendering.Width)px;height:@(Model.Rendering.Height)px">
+        @if (Model.Rendering is FlatWorldRendering flat)
+        {
+            <img class="world-overview" src="@flat.Image" alt="@Model.Name connected game world" draggable="false" />
+        }
+        else if (Model.Rendering is LayeredWorldRenderingModel layered)
+        {
+            <img class="world-overview" src="@layered.OverviewImage" alt="@Model.Name connected game world" draggable="false" />
+            @foreach (var layer in layered.Layers)
+            {
+                <img class="world-detail-layer"
+                     data-src="@layer.Image"
+                     data-min-scale="@Invariant(layer.MinScale)"
+                     style="left:@(layer.X)px;top:@(layer.Y)px;width:@(layer.Width)px;height:@(layer.Height)px;z-index:@layer.Order"
+                     alt=""
+                     draggable="false" />
+            }
+        }
+        <svg class="world-hit-regions" viewBox="0 0 @Model.Rendering.Width @Model.Rendering.Height" aria-label="Map areas">
+            @foreach (var area in Model.Areas)
+            {
+                <g class="world-area-group @(area.Area.Id == ActiveAreaId ? "selected" : "")"
+                   role="button"
+                   tabindex="0"
+                   aria-label="@area.Area.Name"
+                   @onclick="() => Act(new SelectWorldAreaAction(area.Area))"
+                   @onkeydown="eventArgs => SelectWithKeyboard(eventArgs, area.Area)">
+                    @foreach (var region in area.Regions)
+                    {
+                        <polygon class="world-area-hotspot" points="@Points(region)" />
+                    }
+                    <path class="world-area-outline" d="@OutlinePath(area.Regions)" aria-hidden="true" />
+                </g>
+            }
+        </svg>
+        @foreach (var marker in Model.Markers)
+        {
+            @if (marker is WorldItemMarker item)
+            {
+                <button aria-label="@item.Item.Name — @item.Item.Kind item"
+                        style="left:@(Invariant(item.X))px;top:@(Invariant(item.Y))px"
+                        class="map-marker @(item.Item.Kind == "Hidden" ? "hidden-marker" : "item-marker") @(IsCollected(item.Item.Id) ? "done" : "")"
+                        @onclick="() => Act(new InspectWorldItemAction(item.Area, item.Item))"><span>@(item.Item.Kind == "Hidden" ? "?" : "◆")</span><label>@item.Area.Name · @item.Item.Name</label></button>
+            }
+            else if (marker is WorldResourceMarker resource)
+            {
+                <button aria-label="@resource.Resource.Name — @resource.Resource.Kind"
+                        style="left:@(Invariant(resource.X))px;top:@(Invariant(resource.Y))px"
+                        class="map-marker resource-marker"
+                        @onclick="() => Act(new InspectWorldResourceAction(resource.Area, resource.Resource))"><span>●</span><label>@resource.Area.Name · @resource.Resource.Name · @resource.Resource.Kind</label></button>
+            }
+            else if (marker is WorldEntranceMarker entrance)
+            {
+                <button aria-label="Enter @entrance.Entrance.Name"
+                        style="left:@(Invariant(entrance.X))px;top:@(Invariant(entrance.Y))px"
+                        class="map-marker entrance-marker"
+                        @onclick="() => Act(new EnterWorldLocationAction(entrance.Entrance.TargetId))"><span>⌂</span><label>@entrance.Area.Name · @entrance.Entrance.Name</label></button>
+            }
+            else if (marker is WorldTravelMarker travel)
+            {
+                <TravelMarker Marker="travel.Travel"
+                              Left="travel.X"
+                              Top="travel.Y"
+                              ContextName="@travel.Area.Name"
+                              OnDirect="_ => Act(new UseWorldTransportAction(travel.Travel))"
+                              OnChoice="_ => Act(new UseWorldTransportAction(travel.Travel))" />
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public WorldMapModel Model { get; set; } = null!;
+    [Parameter] public string? ActiveAreaId { get; set; }
+    [Parameter, EditorRequired] public Func<string, bool> IsCollected { get; set; } = _ => false;
+    [Parameter] public EventCallback<WorldMapAction> OnAction { get; set; }
+
+    ElementReference viewport;
+    string? initializedKey;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var key = $"{Model.Id}|{Model.Rendering.GetType().Name}|{Model.Rendering.Width}x{Model.Rendering.Height}";
+        if (key == initializedKey) return;
+        initializedKey = key;
+        await JS.InvokeVoidAsync("fieldMap.init", viewport);
+    }
+
+    public ValueTask ZoomAsync(double amount) => JS.InvokeVoidAsync("fieldMap.zoom", viewport, amount);
+    public ValueTask FitAsync() => JS.InvokeVoidAsync("fieldMap.fit", viewport);
+    public ValueTask DisposeAsync() => JS.InvokeVoidAsync("fieldMap.dispose", viewport);
+
+    Task Act(WorldMapAction action) => OnAction.InvokeAsync(action);
+
+    Task SelectWithKeyboard(KeyboardEventArgs eventArgs, GuideArea area) =>
+        eventArgs.Key is "Enter" or " " ? Act(new SelectWorldAreaAction(area)) : Task.CompletedTask;
+
+    static string Points(WorldPolygon polygon) => string.Join(' ', polygon.Points.Select(point => $"{Invariant(point.X)},{Invariant(point.Y)}"));
+    static string OutlinePath(IEnumerable<WorldPolygon> regions) => string.Join(' ',
+        WorldAreaBoundary.ExteriorEdges(regions).Select(edge =>
+            $"M {Invariant(edge.Start.X)} {Invariant(edge.Start.Y)} L {Invariant(edge.End.X)} {Invariant(edge.End.Y)}"));
+    static string Invariant(double value) => value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+}

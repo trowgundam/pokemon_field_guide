@@ -22,6 +22,8 @@ All catalog, data, map, sprite, stylesheet, and script URLs must be relative. Do
 
 When editing startup or deployment files, preserve base-path rewriting for both `index.html` and the published `service-worker.js`. A correct page with an incorrect service-worker base may work on first load but fail offline or serve stale/missing assets later.
 
+The service worker precaches every application asset in the publish manifest, including JavaScript modules and layered-world detail images. Installation therefore downloads the complete guide. Once installation finishes, every registered game and map can open offline.
+
 ## Pre-deployment checks
 
 Run:

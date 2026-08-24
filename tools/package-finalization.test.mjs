@@ -7,6 +7,14 @@ import test from 'node:test';
 import { checkPackages, formatPackageReport, generatePackage } from './package-finalization/index.mjs';
 
 const png = Buffer.from('89504e470d0a1a0a', 'hex');
+const dimensionedPng = (width, height) => {
+  const header = Buffer.alloc(24);
+  Buffer.from('89504e470d0a1a0a', 'hex').copy(header);
+  header.write('IHDR', 12, 'ascii');
+  header.writeUInt32BE(width, 16);
+  header.writeUInt32BE(height, 20);
+  return header;
+};
 
 async function fixture() {
   const webRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'field-guide-finalization-'));
@@ -55,6 +63,30 @@ async function validDraft(assets) {
   };
 }
 
+async function layeredDraft(assets) {
+  const draft = await validDraft(assets);
+  const overview = await assets.map('WORLD_OVERVIEW.png', target => fs.writeFile(target, png));
+  const layer = await assets.worldLayer('AREA_OUTDOOR.png', target => fs.writeFile(target, dimensionedPng(32, 24)));
+  draft.worlds = {
+    formatVersion: 2,
+    worlds: [{
+      id: 'test-world',
+      rendering: {
+        overviewImage: overview,
+        width: 64,
+        height: 48,
+        layers: [{ id: 'outdoor', image: layer, x: 0, y: 0, width: 32, height: 24, order: 0, minScale: 0.5 }]
+      },
+      areas: [{
+        id: 'AREA_OUTDOOR',
+        regions: [{ points: [{ x: 0, y: 0 }, { x: 32, y: 0 }, { x: 32, y: 24 }, { x: 0, y: 24 }] }],
+        anchors: [{ tileX: 0, tileY: 0, x: 8.25, y: 9.5 }]
+      }]
+    }]
+  };
+  return draft;
+}
+
 test('generates a complete package and checks the installed result', async t => {
   const webRoot = await fixture();
   t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
@@ -81,6 +113,52 @@ test('generates a complete package and checks the installed result', async t => 
   assert.equal(JSON.parse(await fs.readFile(path.join(packageRoot, 'data/package-manifest.json'))).pokemonSprites.SPECIES_TEST, 'test.png');
   await assert.rejects(fs.stat(path.join(packageRoot, 'maps/UNUSED.png')), { code: 'ENOENT' });
   await assert.rejects(fs.stat(path.join(packageRoot, 'stale.txt')), { code: 'ENOENT' });
+});
+
+test('writes and validates a layered connected world without changing the package manifest format', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await generatePackage({
+    gameId: 'test', webRoot, formatVersion: 3,
+    build: ({ assets }) => layeredDraft(assets)
+  });
+
+  const packageRoot = path.join(webRoot, 'games/test');
+  const worlds = JSON.parse(await fs.readFile(path.join(packageRoot, 'data/worlds.json')));
+  assert.equal(worlds.formatVersion, 2);
+  assert.equal(worlds.worlds[0].rendering.overviewImage, 'games/test/maps/WORLD_OVERVIEW.png');
+  assert.equal(worlds.worlds[0].rendering.layers[0].image, 'games/test/maps/world-layers/AREA_OUTDOOR.png');
+  assert.deepEqual(worlds.worlds[0].areas[0].anchors[0], { tileX: 0, tileY: 0, x: 8.25, y: 9.5 });
+  assert.equal(JSON.parse(await fs.readFile(path.join(packageRoot, 'data/package-manifest.json'))).formatVersion, 3);
+});
+
+test('rejects layered worlds with missing or unused marker anchors', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await assert.rejects(generatePackage({
+    gameId: 'test', webRoot,
+    build: async ({ assets }) => {
+      const draft = await layeredDraft(assets);
+      draft.worlds.worlds[0].areas[0].anchors = [{ tileX: 2, tileY: 3, x: 8, y: 8 }];
+      return draft;
+    }
+  }), /no generated world anchor.*\(0,0\)/i);
+});
+
+test('rejects a layered world when declared and native PNG dimensions differ', async t => {
+  const webRoot = await fixture();
+  t.after(() => fs.rm(webRoot, { recursive: true, force: true }));
+
+  await assert.rejects(generatePackage({
+    gameId: 'test', webRoot,
+    build: async ({ assets }) => {
+      const draft = await layeredDraft(assets);
+      draft.worlds.worlds[0].rendering.layers[0].width = 31;
+      return draft;
+    }
+  }), /declares 31x24 but its PNG is 32x24/i);
 });
 
 test('keeps conditional encounter tables and version-specific sprites independent', async t => {
