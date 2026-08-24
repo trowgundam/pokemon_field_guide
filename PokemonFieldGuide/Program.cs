@@ -35,5 +35,7 @@ public class Program
         services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("crystal"));
         services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("rs"));
         services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("emerald"));
+        services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("dp"));
+        services.AddSingleton<IChecklistProfileRules>(new GamePackageChecklistProfileRules("platinum"));
     }
 }

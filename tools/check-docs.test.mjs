@@ -88,3 +88,11 @@ test('reports package resource counts that differ from installed data', async t 
 
   assert((await checkDocumentation(root)).some(error => error.includes("package 'test' documents 2 resources but contains 1")));
 });
+
+test('ignores hidden work directories outside contributor docs', async t => {
+  const root = await fixture(t);
+  await fs.mkdir(path.join(root, '.architect'), { recursive: true });
+  await fs.writeFile(path.join(root, '.architect/note.md'), 'Run `just missing-recipe`.\n');
+
+  assert.deepEqual(await checkDocumentation(root), []);
+});

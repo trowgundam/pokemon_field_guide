@@ -180,6 +180,57 @@
         { "id": "Hoenn", "name": "Hoenn", "regional": true },
         { "id": "National", "name": "National", "regional": false }
       ]
+    },
+    {
+      "id": "dp",
+      "name": "Pokémon Diamond / Pearl",
+      "shortName": "D/P",
+      "pageTitle": "Pokémon Diamond / Pearl | Pokemon Field Guide",
+      "atlasTitle": "Sinnoh",
+      "loadingLabel": "LOADING SINNOH",
+      "dataPath": "games/dp/data/fieldguide.json",
+      "pokedexPath": "games/dp/data/pokedex.json",
+      "worldsPath": "games/dp/data/worlds.json",
+      "pokemonSpritePath": "games/dp/sprites/pokemon",
+      "itemSpritePath": "games/dp/sprites/items",
+      "defaultAreaId": "MAP_TWINLEAF",
+      "defaultWorldId": "dp-sinnoh",
+      "versions": [
+        { "id": "Diamond", "name": "Diamond", "progressVersion": 2, "accent": "#63aee8", "accentSoft": "#294b61" },
+        { "id": "Pearl", "name": "Pearl", "progressVersion": 2, "accent": "#e89ab8", "accentSoft": "#60404d" }
+      ],
+      "regions": [
+        { "id": "Sinnoh", "name": "Sinnoh", "worldId": "dp-sinnoh" }
+      ],
+      "dexModes": [
+        { "id": "Sinnoh", "name": "Sinnoh", "regional": true },
+        { "id": "National", "name": "National", "regional": false }
+      ]
+    },
+    {
+      "id": "platinum",
+      "name": "Pokémon Platinum",
+      "shortName": "Platinum",
+      "pageTitle": "Pokémon Platinum | Pokemon Field Guide",
+      "atlasTitle": "Sinnoh",
+      "loadingLabel": "LOADING SINNOH",
+      "dataPath": "games/platinum/data/fieldguide.json",
+      "pokedexPath": "games/platinum/data/pokedex.json",
+      "worldsPath": "games/platinum/data/worlds.json",
+      "pokemonSpritePath": "games/platinum/sprites/pokemon",
+      "itemSpritePath": "games/platinum/sprites/items",
+      "defaultAreaId": "MAP_HEADER_TWINLEAF_TOWN",
+      "defaultWorldId": "platinum-sinnoh",
+      "versions": [
+        { "id": "Platinum", "name": "Platinum", "progressVersion": 2, "accent": "#8a9caf", "accentSoft": "#35424c" }
+      ],
+      "regions": [
+        { "id": "Sinnoh", "name": "Sinnoh", "worldId": "platinum-sinnoh" }
+      ],
+      "dexModes": [
+        { "id": "Sinnoh", "name": "Sinnoh", "regional": true },
+        { "id": "National", "name": "National", "regional": false }
+      ]
     }
   ]
 }

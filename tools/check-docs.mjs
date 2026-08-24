@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ignoredDirectories = new Set(['.git', 'bin', 'node_modules', 'obj', 'release']);
+const ignoredDirectories = new Set(['.architect', '.audit', '.git', 'bin', 'node_modules', 'obj', 'release']);
 const packageCountMarker = '<!-- check:package-resource-counts -->';
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 

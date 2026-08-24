@@ -25,7 +25,10 @@ public sealed class InstalledChecklistProfileRulesTests
     [InlineData("rs", "Ruby")]
     [InlineData("rs", "Sapphire")]
     [InlineData("emerald", "Emerald")]
-    public async Task Opening_an_installed_hoenn_profile_preserves_nonempty_progress(
+    [InlineData("dp", "Diamond")]
+    [InlineData("dp", "Pearl")]
+    [InlineData("platinum", "Platinum")]
+    public async Task Opening_a_newly_installed_profile_preserves_nonempty_progress(
         string packageId,
         string versionId)
     {
@@ -47,7 +50,10 @@ public sealed class InstalledChecklistProfileRulesTests
     [InlineData("rs", "Ruby")]
     [InlineData("rs", "Sapphire")]
     [InlineData("emerald", "Emerald")]
-    public async Task Portable_backup_import_recognizes_installed_hoenn_profiles(
+    [InlineData("dp", "Diamond")]
+    [InlineData("dp", "Pearl")]
+    [InlineData("platinum", "Platinum")]
+    public async Task Portable_backup_import_recognizes_newly_installed_profiles(
         string packageId,
         string versionId)
     {

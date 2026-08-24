@@ -2,7 +2,7 @@
 
 ## Conclusion
 
-The seven installed packages contain the following renewable item resources:
+The nine installed packages contain the following renewable item resources:
 
 <!-- check:package-resource-counts -->
 | Package | Package ID | Resources | Current representation |
@@ -14,6 +14,8 @@ The seven installed packages contain the following renewable item resources:
 | Ruby/Sapphire | `rs` | 104 | 88 berry plots, eight daily berry gifts, and eight Shoal Cave pickups |
 | FireRed/LeafGreen | `frlg` | 64 | 61 hidden pickups, Selphy, and two size judges |
 | Emerald | `emerald` | 104 | 88 berry plots, eight daily berry gifts, and eight Shoal Cave pickups |
+| Diamond/Pearl | `dp` | 0 | No resource records in the current Generation IV scope |
+| Platinum | `platinum` | 0 | No resource records in the current Generation IV scope |
 
 The target counts follow one boundary: a resource is a free, location-bound item pickup or event reward that the player can obtain repeatedly. A resource has no checklist state. Shops, currency or item exchanges, crafting services, multiplayer activities, global delivery systems, repeatable Pokémon encounters, and OT-ID lotteries are outside this model.
 
@@ -28,6 +30,8 @@ This audit uses these source revisions:
 - [`pret/pokeruby` at `63a8cbf`](https://github.com/pret/pokeruby/tree/63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1)
 - [`pret/pokefirered` at `c75f352`](https://github.com/pret/pokefirered/tree/c75f352304d529f6ba92d4f74b9cf8b5c3810788)
 - [`pret/pokeemerald` at `201378b`](https://github.com/pret/pokeemerald/tree/201378bdc09692df7ba3530c9fe68b4c8efe1c00)
+- [`pret/pokediamond` at `038ccca`](https://github.com/pret/pokediamond/tree/038cccaed5de8f013875bc5d734f912d1de08e0f)
+- [`pret/pokeplatinum` at `6b2e9a5`](https://github.com/pret/pokeplatinum/tree/6b2e9a5bf94c714ef8ef7cda5be06c0ccee01c70)
 
 ## Resource inventory
 
