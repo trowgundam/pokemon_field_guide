@@ -20,6 +20,7 @@ var contracts = new Dictionary<string, Type>
     ["fieldguide.schema.json"] = typeof(FieldGuideData),
     ["pokedex.schema.json"] = typeof(List<PokedexEntry>),
     ["worlds.schema.json"] = typeof(List<GuideWorld>),
+    ["worlds-v2.schema.json"] = typeof(WorldsDocumentV2),
     ["package-manifest-v2.schema.json"] = typeof(PackageManifest),
     ["package-manifest-v3.schema.json"] = typeof(PackageManifestV3),
     ["local-guide-state-v1.schema.json"] = typeof(LocalGuideStateEnvelopeV1),
@@ -59,9 +60,18 @@ var exporterOptions = new JsonSchemaExporterOptions
             .GetCustomAttributes(typeof(MinLengthAttribute), true)
             .OfType<MinLengthAttribute>()
             .SingleOrDefault();
-        if (minimumLength is not null && schema is JsonObject stringSchema)
+        if (minimumLength is not null && schema is JsonObject lengthSchema)
         {
-            stringSchema["minLength"] = minimumLength.Length;
+            var typeNames = lengthSchema["type"] switch
+            {
+                JsonValue value when value.TryGetValue<string>(out var lengthTypeName) => [lengthTypeName],
+                JsonArray values => values.OfType<JsonValue>()
+                    .Select(value => value.TryGetValue<string>(out var itemTypeName) ? itemTypeName : "")
+                    .ToArray(),
+                _ => []
+            };
+            if (typeNames.Contains("array")) lengthSchema["minItems"] = minimumLength.Length;
+            else if (typeNames.Contains("string")) lengthSchema["minLength"] = minimumLength.Length;
         }
         return schema;
     }
@@ -109,7 +119,7 @@ static string FindRepositoryRoot(string start)
 static void ApplyContractConstants(string fileName, JsonObject schema)
 {
     if (schema["properties"] is not JsonObject properties) return;
-    if (fileName is "package-manifest-v2.schema.json" or "portable-backup-v2.schema.json")
+    if (fileName is "package-manifest-v2.schema.json" or "portable-backup-v2.schema.json" or "worlds-v2.schema.json")
         properties["formatVersion"]!["const"] = 2;
     if (fileName is "package-manifest-v3.schema.json")
         properties["formatVersion"]!["const"] = 3;

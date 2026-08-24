@@ -7,9 +7,9 @@ public sealed class GamePackage
     private readonly PackageManifestData manifest;
     private readonly IReadOnlyList<GuideArea> areas;
     private readonly IReadOnlyList<PokedexEntry> pokedex;
-    private readonly IReadOnlyList<GuideWorld> worlds;
+    private readonly IReadOnlyList<WorldDefinition> worlds;
     private readonly IReadOnlyDictionary<string, GuideArea> areasById;
-    private readonly IReadOnlyDictionary<string, GuideWorld> worldsById;
+    private readonly IReadOnlyDictionary<string, WorldDefinition> worldsById;
     private readonly HashSet<string> outdoorAreaIds;
     private readonly Dictionary<string, IReadOnlySet<string>> reachableAreaIdsByVersion = [];
 
@@ -19,7 +19,7 @@ public sealed class GamePackage
         List<PokedexEntry> pokedex,
         List<GuideWorld> worlds,
         PackageManifest manifest)
-        : this(definition, fieldGuide, pokedex, worlds, PackageManifestData.From(manifest))
+        : this(definition, fieldGuide, pokedex, WorldDocumentReader.FromLegacy(worlds).ToList(), PackageManifestData.From(manifest))
     {
     }
 
@@ -28,6 +28,16 @@ public sealed class GamePackage
         FieldGuideData fieldGuide,
         List<PokedexEntry> pokedex,
         List<GuideWorld> worlds,
+        PackageManifestData manifest)
+        : this(definition, fieldGuide, pokedex, WorldDocumentReader.FromLegacy(worlds).ToList(), manifest)
+    {
+    }
+
+    internal GamePackage(
+        GameDefinition definition,
+        FieldGuideData fieldGuide,
+        List<PokedexEntry> pokedex,
+        List<WorldDefinition> worlds,
         PackageManifestData manifest)
     {
         Definition = definition;
@@ -44,7 +54,7 @@ public sealed class GamePackage
         worldsById = worlds.ToDictionary(world => world.Id);
         outdoorAreaIds =
         [
-            .. worlds.SelectMany(world => world.Maps).Select(placement => NormalizeAreaId(placement.Id))
+            .. worlds.SelectMany(world => world.AreaIds).Select(NormalizeAreaId)
         ];
         DefaultWorld = worldsById[definition.DefaultWorldId];
         DefaultArea = Area(definition.DefaultAreaId) ?? areas.First();
@@ -52,30 +62,30 @@ public sealed class GamePackage
 
     public GameDefinition Definition { get; }
     public GuideArea DefaultArea { get; }
-    public GuideWorld DefaultWorld { get; }
+    public WorldDefinition DefaultWorld { get; }
     public string PokemonFallback => $"{Definition.PokemonSpritePath}/question_mark.png";
     public string ItemFallback => $"{Definition.ItemSpritePath}/question_mark.png";
 
     public GuideArea? Area(string id) => areasById.GetValueOrDefault(NormalizeAreaId(id));
 
-    public GuideWorld? World(string id) => worldsById.GetValueOrDefault(id);
+    public WorldDefinition? World(string id) => worldsById.GetValueOrDefault(id);
 
-    public string WorldName(GuideWorld world) =>
+    public string WorldName(WorldDefinition world) =>
         world.Name
         ?? Definition.Regions.FirstOrDefault(region => region.WorldId == world.Id)?.Name
         ?? world.Id;
 
-    public GuideWorld? WorldForArea(string areaId)
+    public WorldDefinition? WorldForArea(string areaId)
     {
         var normalizedId = NormalizeAreaId(areaId);
-        return worlds.FirstOrDefault(world => world.Maps.Any(map => NormalizeAreaId(map.Id) == normalizedId));
+        return worlds.FirstOrDefault(world => world.AreaIds.Any(id => NormalizeAreaId(id) == normalizedId));
     }
 
     public bool IsOutdoor(string areaId) => outdoorAreaIds.Contains(NormalizeAreaId(areaId));
 
     public IReadOnlyList<GuideArea> AreasForWorld(string worldId) =>
-        worldsById[worldId].Maps
-            .Select(placement => Area(placement.Id))
+        worldsById[worldId].AreaIds
+            .Select(Area)
             .OfType<GuideArea>()
             .OrderBy(area => NaturalKey(area.Name))
             .ToList();
@@ -96,7 +106,7 @@ public sealed class GamePackage
                      || Matches(resource.Comment)
                      || resource.Rewards.Any(reward => Matches(reward.Name) || Matches(reward.Comment)))
                  || EncountersFor(area, versionId).Any(encounter => Matches(encounter.Species) || Matches(encounter.Method))
-                 || SpecialPokemonFor(area, versionId).Any(mon => Matches(mon.Species) || Matches(mon.Kind) || Matches(mon.RequestedSpecies))
+                 || SpecialPokemonFor(area, versionId).Any(mon => Matches(mon.Species) || Matches(mon.Kind) || Matches(mon.RequestedSpecies) || Matches(mon.Note))
                  || EntrancesFor(area, versionId).Any(entrance => Matches(entrance.Name))
                  || TransportsFor(area, versionId).Any(transport =>
                      Matches(transport.Name)
@@ -112,9 +122,10 @@ public sealed class GamePackage
     public IReadOnlyList<DisplayEntrance> RelevantEntrances(GuideArea area, string versionId)
     {
         var resolved = EntrancesFor(area, versionId)
+            .Where(entrance => entrance.ShowMarker)
             .Select(entrance => (Warp: entrance, Target: ResolveRelevantTarget(area.Id, entrance.TargetId, versionId)))
             .Where(pair => pair.Target is not null)
-            .Select(pair => new DisplayEntrance(pair.Target!.Id, pair.Target.Name, pair.Warp.X, pair.Warp.Y))
+            .Select(pair => new DisplayEntrance(pair.Target!.Id, pair.Target.Name, pair.Warp.X, pair.Warp.Y, [new(pair.Warp.X, pair.Warp.Y)]))
             .ToList();
         var clustered = new List<DisplayEntrance>();
 
@@ -144,7 +155,8 @@ public sealed class GamePackage
                     targetGroup.Key,
                     cluster[0].Name,
                     cluster.Average(entrance => entrance.X),
-                    cluster.Average(entrance => entrance.Y)));
+                    cluster.Average(entrance => entrance.Y),
+                    cluster.SelectMany(entrance => entrance.SourceCoordinates).ToList()));
             }
         }
 
@@ -246,6 +258,33 @@ public sealed class GamePackage
             : new AreaMapDescriptor { Image = area.MapImage, Width = area.MapWidth, Height = area.MapHeight };
     }
 
+    public MapPoint ProjectAreaMarker(GuideArea area, double tileX, double tileY)
+    {
+        if (area.MapAnchors.Count == 0)
+        {
+            return new(tileX * 16 + 8, tileY * 16 + 8);
+        }
+
+        var anchor = area.MapAnchors.FirstOrDefault(candidate =>
+            candidate.TileX == (int)tileX && candidate.TileY == (int)tileY);
+        return anchor is null
+            ? throw new InvalidDataException($"{area.Id} has no projected map anchor at ({tileX}, {tileY}).")
+            : new(anchor.X, anchor.Y);
+    }
+
+    public MapPoint ProjectAreaMarker(GuideArea area, IReadOnlyList<MapCoordinate> sourceCoordinates)
+    {
+        if (sourceCoordinates.Count == 0)
+        {
+            throw new ArgumentException("At least one source coordinate is required.", nameof(sourceCoordinates));
+        }
+
+        var points = sourceCoordinates
+            .Select(coordinate => ProjectAreaMarker(area, coordinate.X, coordinate.Y))
+            .ToList();
+        return new(points.Average(point => point.X), points.Average(point => point.Y));
+    }
+
     public IReadOnlyList<DisplayTransport> TransportsFor(GuideArea area, string versionId) =>
         area.Transports
             .Select(transport => new DisplayTransport(
@@ -270,6 +309,40 @@ public sealed class GamePackage
                 ? new DirectTravelMarker(transport.Id, transport.Name, transport.X, transport.Y, transport.Destinations[0])
                 : new TransportChoiceMarker(transport.Id, transport.Name, transport.X, transport.Y, transport.Destinations))
             .ToList();
+
+    internal WorldMapModel CreateWorldMap(string worldId, string versionId)
+    {
+        var world = worldsById[worldId];
+        var areaModels = new List<WorldAreaModel>();
+        var markers = new List<WorldMapMarker>();
+        foreach (var projection in world.Areas)
+        {
+            var area = Area(projection.AreaId);
+            if (area is null) continue;
+            areaModels.Add(new(area, projection.Regions));
+            foreach (var item in ItemsFor(area, versionId).Where(item => item.X >= 0 && item.Y >= 0))
+            {
+                var point = world.Project(projection.AreaId, item.X, item.Y);
+                markers.Add(new WorldItemMarker(area, item, point.X, point.Y));
+            }
+            foreach (var resource in area.Resources)
+            {
+                var point = world.Project(projection.AreaId, resource.X, resource.Y);
+                markers.Add(new WorldResourceMarker(area, resource, point.X, point.Y));
+            }
+            foreach (var entrance in RelevantEntrances(area, versionId))
+            {
+                var point = world.Project(projection.AreaId, entrance.SourceCoordinates);
+                markers.Add(new WorldEntranceMarker(area, entrance, point.X, point.Y));
+            }
+            foreach (var travel in TravelMarkersFor(area, versionId))
+            {
+                var point = world.Project(projection.AreaId, (int)travel.X, (int)travel.Y);
+                markers.Add(new WorldTravelMarker(area, travel, point.X, point.Y));
+            }
+        }
+        return new(world.Id, WorldName(world), world.Rendering, areaModels, markers);
+    }
 
     public GuideArea? NavigableArea(string id, string versionId)
     {
@@ -384,9 +457,9 @@ public sealed class GamePackage
                 return;
             }
 
-            foreach (var placement in world.Maps)
+            foreach (var areaId in world.AreaIds)
             {
-                EnqueueArea(placement.Id);
+                EnqueueArea(areaId);
             }
         }
 
@@ -585,7 +658,13 @@ public sealed class GamePackage
     private sealed record EncounterSlot(string SpeciesId, string Method, int MinLevel, int MaxLevel, double Chance);
 }
 
-public sealed record DisplayEntrance(string TargetId, string Name, double X, double Y);
+public sealed record DisplayEntrance(
+    string TargetId,
+    string Name,
+    double X,
+    double Y,
+    IReadOnlyList<MapCoordinate> SourceCoordinates);
+public sealed record MapPoint(double X, double Y);
 public sealed record DisplayTransport(
     string Id,
     string Name,

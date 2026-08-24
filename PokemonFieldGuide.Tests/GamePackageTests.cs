@@ -421,6 +421,98 @@ public sealed class GamePackageTests
     }
 
     [Fact]
+    public async Task Layered_worlds_use_generated_marker_anchors_and_average_projected_entrance_points()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.AddRange([
+            Area("OUT", "Outside",
+                items: [Item("Potion", "Visible")],
+                entrances: [Entrance("OUT:1", "INNER", 1, 1), Entrance("OUT:2", "INNER", 2, 1)]),
+            Area("INNER", "Interior", items: [Item("Prize", "Visible")])
+        ]);
+        fixture.WorldsDocument = new WorldsDocumentV2
+        {
+            Worlds =
+            [
+                new()
+                {
+                    Id = "world",
+                    Name = "Layered World",
+                    Rendering = new()
+                    {
+                        OverviewImage = "games/test/maps/overview.png",
+                        Width = 100,
+                        Height = 80,
+                        Layers = [new() { Id = "out", Image = "games/test/maps/world-layers/out.png", Width = 100, Height = 80, MinScale = 0.5 }]
+                    },
+                    Areas =
+                    [
+                        new()
+                        {
+                            Id = "OUT",
+                            Regions = [new() { Points = [new() { X = 0, Y = 0 }, new() { X = 50, Y = 0 }, new() { X = 50, Y = 50 }] }],
+                            Anchors =
+                            [
+                                new() { TileX = 0, TileY = 0, X = 8.25, Y = 9.5 },
+                                new() { TileX = 1, TileY = 1, X = 11, Y = 20 },
+                                new() { TileX = 2, TileY = 1, X = 40, Y = 26 }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        var package = await fixture.LoadAsync();
+        var model = package.CreateWorldMap("world", "Red");
+
+        Assert.IsType<LayeredWorldRenderingModel>(model.Rendering);
+        var item = Assert.IsType<WorldItemMarker>(model.Markers.Single(marker => marker is WorldItemMarker));
+        Assert.Equal((8.25, 9.5), (item.X, item.Y));
+        var entrance = Assert.IsType<WorldEntranceMarker>(model.Markers.Single(marker => marker is WorldEntranceMarker));
+        Assert.Equal((25.5, 23), (entrance.X, entrance.Y));
+    }
+
+    [Fact]
+    public async Task Legacy_worlds_keep_the_existing_sixteen_pixel_projection()
+    {
+        var fixture = PackageFixture.Create();
+        fixture.FieldGuide.Areas.Add(Area("OUT", "Outside", items: [Item("Potion", "Visible")]));
+        fixture.Worlds.Add(new GuideWorld
+        {
+            Id = "world",
+            Image = "games/test/maps/world.png",
+            Width = 100,
+            Height = 100,
+            Maps = [new() { Id = "OUT", X = 20, Y = 30, Width = 16, Height = 16 }]
+        });
+
+        var package = await fixture.LoadAsync();
+        var marker = Assert.IsType<WorldItemMarker>(Assert.Single(package.CreateWorldMap("world", "Red").Markers));
+
+        Assert.Equal((28, 38), (marker.X, marker.Y));
+    }
+
+    [Fact]
+    public async Task Area_marker_projection_averages_each_clustered_source_coordinate()
+    {
+        var fixture = PackageFixture.Create();
+        var area = Area("OUT", "Outside");
+        area.MapAnchors =
+        [
+            new() { TileX = 1, TileY = 1, X = 10, Y = 20 },
+            new() { TileX = 2, TileY = 1, X = 42, Y = 28 }
+        ];
+        fixture.FieldGuide.Areas.Add(area);
+        fixture.Worlds.Add(World("world", "OUT"));
+        var package = await fixture.LoadAsync();
+
+        var projected = package.ProjectAreaMarker(area, [new() { X = 1, Y = 1 }, new() { X = 2, Y = 1 }]);
+
+        Assert.Equal((26, 24), (projected.X, projected.Y));
+    }
+
+    [Fact]
     public async Task AreaChecklist_counts_each_available_species_once()
     {
         var fixture = PackageFixture.Create();
@@ -601,6 +693,7 @@ public sealed class GamePackageTests
         public FieldGuideData FieldGuide { get; } = new();
         public List<PokedexEntry> Pokedex { get; } = [];
         public List<GuideWorld> Worlds { get; } = [];
+        public object? WorldsDocument { get; set; }
         public PackageManifest Manifest { get; } = new()
         {
             FormatVersion = 2,
@@ -616,7 +709,7 @@ public sealed class GamePackageTests
             {
                 [Definition.DataPath] = FieldGuide,
                 [Definition.PokedexPath] = Pokedex,
-                [Definition.WorldsPath] = Worlds,
+                [Definition.WorldsPath] = WorldsDocument ?? Worlds,
                 ["games/test/data/package-manifest.json"] = ManifestV3 ?? (object)Manifest
             };
             var http = new HttpClient(new JsonHandler(responses)) { BaseAddress = new Uri("https://field-guide.test/") };

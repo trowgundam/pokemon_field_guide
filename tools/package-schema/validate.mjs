@@ -11,6 +11,7 @@ const schemaNames = [
   'fieldguide.schema.json',
   'pokedex.schema.json',
   'worlds.schema.json',
+  'worlds-v2.schema.json',
   'package-manifest-v2.schema.json',
   'package-manifest-v3.schema.json',
   'local-guide-state-v1.schema.json',

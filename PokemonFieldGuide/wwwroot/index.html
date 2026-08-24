@@ -32,6 +32,11 @@
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
     <script type="importmap"></script>
+    <script type="module">
+        import * as residency from './js/world-layer-residency.mjs';
+        window.worldLayerResidency = residency;
+        document.dispatchEvent(new Event('world-layer-residency-ready'));
+    </script>
     <script>
         window.fieldGuide = {
             storage: {
@@ -80,6 +85,7 @@
             state: new WeakMap(),
             init: el => {
                 if (!el) return;
+                if (!window.worldLayerResidency) document.addEventListener('world-layer-residency-ready', () => window.fieldMap.updateLayers(el), { once:true });
                 const reveal = world => {
                     if (!world) return;
                     world.classList.remove('map-ready');
@@ -89,8 +95,8 @@
                     else image.addEventListener('load', ready, { once:true });
                 };
                 if (window.fieldMap.state.has(el)) { const s=window.fieldMap.state.get(el);s.world=el.querySelector('.map-world,.interior-canvas');window.fieldMap.fit(el);reveal(s.world);return; }
-                const state = { x: 80, y: 50, z: 1, drag: false, pointers: new Map(), world: el.querySelector('.map-world,.interior-canvas') };
-                const draw = () => { state.world.style.setProperty('--marker-scale', 1/state.z);state.world.style.transform = `matrix(${state.z},0,0,${state.z},${state.x},${state.y})`; };
+                const state = { x: 80, y: 50, z: 1, drag: false, pointers: new Map(), world: el.querySelector('.map-world,.interior-canvas'), layerQueue: new Set(), activeLayerLoads: 0, disposed: false };
+                const draw = () => { state.world.style.setProperty('--marker-scale', 1/state.z);state.world.style.transform = `matrix(${state.z},0,0,${state.z},${state.x},${state.y})`;window.fieldMap.updateLayers(el,state); };
                 const visibilityEnd = () => { if(document.hidden)endDrag(); };
                 const beginGesture = () => {
                     const points=[...state.pointers.values()];
@@ -117,8 +123,26 @@
                 el.addEventListener('click', e => { if(state.suppressClick){e.preventDefault();e.stopImmediatePropagation();}state.suppressClick=false; }, true);
                 window.fieldMap.state.set(el,state); window.fieldMap.fit(el); reveal(state.world);
             },
-            zoom: (el, amount) => { const s=window.fieldMap.state.get(el);if(!s)return;const cx=el.clientWidth/2,cy=el.clientHeight/2,old=s.z;s.z=Math.max(.05,Math.min(3,s.z*amount));s.x=cx-(cx-s.x)*s.z/old;s.y=cy-(cy-s.y)*s.z/old;s.world.style.setProperty('--marker-scale',1/s.z);s.world.style.transform=`matrix(${s.z},0,0,${s.z},${s.x},${s.y})`; },
-            fit: el => { const s=window.fieldMap.state.get(el);if(!s||!s.world)return;const interior=el.classList.contains('interior-map'),padX=interior?40:80,padY=interior?40:120;let z=Math.min((el.clientWidth-padX)/s.world.offsetWidth,(el.clientHeight-padY)/s.world.offsetHeight);if(interior)z=Math.min(3,z);s.z=z;s.fitZ=z;s.x=(el.clientWidth-s.world.offsetWidth*z)/2;s.y=(el.clientHeight-s.world.offsetHeight*z)/2+(interior?0:25);s.world.style.setProperty('--marker-scale',1/z);s.world.style.transform=`matrix(${z},0,0,${z},${s.x},${s.y})`; },
+            zoom: (el, amount) => { const s=window.fieldMap.state.get(el);if(!s)return;const cx=el.clientWidth/2,cy=el.clientHeight/2,old=s.z;s.z=Math.max(.05,Math.min(3,s.z*amount));s.x=cx-(cx-s.x)*s.z/old;s.y=cy-(cy-s.y)*s.z/old;s.world.style.setProperty('--marker-scale',1/s.z);s.world.style.transform=`matrix(${s.z},0,0,${s.z},${s.x},${s.y})`;window.fieldMap.updateLayers(el,s); },
+            fit: el => { const s=window.fieldMap.state.get(el);if(!s||!s.world)return;const interior=el.classList.contains('interior-map'),padX=interior?40:80,padY=interior?40:120;let z=Math.min((el.clientWidth-padX)/s.world.offsetWidth,(el.clientHeight-padY)/s.world.offsetHeight);if(interior)z=Math.min(3,z);s.z=z;s.fitZ=z;s.x=(el.clientWidth-s.world.offsetWidth*z)/2;s.y=(el.clientHeight-s.world.offsetHeight*z)/2+(interior?0:25);s.world.style.setProperty('--marker-scale',1/z);s.world.style.transform=`matrix(${z},0,0,${z},${s.x},${s.y})`;window.fieldMap.updateLayers(el,s); },
+            updateLayers: (el, supplied) => {
+                const s=supplied||window.fieldMap.state.get(el);if(!s?.world||s.disposed)return;
+                const layers=s.world.querySelectorAll(':scope > .world-detail-layer');if(!layers.length)return;
+                const residency=window.worldLayerResidency;if(!residency)return;
+                const viewport=residency.worldViewport({viewportWidth:el.clientWidth,viewportHeight:el.clientHeight,scale:s.z,translateX:s.x,translateY:s.y});
+                for(const layer of layers){
+                    const bounds={x:Number.parseFloat(layer.style.left),y:Number.parseFloat(layer.style.top),width:Number.parseFloat(layer.style.width),height:Number.parseFloat(layer.style.height),minScale:Number(layer.dataset.minScale||0)};
+                    const decision=residency.layerResidency(bounds,viewport,s.z,Boolean(layer.getAttribute('src')));
+                    if(residency.applyLayerDecision(s.layerQueue,layer,decision))layer.removeAttribute('src');
+                }
+                while(s.activeLayerLoads<4&&s.layerQueue.size){
+                    const layer=s.layerQueue.values().next().value;s.layerQueue.delete(layer);s.activeLayerLoads++;
+                    let finished=false;const finish=()=>{if(finished)return;finished=true;s.activeLayerLoads--;window.fieldMap.updateLayers(el,s);};
+                    layer.addEventListener('load',finish,{once:true});layer.addEventListener('error',finish,{once:true});layer.src=layer.dataset.src;
+                    if(layer.complete)queueMicrotask(finish);
+                }
+            },
+            dispose: el => { if(el){const s=window.fieldMap.state.get(el);if(s){s.disposed=true;s.layerQueue.clear();}window.fieldMap.state.delete(el);} },
             reset: el => window.fieldMap.fit(el),
             initInterior: () => window.fieldMap.init(document.querySelector('.interior-map')),
             zoomInterior: amount => window.fieldMap.zoom(document.querySelector('.interior-map'),amount),

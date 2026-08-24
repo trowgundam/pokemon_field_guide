@@ -38,7 +38,8 @@ PokemonFieldGuide.Shared/
 PokemonFieldGuide/
 ├── Components/
 │   ├── ResourceDetails.razor   Shared fixed and multi-outcome resource details
-│   └── TravelMarker.razor      Direct or selectable transport presentation
+│   ├── TravelMarker.razor      Direct or selectable transport presentation
+│   └── WorldMap.razor          Legacy and layered outdoor-map presentation
 ├── Pages/
 │   └── Home.razor              Shared atlas, checklist, interiors, and Pokédex UI
 ├── Services/
@@ -80,7 +81,9 @@ Build-time tooling follows the same ownership boundary. Scripts under `tools/<ga
 - `GuideTransport` markers with selectable, version-aware destinations;
 - an optional rendered map and its pixel dimensions.
 
-`GuideWorld` describes one connected outdoor canvas. Its `WorldMapPlacement` records use pixel coordinates and dimensions. A world may have a display name without appearing as a visible catalog region; transport-only destinations use that form. Item, entrance, transport, and resource coordinates use game-map tile coordinates. The current renderer places their markers at the center of a 16-pixel tile.
+The loader accepts both world formats. A legacy `GuideWorld` describes one flat outdoor image through pixel-based `WorldMapPlacement` records. `WorldsDocumentV2` describes a layered canvas. Its overview image loads first, its transparent detail layers load near the viewport, and its area records contain one or more hit-test polygons. The atlas groups every area's polygons into one interaction target and draws only their exterior edges. A generator can trace those polygons from each layer's final visible alpha, after subtracting pixels owned by higher layers, when graphics extend beyond source-cell bounds. A world may have a display name without appearing as a visible catalog region.
+
+Item, entrance, transport, and resource coordinates use game-map tile coordinates. Legacy worlds place a marker at the center of a 16-pixel tile. Layered worlds use generated pixel anchors because a fixed-angle 3D projection cannot be reconstructed from the tile coordinate alone. `GuideArea.MapAnchors` applies the same rule to rendered interior maps. Clustered entrances average the projected points for every source warp rather than averaging tile coordinates before projection.
 
 A fixed-output resource uses the item name as its marker name. A multi-outcome resource has reward rows with a name and quantity. Random pools use positive integer weights, while conditional pools omit weights and explain each outcome in its comment. Package finalization rejects a pool that mixes the two forms.
 
@@ -119,6 +122,8 @@ Transport edges are deliberate jumps, not physical adjacency. They contribute to
 
 Adjacent warp tiles resolving to the same target are clustered into a single entrance marker. Separate entrance clusters remain separate markers.
 
+`MapEntrance.ShowMarker` can suppress a source edge that exists only to model dynamic or non-spatial navigation. The edge still participates in reachability and floor traversal. Generators use this for rooms whose runtime destination is selected by scripts rather than a fixed door.
+
 The atlas sidebar keeps its marker legend in a collapsed native disclosure. The browser owns its transient open state, and the legend remains available at mobile widths.
 
 An area checklist contains each version-available Pokémon species once, across both encounters and special acquisitions, plus every version-available item in the area. Renewable resources and transport requirements are informational and never enter checklist state. The page compares the checklist with the active Checklist profile to calculate the displayed percentage.
@@ -148,5 +153,12 @@ Portable backup v2 contains only selected Checklist profiles and their profile v
 - menu-sprite frame animation, with Pokédex animation limited by `IntersectionObserver` to sprites inside the visible viewport;
 - pointer-based map pan and zoom;
 - base-map load gating so overlays do not appear first.
+- layered-world residency with four concurrent image requests, one-viewport preloading, and two-viewport eviction.
 
 `Home.razor` invokes these functions through `IJSRuntime`. Map transforms are browser-side to keep pointer movement immediate and avoid a Blazor render on every frame.
+
+The published service worker precaches every application asset in the publish manifest, including JavaScript modules and layered-world detail images. Layer residency still controls which decoded images remain in the page. The complete precache lets an installed guide open every map while offline.
+
+`SpecialPokemon.note` is optional package metadata for acquisition prerequisites. It is searchable and rendered with the encounter, but it is not part of the stable checklist ID.
+
+Package files use a five-minute HTTP timeout. Large generated guides can exceed the platform's 100-second default while a development WebAssembly runtime copies and parses the response, even when the static transfer itself succeeds. Downloads complete into byte buffers before JSON deserialization so the network timeout does not also measure parser work.

@@ -235,6 +235,13 @@
                     "string",
                     "null"
                   ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1
                 }
               },
               "required": [
@@ -270,6 +277,9 @@
                 },
                 "version": {
                   "type": "string"
+                },
+                "showMarker": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -358,6 +368,33 @@
               "string",
               "null"
             ]
+          },
+          "mapAnchors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tileX": {
+                  "type": "integer"
+                },
+                "tileY": {
+                  "type": "integer"
+                },
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "tileX",
+                "tileY",
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
           },
           "mapWidth": {
             "type": "integer",

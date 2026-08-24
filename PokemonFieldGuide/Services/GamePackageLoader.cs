@@ -11,22 +11,23 @@ internal sealed class GamePackageLoader(HttpClient http)
 
     public async Task<GamePackage> LoadAsync(GameDefinition definition)
     {
-        var fieldGuideTask = http.GetFromJsonAsync<FieldGuideData>(definition.DataPath, PokemonFieldGuideJson.Options);
-        var pokedexTask = http.GetFromJsonAsync<List<PokedexEntry>>(definition.PokedexPath, PokemonFieldGuideJson.Options);
-        var worldsTask = http.GetFromJsonAsync<List<GuideWorld>>(definition.WorldsPath, PokemonFieldGuideJson.Options);
+        var fieldGuideTask = http.GetByteArrayAsync(definition.DataPath);
+        var pokedexTask = http.GetByteArrayAsync(definition.PokedexPath);
+        var worldsTask = http.GetByteArrayAsync(definition.WorldsPath);
         var manifestPath = $"{definition.DataPath[..(definition.DataPath.LastIndexOf('/') + 1)]}package-manifest.json";
-        var manifestTask = http.GetFromJsonAsync<JsonDocument>(manifestPath, PokemonFieldGuideJson.Options);
+        var manifestTask = http.GetByteArrayAsync(manifestPath);
         await Task.WhenAll(fieldGuideTask, pokedexTask, worldsTask, manifestTask);
 
-        using var manifestDocument = await manifestTask
-            ?? throw new InvalidOperationException($"The package manifest for {definition.Name} could not be loaded.");
+        using var manifestDocument = JsonDocument.Parse(await manifestTask);
         var manifest = ReadManifest(definition, manifestDocument.RootElement);
 
+        using var worldsDocument = JsonDocument.Parse(await worldsTask);
         return new GamePackage(
             definition,
-            await fieldGuideTask ?? throw new InvalidOperationException($"Field-guide data for {definition.Name} could not be loaded."),
-            await pokedexTask ?? [],
-            await worldsTask ?? [],
+            JsonSerializer.Deserialize<FieldGuideData>(await fieldGuideTask, PokemonFieldGuideJson.Options)
+                ?? throw new InvalidOperationException($"Field-guide data for {definition.Name} could not be loaded."),
+            JsonSerializer.Deserialize<List<PokedexEntry>>(await pokedexTask, PokemonFieldGuideJson.Options) ?? [],
+            WorldDocumentReader.Read(worldsDocument.RootElement).ToList(),
             manifest);
     }
 

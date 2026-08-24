@@ -35,15 +35,18 @@ export function createAssetWorkspace(stageRoot, directories) {
 
   return Object.freeze({
     map: (fileName, write) => register('map', fileName, write),
+    worldLayer: (fileName, write) => register('world-layer', fileName, write),
     pokemonSprite: (fileName, write) => register('pokemon', fileName, write),
     itemSprite: (fileName, write) => register('item', fileName, write)
   });
 }
 
+export const questionMarkSpritePng = sharp => sharp({ create: { width: 32, height: 32, channels: 4, background: '#ffffff00' } })
+  .composite([{ input: Buffer.from('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#eee" stroke="#333" stroke-width="2"/><text x="16" y="23" text-anchor="middle" font-size="22">?</text></svg>') }])
+  .png().toBuffer();
+
 export async function registerQuestionMarkSprites(assets, sharp) {
-  const fallback = await sharp({ create: { width: 32, height: 32, channels: 4, background: '#ffffff00' } })
-    .composite([{ input: Buffer.from('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#eee" stroke="#333" stroke-width="2"/><text x="16" y="23" text-anchor="middle" font-size="22">?</text></svg>') }])
-    .png().toBuffer();
+  const fallback = await questionMarkSpritePng(sharp);
   const pokemonFallback = await assets.pokemonSprite('question_mark.png', target => fs.writeFile(target, fallback));
   await assets.itemSprite('question_mark.png', target => fs.writeFile(target, fallback));
   return pokemonFallback;

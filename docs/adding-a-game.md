@@ -73,15 +73,19 @@ An area has this shape:
   "transports": [],
   "mapImage": "games/example/maps/ROUTE_1.png",
   "mapWidth": 384,
-  "mapHeight": 640
+  "mapHeight": 640,
+  "mapAnchors": []
 }
 ```
+
+Special Pokémon may include an optional non-empty `note` for an acquisition prerequisite that does not change the encounter's checklist identity, such as a required side activity. The guide displays and searches this note.
 
 Requirements:
 
 - `id` is unique within the package.
 - `mapWidth` and `mapHeight` are rendered pixel dimensions.
 - `mapImage` may be null only for a deliberately non-rendered record.
+- `mapAnchors` maps source tile coordinates to rendered pixels when the map uses a projection that is not the legacy 16-pixel grid.
 - `region` is searchable area metadata. It does not select a world or a region tab. Catalog `regions` own those choices, so the two IDs do not need to match.
 - Every entrance target must resolve to another included area unless an empty target intentionally represents an unusable passage.
 
@@ -256,9 +260,51 @@ Create one record per connected outdoor canvas:
 
 World placement coordinates and dimensions are pixels in the connected image. Placement IDs must resolve to areas after the package manifest applies its `areaAliases`. The world image must align exactly with every placement because markers add the area's tile coordinates to the placement origin.
 
+Use world format v2 when one flat image would make the initial download too large or when an area needs an irregular hit region:
+
+```json
+{
+  "formatVersion": 2,
+  "worlds": [
+    {
+      "id": "example-region",
+      "name": "Example Region",
+      "rendering": {
+        "overviewImage": "games/example/maps/WORLD_EXAMPLE_REGION_OVERVIEW.png",
+        "width": 4096,
+        "height": 3072,
+        "layers": [
+          {
+            "id": "cell-1",
+            "image": "games/example/maps/world-layers/cell-1.png",
+            "x": 640,
+            "y": 960,
+            "width": 512,
+            "height": 640,
+            "order": 1,
+            "minScale": 0.125
+          }
+        ]
+      },
+      "areas": [
+        {
+          "id": "MAP_EXAMPLE_ROUTE_1",
+          "regions": [{ "points": [{ "x": 640, "y": 960 }, { "x": 1152, "y": 960 }, { "x": 1152, "y": 1600 }] }],
+          "anchors": [{ "tileX": 8, "tileY": 12, "x": 792, "y": 1174 }]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Set each layer's `order` to its compositing order. Set `minScale` no higher than the overview's native-pixel scale so the browser requests detail before it enlarges the overview. A one-eighth overview uses `0.125`. Register every layer through `assets.worldLayer`; package finalization writes it below `maps/world-layers/`, checks its native dimensions, and removes unused files. Every visible coordinate in an anchored area must have one exact anchor. An area can contain several regions when its visible pixels form separate components. The atlas treats those regions as one interactive zone and draws only their exterior edges. For a fixed-angle transparent layer, derive the regions from the layer's alpha instead of its source-cell bounds. This makes highlights include trees, buildings, and other graphics that extend into a neighboring cell.
+
 Treat a source map's town, route, city, outdoor, or environment category as an eligibility filter. The category does not make the map a world placement. Start each world from a declared root and follow only source connections that form the continuous rendered canvas. Maps reached through doors, gates, caves, elevators, Dive transitions, or other warps remain interiors even when the source classifies them as outdoor.
 
 Disconnected placement is an exception. Declare each additional component, document why it belongs on the same canvas, and add a package test that rejects undeclared components. A separate landmass reached through transport normally opens as an interior component. Use a separate world only when the player navigates a real outdoor canvas there, such as a large post-game facility. A transport-only world may be omitted from catalog `regions`; give it a `name` so the toolbar can identify it.
+
+Do not add a transport marker only to explain a gap in the source world image. A ferry-only island may remain a disconnected visual component when that layout matches the game's map and the site's other atlases. Add a transport only when the marker represents a useful in-game navigation action.
 
 Test the placement graph, not only expected map names. Assert that each world contains the cardinal components rooted by its declarations. Also assert that representative warp-connected outdoor-looking maps are absent from `worlds.json` and remain reachable through entrance or transport markers.
 

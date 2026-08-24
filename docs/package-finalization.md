@@ -27,7 +27,7 @@ await generatePackage({
 
 Pass `formatVersion: 3` for installed packages. All current generators use v3. The loader retains v2 support for previously generated or external compatible packages.
 
-The build callback performs source-specific extraction, rendering, and audits. It returns draft areas, worlds, Pokédex entries, and Pokémon sprite associations in memory. Renderers write PNGs through the managed asset workspace. They never receive the installed package path.
+The build callback performs source-specific extraction, rendering, and audits. It returns draft areas, worlds, Pokédex entries, and Pokémon sprite associations in memory. Renderers write map PNGs through `assets.map` and layered-world PNGs through `assets.worldLayer`. They never receive the installed package path.
 
 A world placement can use a cropped version of its area map. In that case, set `markerOffsetX` and `markerOffsetY` to the crop origin in map coordinates. Package finalization checks the crop bounds and every visible marker.
 
@@ -83,6 +83,9 @@ Package finalization owns every package invariant:
 - cross-document references;
 - exact map and sprite use;
 - world crop and item, resource, entrance, and transport marker bounds;
+- layered-world overview, layer, polygon, and anchor bounds;
+- exact native dimensions and asset use for every layered-world PNG;
+- complete area-anchor coverage for projected interior markers;
 - version-specific area-map references, dimensions, marker bounds, and exact asset use;
 - final JSON serialization;
 - staged checking and whole-package replacement.

@@ -17,9 +17,9 @@ public sealed class InstalledJsonContractTests
 
         foreach (var game in catalog.Games)
         {
-            Deserialize<FieldGuideData>(Path.Combine(webRoot, game.DataPath));
-            Deserialize<List<PokedexEntry>>(Path.Combine(webRoot, game.PokedexPath));
-            Deserialize<List<GuideWorld>>(Path.Combine(webRoot, game.WorldsPath));
+            var fieldGuide = Deserialize<FieldGuideData>(Path.Combine(webRoot, game.DataPath));
+            var pokedex = Deserialize<List<PokedexEntry>>(Path.Combine(webRoot, game.PokedexPath));
+            var worlds = DeserializeWorlds(Path.Combine(webRoot, game.WorldsPath));
             var manifestPath = Path.Combine(
                 Path.GetDirectoryName(Path.Combine(webRoot, game.DataPath))!,
                 "package-manifest.json");
@@ -28,6 +28,7 @@ public sealed class InstalledJsonContractTests
             if (formatVersion == 2) Deserialize<PackageManifest>(manifestPath);
             else if (formatVersion == 3) Deserialize<PackageManifestV3>(manifestPath);
             else Assert.Fail($"{game.Id} uses unsupported package manifest v{formatVersion}.");
+            _ = new GamePackage(game, fieldGuide, pokedex, worlds.ToList(), DeserializeManifest(game, manifestPath));
         }
     }
 
@@ -71,6 +72,12 @@ public sealed class InstalledJsonContractTests
     private static T Deserialize<T>(string path) =>
         JsonSerializer.Deserialize<T>(File.ReadAllText(path), PokemonFieldGuideJson.Options)
         ?? throw new InvalidOperationException($"{path} deserialized to null.");
+
+    private static IReadOnlyList<WorldDefinition> DeserializeWorlds(string path)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        return WorldDocumentReader.Read(document.RootElement);
+    }
 
     private static PackageManifestData DeserializeManifest(GameDefinition game, string path)
     {
